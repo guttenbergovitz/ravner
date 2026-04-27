@@ -6,7 +6,7 @@ defmodule RavnerWeb.DomainLive.Show do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :scan_loading, %{})}
+    {:ok, assign(socket, :scanning, false)}
   end
 
   @impl true
@@ -24,70 +24,80 @@ defmodule RavnerWeb.DomainLive.Show do
   @impl true
   def handle_event("scan_subdomains", _, socket) do
     domain_id = socket.assigns.domain.id
-
+    liveview_pid = self()
     socket = assign(socket, :scanning, true)
 
-    case Scans.run_subdomain_scan(domain_id) do
-      {:ok, results} ->
-        domain = Domains.get_domain_with_preloads!(domain_id)
+    Task.start(fn ->
+      result = Scans.run_subdomain_scan(domain_id)
+      send(liveview_pid, {:scan_done, :subdomains, result})
+    end)
 
-        {:noreply,
-         socket
-         |> assign(:scanning, false)
-         |> assign(:scan_results, results)
-         |> assign(:domain, domain)
-         |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
-
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> assign(:scanning, false)
-         |> put_flash(:error, reason)}
-    end
+    {:noreply, socket}
   end
 
   def handle_event("scan_httpx", _, socket) do
     domain_id = socket.assigns.domain.id
+    liveview_pid = self()
     socket = assign(socket, :scanning, true)
 
-    case Scans.run_httpx_scan(domain_id) do
-      {:ok, _metadata} ->
-        domain = Domains.get_domain_with_preloads!(domain_id)
+    Task.start(fn ->
+      result = Scans.run_httpx_scan(domain_id)
+      send(liveview_pid, {:scan_done, :httpx, result})
+    end)
 
-        {:noreply,
-         socket
-         |> assign(:scanning, false)
-         |> assign(:domain, domain)
-         |> put_flash(:info, "HTTP scan completed")}
-
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> assign(:scanning, false)
-         |> put_flash(:error, reason)}
-    end
+    {:noreply, socket}
   end
 
   def handle_event("scan_dnsx", _, socket) do
     domain_id = socket.assigns.domain.id
+    liveview_pid = self()
     socket = assign(socket, :scanning, true)
 
-    case Scans.run_dnsx_scan(domain_id) do
-      {:ok, _metadata} ->
-        domain = Domains.get_domain_with_preloads!(domain_id)
+    Task.start(fn ->
+      result = Scans.run_dnsx_scan(domain_id)
+      send(liveview_pid, {:scan_done, :dnsx, result})
+    end)
 
-        {:noreply,
-         socket
-         |> assign(:scanning, false)
-         |> assign(:domain, domain)
-         |> put_flash(:info, "DNS scan completed")}
+    {:noreply, socket}
+  end
 
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> assign(:scanning, false)
-         |> put_flash(:error, reason)}
-    end
+  @impl true
+  def handle_info({:scan_done, :subdomains, {:ok, results}}, socket) do
+    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+
+    {:noreply,
+     socket
+     |> assign(:scanning, false)
+     |> assign(:scan_results, results)
+     |> assign(:domain, domain)
+     |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
+  end
+
+  def handle_info({:scan_done, :httpx, {:ok, _}}, socket) do
+    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+
+    {:noreply,
+     socket
+     |> assign(:scanning, false)
+     |> assign(:domain, domain)
+     |> put_flash(:info, "HTTP scan completed")}
+  end
+
+  def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
+    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+
+    {:noreply,
+     socket
+     |> assign(:scanning, false)
+     |> assign(:domain, domain)
+     |> put_flash(:info, "DNS scan completed")}
+  end
+
+  def handle_info({:scan_done, _kind, {:error, reason}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:scanning, false)
+     |> put_flash(:error, reason)}
   end
 
   defp lifecycle_color(:active), do: "bg-green-500"

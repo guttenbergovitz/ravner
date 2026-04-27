@@ -184,7 +184,7 @@ defmodule Ravner.Scans do
         {:ok,
          %{
            http_status: response.status,
-           final_url: to_string(response.url),
+           final_url: url,
            server_header: server,
            security_headers: security,
            redirect_chain: chain
