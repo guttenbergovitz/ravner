@@ -60,6 +60,13 @@ defmodule Ravner.Accounts do
   """
   def get_user!(id), do: Repo.get!(User, id)
 
+  @doc """
+  Returns true if any user exists in the database.
+  """
+  def has_users? do
+    Repo.exists?(User)
+  end
+
   ## User registration
 
   @doc """

@@ -1,0 +1,32 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-sm mx-auto py-16 text-center">
+    <.icon name="hero-cog-6-tooth" class="w-8 h-8 text-neutral-300 mx-auto mb-6" />
+
+    <h1 class="text-2xl font-light tracking-tight mb-2">Initial Setup</h1>
+    <p class="text-sm font-light text-neutral-500 mb-10">
+      Create the root account to get started.
+    </p>
+
+    <.form :let={f} for={@changeset || %{}} as={:user} action={~p"/setup"} class="space-y-6 text-left">
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
+        <input
+          type="email"
+          name={f[:email].name}
+          id={f[:email].id}
+          value={f[:email].value}
+          class="input-line"
+          placeholder="admin@company.com"
+          autocomplete="username"
+          spellcheck="false"
+          required
+          phx-mounted={JS.focus()}
+        />
+      </div>
+
+      <button type="submit" class="btn-line-filled w-full justify-center">
+        Create root account
+      </button>
+    </.form>
+  </div>
+</Layouts.app>
