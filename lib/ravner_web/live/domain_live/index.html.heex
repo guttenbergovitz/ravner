@@ -80,17 +80,6 @@
         <% :new -> %>
           <h2 class="text-xl font-light tracking-tight mb-6">Add Domain</h2>
 
-          <%= if @form && @form.source.action do %>
-            <div class="mb-6 p-4 border border-red-300 bg-red-50 text-sm font-light text-red-700">
-              <p class="font-normal mb-1">Please fix the following errors:</p>
-              <ul class="list-disc list-inside space-y-1">
-                <%= for {field, {msg, _}} <- @form.source.errors do %>
-                  <li><%= Phoenix.Naming.humanize(field) %>: <%= msg %></li>
-                <% end %>
-              </ul>
-            </div>
-          <% end %>
-
           <.form for={@form} phx-change="validate" phx-submit="save" id="domain-form" class="space-y-6">
             <.input field={@form[:type]} type="hidden" value="domain" />
             <.input field={@form[:name]} type="text" label="Domain name" placeholder="example.com" required />
