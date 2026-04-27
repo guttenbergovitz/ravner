@@ -7,6 +7,17 @@
       Create the root account to get started.
     </p>
 
+    <%= if @changeset && @changeset.action do %>
+      <div class="mb-8 p-4 border border-red-300 bg-red-50 text-sm font-light text-red-700">
+        <p class="font-normal mb-1">Please fix the following errors:</p>
+        <ul class="list-disc list-inside space-y-1">
+          <%= for {field, {msg, _}} <- @changeset.errors do %>
+            <li><%= Phoenix.Naming.humanize(field) %>: <%= msg %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
     <.form :let={f} for={@changeset || %{}} as={:user} action={~p"/setup"} class="space-y-6 text-left">
       <div>
         <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
