@@ -18,6 +18,7 @@ defmodule Ravner.Domains do
 
   def list_domains_with_preloads do
     Domain
+    |> where(type: :domain)
     |> preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata])
     |> Repo.all()
   end

@@ -4,7 +4,7 @@
       <div>
         <h1 class="text-2xl font-light tracking-tight">Domains</h1>
         <p class="text-sm font-light text-neutral-500 mt-1">
-          <%= if @streams.domains == %{} do %>
+          <%= if @domains == [] do %>
             No domains yet
           <% else %>
             Manage your domain ecosystem
@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <%= if @streams.domains == %{} do %>
+    <%= if @domains == [] do %>
       <div class="text-center py-20 border border-neutral-200">
         <.icon name="hero-globe-alt" class="w-8 h-8 text-neutral-300 mx-auto mb-4" />
         <h3 class="text-sm font-light tracking-wide uppercase text-neutral-500 mb-2">No domains yet</h3>
@@ -35,38 +35,70 @@
         </div>
       </div>
     <% else %>
-      <div id="domains" phx-update="stream" class="border border-neutral-200 divide-y divide-neutral-100">
-        <%= for {id, domain} <- @streams.domains do %>
-          <div id={id} class="flex items-center justify-between py-4 px-6 hover:bg-neutral-50 transition-colors">
-            <div class="flex items-center gap-4">
-               <div class={["w-2 h-2 rounded-full", lifecycle_color(domain.lifecycle_state)]} title={domain.lifecycle_state}></div>
-              <div>
-                <.link navigate={~p"/domains/#{domain.id}"} class="text-sm font-normal hover:underline">
-                  {domain.name}
-                </.link>
-                <span class="text-xs font-light text-neutral-400 ml-2 uppercase tracking-wide"><%= domain.type %></span>
+      <div class="border border-neutral-200 divide-y divide-neutral-100">
+        <%= for domain <- @domains do %>
+          <div id={"domain-#{domain.id}"}>
+            <div class="flex items-center justify-between py-4 px-6 hover:bg-neutral-50 transition-colors cursor-pointer"
+                 phx-click="toggle_expand"
+                 phx-value-id={domain.id}>
+              <div class="flex items-center gap-4">
+                <div class={["w-2 h-2 rounded-full", lifecycle_color(domain.lifecycle_state)]} title={domain.lifecycle_state}></div>
+                <div class="flex items-center gap-3">
+                  <.link navigate={~p"/domains/#{domain.id}"} class="text-sm font-normal hover:underline" phx-stop>
+                    {domain.name}
+                  </.link>
+                  <%= if domain.subdomains != [] do %>
+                    <span class="text-xs font-light text-neutral-400">
+                      {length(domain.subdomains)} subdomains
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-6 text-xs font-light text-neutral-500">
+                <span :if={domain.hosting_platform} class="hidden sm:inline">{domain.hosting_platform}</span>
+                <span :if={domain.domain_registrar} class="hidden md:inline">{domain.domain_registrar}</span>
+
+                <div class="flex items-center gap-2">
+                  <%= for tag <- domain.domain_tags do %>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide"><%= tag.tag %></span>
+                  <% end %>
+                </div>
+
+                <button
+                  phx-click="delete"
+                  phx-value-id={domain.id}
+                  data-confirm="Delete this domain?"
+                  class="text-neutral-400 hover:text-red-600 transition-colors"
+                  phx-stop
+                >
+                  <.icon name="hero-trash" class="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            <div class="flex items-center gap-6 text-xs font-light text-neutral-500">
-              <span :if={domain.hosting_platform} class="hidden sm:inline">{domain.hosting_platform}</span>
-              <span :if={domain.domain_registrar} class="hidden md:inline">{domain.domain_registrar}</span>
-
-              <div class="flex items-center gap-2">
-                <%= for tag <- domain.domain_tags do %>
-                  <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide"><%= tag.tag %></span>
+            <%= if MapSet.member?(@expanded_domains, "#{domain.id}") && domain.subdomains != [] do %>
+              <div class="bg-neutral-50 border-t border-neutral-100 divide-y divide-neutral-100">
+                <%= for sub <- domain.subdomains do %>
+                  <div class="flex items-center justify-between py-3 px-6 pl-12 hover:bg-neutral-100 transition-colors">
+                    <div class="flex items-center gap-3">
+                      <div class={["w-1.5 h-1.5 rounded-full", lifecycle_color(sub.lifecycle_state)]}></div>
+                      <.link navigate={~p"/domains/#{sub.id}"} class="text-sm font-light hover:underline">
+                        {sub.name}
+                      </.link>
+                    </div>
+                    <button
+                      phx-click="delete"
+                      phx-value-id={sub.id}
+                      data-confirm="Delete this subdomain?"
+                      class="text-neutral-400 hover:text-red-600 transition-colors"
+                    >
+                      <.icon name="hero-trash" class="w-3 h-3" />
+                    </button>
+                  </div>
                 <% end %>
               </div>
-
-              <button
-                phx-click="delete"
-                phx-value-id={domain.id}
-                data-confirm="Delete this domain?"
-                class="text-neutral-400 hover:text-red-600 transition-colors"
-              >
-                <.icon name="hero-trash" class="w-4 h-4" />
-              </button>
-            </div>
+            <% end %>
           </div>
         <% end %>
       </div>

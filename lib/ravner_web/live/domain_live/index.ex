@@ -6,7 +6,10 @@ defmodule RavnerWeb.DomainLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, stream(socket, :domains, Domains.list_domains_with_preloads())}
+    {:ok,
+     socket
+     |> assign(:domains, Domains.list_domains_with_preloads())
+     |> assign(:expanded_domains, MapSet.new())}
   end
 
   @impl true
@@ -49,22 +52,37 @@ defmodule RavnerWeb.DomainLive.Index do
   def handle_event("save", %{"domain" => domain_params}, socket) do
     case Domains.create_domain(domain_params) do
       {:ok, domain} ->
+        domain = Domains.get_domain_with_preloads!(domain.id)
+
         {:noreply,
          socket
          |> put_flash(:info, "Domain created successfully")
          |> push_navigate(to: ~p"/domains")
-         |> stream_insert(:domains, domain)}
+         |> update(:domains, fn domains -> [domain | domains] end)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
 
+  def handle_event("toggle_expand", %{"id" => id}, socket) do
+    expanded = socket.assigns.expanded_domains
+
+    new_expanded =
+      if MapSet.member?(expanded, id) do
+        MapSet.delete(expanded, id)
+      else
+        MapSet.put(expanded, id)
+      end
+
+    {:noreply, assign(socket, :expanded_domains, new_expanded)}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     domain = Domains.get_domain!(id)
     {:ok, _} = Domains.delete_domain(domain)
 
-    {:noreply, stream_delete(socket, :domains, domain)}
+    {:noreply, update(socket, :domains, fn domains -> Enum.reject(domains, &(&1.id == domain.id)) end)}
   end
 
   def handle_event("import", %{"domains" => domains_text}, socket) do
@@ -101,7 +119,8 @@ defmodule RavnerWeb.DomainLive.Index do
 
     socket =
       Enum.reduce(successful, socket, fn {:ok, domain}, acc ->
-        stream_insert(acc, :domains, domain)
+        domain = Domains.get_domain_with_preloads!(domain.id)
+        update(acc, :domains, fn domains -> [domain | domains] end)
       end)
 
     {:noreply, socket}
