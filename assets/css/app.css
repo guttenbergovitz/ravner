@@ -8,16 +8,13 @@
 @source "../js";
 @source "../../lib/ravner_web";
 
-/* A Tailwind plugin that makes "hero-#{ICON}" classes available. */
+/* Heroicons */
 @plugin "../vendor/heroicons";
 
 /* Add variants based on LiveView classes */
 @custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
-
-/* Use the data attribute for dark mode */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
@@ -32,7 +29,6 @@
     @apply bg-white text-neutral-900 antialiased;
   }
 
-  /* Line art aesthetic */
   a {
     @apply text-neutral-900 transition-colors duration-200;
   }
@@ -43,9 +39,9 @@
 }
 
 @layer components {
-  /* Minimal line-art buttons */
+  /* Buttons */
   .btn-line {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 border border-neutral-900 text-sm font-light tracking-wide uppercase transition-all duration-200 bg-transparent;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 text-sm font-light tracking-wide uppercase transition-all duration-200 bg-transparent cursor-pointer;
   }
 
   .btn-line:hover {
@@ -53,14 +49,14 @@
   }
 
   .btn-line-filled {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 border border-neutral-900 bg-neutral-900 text-white text-sm font-light tracking-wide uppercase transition-all duration-200;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 bg-neutral-900 text-white text-sm font-light tracking-wide uppercase transition-all duration-200 cursor-pointer;
   }
 
   .btn-line-filled:hover {
     @apply bg-neutral-700 border-neutral-700;
   }
 
-  /* Input fields */
+  /* Inputs */
   .input-line {
     @apply w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors;
   }
@@ -72,5 +68,54 @@
 
   .card-line:hover {
     @apply border-neutral-900;
+  }
+
+  /* Alerts */
+  .alert-line {
+    @apply border border-neutral-200 p-4 text-sm font-light;
+  }
+
+  .alert-line-info {
+    @apply border-neutral-400 bg-neutral-50;
+  }
+
+  .alert-line-error {
+    @apply border-red-300 bg-red-50 text-red-800;
+  }
+
+  /* Tables */
+  .table-line {
+    @apply w-full text-sm;
+  }
+
+  .table-line th {
+    @apply text-left font-light tracking-wide uppercase text-xs text-neutral-500 border-b border-neutral-200 py-3 px-4;
+  }
+
+  .table-line td {
+    @apply border-b border-neutral-100 py-4 px-4 font-light;
+  }
+
+  .table-line tbody tr:hover {
+    @apply bg-neutral-50;
+  }
+
+  /* Lists */
+  .list-line {
+    @apply divide-y divide-neutral-100;
+  }
+
+  .list-line-item {
+    @apply py-4 flex items-center justify-between;
+  }
+
+  /* Form elements */
+  .checkbox-line {
+    @apply w-4 h-4 border border-neutral-300 rounded-none appearance-none cursor-pointer transition-all checked:bg-neutral-900 checked:border-neutral-900;
+  }
+
+  /* Toasts / flashes */
+  .toast-line {
+    @apply fixed top-4 right-4 z-50 max-w-sm;
   }
 }

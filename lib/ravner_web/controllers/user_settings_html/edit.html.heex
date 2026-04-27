@@ -1,49 +1,70 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="text-center">
-    <.header>
-      Account Settings
-      <:subtitle>Manage your account email address and password settings</:subtitle>
-    </.header>
+  <div class="max-w-sm mx-auto py-16">
+    <h1 class="text-2xl font-light tracking-tight mb-2">Account Settings</h1>
+    <p class="text-sm font-light text-neutral-500 mb-10">
+      Manage your account email address and password settings
+    </p>
+
+    <.form :let={f} for={@email_changeset} action={~p"/users/settings"} id="update_email" class="space-y-6">
+      <input type="hidden" name="action" value="update_email" />
+
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
+        <input
+          type="email"
+          name={f[:email].name}
+          id={f[:email].id}
+          value={f[:email].value}
+          class="input-line"
+          autocomplete="username"
+          spellcheck="false"
+          required
+        />
+      </div>
+
+      <button type="submit" phx-disable-with="Changing..." class="btn-line-filled w-full justify-center">
+        Change Email
+      </button>
+    </.form>
+
+    <div class="my-10 flex items-center gap-4">
+      <div class="h-px flex-1 bg-neutral-200"></div>
+      <span class="text-xs font-light text-neutral-400 uppercase tracking-wide">or</span>
+      <div class="h-px flex-1 bg-neutral-200"></div>
+    </div>
+
+    <.form :let={f} for={@password_changeset} action={~p"/users/settings"} id="update_password" class="space-y-6">
+      <input type="hidden" name="action" value="update_password" />
+
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">New password</label>
+        <input
+          type="password"
+          name={f[:password].name}
+          id={f[:password].id}
+          class="input-line"
+          autocomplete="new-password"
+          spellcheck="false"
+          required
+        />
+      </div>
+
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Confirm new password</label>
+        <input
+          type="password"
+          name={f[:password_confirmation].name}
+          id={f[:password_confirmation].id}
+          class="input-line"
+          autocomplete="new-password"
+          spellcheck="false"
+          required
+        />
+      </div>
+
+      <button type="submit" phx-disable-with="Changing..." class="btn-line-filled w-full justify-center">
+        Save Password
+      </button>
+    </.form>
   </div>
-
-  <.form :let={f} for={@email_changeset} action={~p"/users/settings"} id="update_email">
-    <input type="hidden" name="action" value="update_email" />
-
-    <.input
-      field={f[:email]}
-      type="email"
-      label="Email"
-      autocomplete="username"
-      spellcheck="false"
-      required
-    />
-
-    <.button variant="primary" phx-disable-with="Changing...">Change Email</.button>
-  </.form>
-
-  <div class="divider" />
-
-  <.form :let={f} for={@password_changeset} action={~p"/users/settings"} id="update_password">
-    <input type="hidden" name="action" value="update_password" />
-
-    <.input
-      field={f[:password]}
-      type="password"
-      label="New password"
-      autocomplete="new-password"
-      spellcheck="false"
-      required
-    />
-    <.input
-      field={f[:password_confirmation]}
-      type="password"
-      label="Confirm new password"
-      autocomplete="new-password"
-      spellcheck="false"
-      required
-    />
-    <.button variant="primary" phx-disable-with="Changing...">
-      Save Password
-    </.button>
-  </.form>
 </Layouts.app>
