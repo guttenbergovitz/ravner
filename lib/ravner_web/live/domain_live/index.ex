@@ -21,9 +21,12 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   defp apply_action(socket, :new, _params) do
+    changeset = Domains.change_domain(%Domain{})
+
     socket
     |> assign(:page_title, "New Domain")
     |> assign(:domain, %Domain{})
+    |> assign(:form, to_form(changeset))
   end
 
   defp apply_action(socket, :import, _params) do
@@ -34,6 +37,29 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   @impl true
+  def handle_event("validate", %{"domain" => domain_params}, socket) do
+    changeset =
+      socket.assigns.domain
+      |> Domains.change_domain(domain_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :form, to_form(changeset))}
+  end
+
+  def handle_event("save", %{"domain" => domain_params}, socket) do
+    case Domains.create_domain(domain_params) do
+      {:ok, domain} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Domain created successfully")
+         |> push_navigate(to: ~p"/domains")
+         |> stream_insert(:domains, domain)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, :form, to_form(changeset))}
+    end
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     domain = Domains.get_domain!(id)
     {:ok, _} = Domains.delete_domain(domain)

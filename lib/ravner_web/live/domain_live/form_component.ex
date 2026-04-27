@@ -1,6 +1,7 @@
 defmodule RavnerWeb.DomainLive.FormComponent do
   use RavnerWeb, :live_component
 
+  alias Phoenix.LiveView.JS
   alias Ravner.Domains
 
   @impl true
@@ -10,7 +11,7 @@ defmodule RavnerWeb.DomainLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:changeset, changeset)}
+     |> assign(:form, to_form(changeset))}
   end
 
   @impl true
@@ -20,7 +21,7 @@ defmodule RavnerWeb.DomainLive.FormComponent do
       |> Domains.change_domain(domain_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign(socket, :form, to_form(changeset))}
   end
 
   def handle_event("save", %{"domain" => domain_params}, socket) do
@@ -36,7 +37,7 @@ defmodule RavnerWeb.DomainLive.FormComponent do
          |> push_navigate(to: ~p"/domains")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
 end

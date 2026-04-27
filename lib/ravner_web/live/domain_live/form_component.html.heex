@@ -1,144 +1,21 @@
 <div>
-  <%= if @changeset.action do %>
+  <%= if @form.source.action do %>
     <div class="mb-6 p-4 border border-red-300 bg-red-50 text-sm font-light text-red-700">
       <p class="font-normal mb-1">Please fix the following errors:</p>
       <ul class="list-disc list-inside space-y-1">
-        <%= for {field, {msg, _}} <- @changeset.errors do %>
+        <%= for {field, {msg, _}} <- @form.source.errors do %>
           <li><%= Phoenix.Naming.humanize(field) %>: <%= msg %></li>
         <% end %>
       </ul>
     </div>
   <% end %>
 
-  <.form :let={f} for={@changeset} phx-change="validate" phx-submit="save" phx-target={@myself} id="domain-form" class="space-y-6">
-    <div>
-      <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Name</label>
-      <input
-        type="text"
-        name={f[:name].name}
-        id={f[:name].id}
-        value={f[:name].value}
-        class="input-line"
-        placeholder="example.com"
-        required
-      />
-    </div>
-
-    <div>
-      <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Type</label>
-      <select
-        name={f[:type].name}
-        id={f[:type].id}
-        class="w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light"
-      >
-        <option value="domain" selected={f[:type].value == :domain}>Domain</option>
-        <option value="subdomain" selected={f[:type].value == :subdomain}>Subdomain</option>
-      </select>
-    </div>
-
-    <div>
-      <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">URL</label>
-      <input
-        type="url"
-        name={f[:url].name}
-        id={f[:url].id}
-        value={f[:url].value}
-        class="input-line"
-        placeholder="https://example.com"
-      />
-    </div>
-
-    <div>
-      <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Lifecycle State</label>
-      <select
-        name={f[:lifecycle_state].name}
-        id={f[:lifecycle_state].id}
-        class="w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light"
-      >
-        <option value="active" selected={f[:lifecycle_state].value == :active}>Active</option>
-        <option value="under_review" selected={f[:lifecycle_state].value == :under_review}>Under Review</option>
-        <option value="deprecated" selected={f[:lifecycle_state].value == :deprecated}>Deprecated</option>
-        <option value="decommissioned" selected={f[:lifecycle_state].value == :decommissioned}>Decommissioned</option>
-        <option value="abandoned" selected={f[:lifecycle_state].value == :abandoned}>Abandoned</option>
-      </select>
-    </div>
-
-    <div class="grid grid-cols-2 gap-6">
-      <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">PM Email</label>
-        <input
-          type="email"
-          name={f[:pm_email].name}
-          id={f[:pm_email].id}
-          value={f[:pm_email].value}
-          class="input-line"
-          placeholder="pm@company.com"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">PO Email</label>
-        <input
-          type="email"
-          name={f[:po_email].name}
-          id={f[:po_email].id}
-          value={f[:po_email].value}
-          class="input-line"
-          placeholder="po@company.com"
-        />
-      </div>
-    </div>
-
-    <div>
-      <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Delivery Organization</label>
-      <input
-        type="text"
-        name={f[:delivery_organization].name}
-        id={f[:delivery_organization].id}
-        value={f[:delivery_organization].value}
-        class="input-line"
-        placeholder="Internal / Agency"
-      />
-    </div>
-
-    <div class="grid grid-cols-2 gap-6">
-      <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Hosting Platform</label>
-        <input
-          type="text"
-          name={f[:hosting_platform].name}
-          id={f[:hosting_platform].id}
-          value={f[:hosting_platform].value}
-          class="input-line"
-          placeholder="AWS / Vercel / Hetzner"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Domain Registrar</label>
-        <input
-          type="text"
-          name={f[:domain_registrar].name}
-          id={f[:domain_registrar].id}
-          value={f[:domain_registrar].value}
-          class="input-line"
-          placeholder="GoDaddy / Namecheap"
-        />
-      </div>
-    </div>
-
-    <div>
-      <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Repository URL</label>
-      <input
-        type="url"
-        name={f[:repository_url].name}
-        id={f[:repository_url].id}
-        value={f[:repository_url].value}
-        class="input-line"
-        placeholder="https://github.com/..."
-      />
-    </div>
+  <.form for={@form} phx-change="validate" phx-submit="save" phx-target={@myself} id="domain-form" class="space-y-6">
+    <.input field={@form[:type]} type="hidden" value="domain" />
+    <.input field={@form[:name]} type="text" label="Domain name" placeholder="example.com" required />
 
     <div class="flex items-center gap-3 pt-4">
-      <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">Save</button>
+      <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">Add domain</button>
       <.link patch={~p"/domains"} class="btn-line flex-1 justify-center text-xs">Cancel</.link>
     </div>
   </.form>
