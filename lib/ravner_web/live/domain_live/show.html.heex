@@ -50,6 +50,119 @@
           </div>
         </div>
 
+        <%= if @domain.domain_metadata do %>
+          <div class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">HTTP</h2>
+            <div class="grid grid-cols-2 gap-6 text-sm">
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Status</span>
+                <span :if={@domain.domain_metadata.http_status} class="font-light">{@domain.domain_metadata.http_status}</span>
+                <span :if={!@domain.domain_metadata.http_status} class="text-neutral-400 font-light">—</span>
+              </div>
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Server</span>
+                <span :if={@domain.domain_metadata.server_header} class="font-light">{@domain.domain_metadata.server_header}</span>
+                <span :if={!@domain.domain_metadata.server_header} class="text-neutral-400 font-light">—</span>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">Final URL</span>
+              <span :if={@domain.domain_metadata.final_url} class="text-sm font-light break-all">{@domain.domain_metadata.final_url}</span>
+              <span :if={!@domain.domain_metadata.final_url} class="text-sm font-light text-neutral-400">—</span>
+            </div>
+
+            <%= if @domain.domain_metadata.redirect_chain && @domain.domain_metadata.redirect_chain != [] do %>
+              <div class="mt-6 border-t border-neutral-100 pt-4">
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">Redirect Chain</span>
+                <div class="space-y-2">
+                  <%= for hop <- @domain.domain_metadata.redirect_chain do %>
+                    <div class="flex items-center gap-3 text-sm font-light">
+                      <span class={[
+                        "px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide",
+                        if(hop.status >= 300 && hop.status < 400,
+                          do: "text-yellow-700 bg-yellow-50 border border-yellow-200",
+                          else: "text-neutral-500 bg-neutral-50 border border-neutral-200"
+                        )
+                      ]}>
+                        {hop.status}
+                      </span>
+                      <span class="truncate">{hop.url}</span>
+                      <.icon name="hero-arrow-turn-right-up" class="w-3 h-3 shrink-0 text-neutral-400" />
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @domain.domain_metadata.security_headers && @domain.domain_metadata.security_headers != %{} do %>
+              <div class="mt-6 border-t border-neutral-100 pt-4">
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">Security Headers</span>
+                <div class="space-y-1">
+                  <%= for {key, val} <- @domain.domain_metadata.security_headers do %>
+                    <div class="flex justify-between text-xs font-light">
+                      <span class="text-neutral-500">{key}</span>
+                      <span :if={val} class="text-green-700 ml-2">✓</span>
+                      <span :if={!val} class="text-neutral-400 ml-2">—</span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <div :if={@domain.domain_metadata.scanned_at} class="mt-4 pt-4 border-t border-neutral-100">
+              <span class="text-[10px] font-light text-neutral-400">
+                Scanned {DateTime.to_iso8601(@domain.domain_metadata.scanned_at)}
+                <%= if @domain.domain_metadata.scan_duration_ms do %>
+                  · {@domain.domain_metadata.scan_duration_ms}ms
+                <% end %>
+              </span>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @domain.domain_metadata && (@domain.domain_metadata.ip_v4 != [] || @domain.domain_metadata.ip_v6 != [] || @domain.domain_metadata.dns_records != []) do %>
+          <div class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">DNS</h2>
+            <%= if @domain.domain_metadata.ip_v4 != [] do %>
+              <div class="mb-4">
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">IPv4</span>
+                <div class="flex flex-wrap gap-2">
+                  <%= for ip <- @domain.domain_metadata.ip_v4 do %>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">{ip}</span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @domain.domain_metadata.ip_v6 != [] do %>
+              <div class="mb-4">
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">IPv6</span>
+                <div class="flex flex-wrap gap-2">
+                  <%= for ip <- @domain.domain_metadata.ip_v6 do %>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">{ip}</span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @domain.domain_metadata.dns_records != [] do %>
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">Records</span>
+                <div class="divide-y divide-neutral-100">
+                  <%= for rec <- @domain.domain_metadata.dns_records do %>
+                    <div class="py-2 flex items-center gap-3 text-sm font-light">
+                      <span class="px-1.5 py-0.5 border border-neutral-200 text-[10px] font-normal uppercase w-12 text-center">{rec.type}</span>
+                      <span class="truncate">{rec.value}</span>
+                      <span class="ml-auto text-[10px] text-neutral-400">TTL:{rec.ttl}</span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
           <div class="grid grid-cols-2 gap-6 text-sm">
@@ -70,22 +183,34 @@
       <div class="space-y-6">
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Discovery</h2>
-          <button
-            phx-click="scan_subdomains"
-            disabled={@scanning}
-            class={[
-              "btn-line w-full justify-center text-xs",
-              @scanning && "opacity-50 cursor-not-allowed"
-            ]}
-          >
-            <%= if @scanning do %>
-              <.icon name="hero-arrow-path" class="w-4 h-4 motion-safe:animate-spin" />
-              Scanning...
-            <% else %>
+          <div class="space-y-3">
+            <button
+              phx-click="scan_subdomains"
+              disabled={@scanning}
+              class={["btn-line w-full justify-center text-xs", @scanning && "opacity-50 cursor-not-allowed"]}
+            >
               <.icon name="hero-magnifying-glass" class="w-4 h-4" />
               Discover subdomains
-            <% end %>
-          </button>
+            </button>
+
+            <button
+              phx-click="scan_httpx"
+              disabled={@scanning}
+              class={["btn-line w-full justify-center text-xs", @scanning && "opacity-50 cursor-not-allowed"]}
+            >
+              <.icon name="hero-globe-alt" class="w-4 h-4" />
+              HTTP scan
+            </button>
+
+            <button
+              phx-click="scan_dnsx"
+              disabled={@scanning}
+              class={["btn-line w-full justify-center text-xs", @scanning && "opacity-50 cursor-not-allowed"]}
+            >
+              <.icon name="hero-server-stack" class="w-4 h-4" />
+              DNS scan
+            </button>
+          </div>
 
           <%= if @scan_results do %>
             <div class="mt-4 pt-4 border-t border-neutral-100 text-sm font-light">

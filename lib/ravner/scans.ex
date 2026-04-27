@@ -134,4 +134,139 @@ defmodule Ravner.Scans do
         {:existing, existing}
     end
   end
+
+  # HTTPX scan via Req (fast, non-blocking)
+
+  def run_httpx_scan(domain_id) do
+    domain = Domains.get_domain!(domain_id)
+
+    case do_httpx_scan(domain.name) do
+      {:ok, data} ->
+        meta = %{
+          http_status: data.http_status,
+          final_url: data.final_url,
+          server_header: data.server_header,
+          security_headers: data.security_headers,
+          redirect_chain: data.redirect_chain,
+          scanned_at: DateTime.utc_now()
+        }
+
+        Domains.upsert_domain_metadata(domain_id, meta)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp do_httpx_scan(domain_name) do
+    url = "https://#{domain_name}"
+
+    case Req.get(url, max_redirects: 5, retry: false, receive_timeout: 10_000) do
+      {:ok, response} ->
+        server = List.first(Req.Response.get_header(response, "server"))
+
+        security = %{
+          "strict-transport-security" =>
+            List.first(Req.Response.get_header(response, "strict-transport-security")),
+          "content-security-policy" =>
+            List.first(Req.Response.get_header(response, "content-security-policy")),
+          "x-frame-options" => List.first(Req.Response.get_header(response, "x-frame-options")),
+          "x-content-type-options" =>
+            List.first(Req.Response.get_header(response, "x-content-type-options"))
+        }
+
+        chain =
+          case response.private[:req_redirect_url] do
+            nil -> []
+            prev -> [%{url: to_string(prev), status: response.status}]
+          end
+
+        {:ok,
+         %{
+           http_status: response.status,
+           final_url: to_string(response.url),
+           server_header: server,
+           security_headers: security,
+           redirect_chain: chain
+         }}
+
+      {:error, exception} ->
+        {:error, "HTTP request failed: #{inspect(exception)}"}
+    end
+  end
+
+  # DNSX scan via Port + dnsx CLI
+
+  def run_dnsx_scan(domain_id) do
+    domain = Domains.get_domain!(domain_id)
+
+    case do_dnsx_scan(domain.name) do
+      {:ok, data} ->
+        ip_v4 = data["a"] || []
+        ip_v6 = data["aaaa"] || []
+
+        records =
+          Enum.flat_map(~w(a aaaa mx ns txt cname), fn type ->
+            case data[type] do
+              vals when is_list(vals) ->
+                Enum.map(vals, fn val ->
+                  %{type: String.upcase(type), value: to_string(val), ttl: data["ttl"]}
+                end)
+
+              nil ->
+                []
+
+              val ->
+                [%{type: String.upcase(type), value: to_string(val), ttl: data["ttl"]}]
+            end
+          end)
+
+        meta = %{
+          ip_v4: ip_v4,
+          ip_v6: ip_v6,
+          dns_records: records,
+          scanned_at: DateTime.utc_now()
+        }
+
+        Domains.upsert_domain_metadata(domain_id, meta)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp do_dnsx_scan(domain_name) do
+    task =
+      Task.async(fn ->
+        arg = domain_name <> "\n"
+        port = Port.open({:spawn, "dnsx -a -aaaa -cname -mx -ns -txt -json -silent"}, [:binary])
+
+        Port.command(port, arg)
+        Port.command(port, :eof)
+
+        receive do
+          {^port, {:data, output}} ->
+            Port.close(port)
+            output
+        after
+          15_000 ->
+            Port.close(port)
+            nil
+        end
+      end)
+
+    case Task.yield(task, 15_000) || Task.shutdown(task) do
+      {:ok, nil} ->
+        {:error, "dnsx timed out"}
+
+      {:ok, output} ->
+        case Jason.decode(output) do
+          {:ok, data} -> {:ok, data}
+          {:error, _} -> {:error, "Failed to parse dnsx output"}
+        end
+
+      {:exit, _reason} ->
+        {:error, "dnsx process crashed"}
+    end
+  end
 end

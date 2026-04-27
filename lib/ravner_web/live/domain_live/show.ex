@@ -6,7 +6,7 @@ defmodule RavnerWeb.DomainLive.Show do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    {:ok, assign(socket, :scan_loading, %{})}
   end
 
   @impl true
@@ -37,6 +37,50 @@ defmodule RavnerWeb.DomainLive.Show do
          |> assign(:scan_results, results)
          |> assign(:domain, domain)
          |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:scanning, false)
+         |> put_flash(:error, reason)}
+    end
+  end
+
+  def handle_event("scan_httpx", _, socket) do
+    domain_id = socket.assigns.domain.id
+    socket = assign(socket, :scanning, true)
+
+    case Scans.run_httpx_scan(domain_id) do
+      {:ok, _metadata} ->
+        domain = Domains.get_domain_with_preloads!(domain_id)
+
+        {:noreply,
+         socket
+         |> assign(:scanning, false)
+         |> assign(:domain, domain)
+         |> put_flash(:info, "HTTP scan completed")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:scanning, false)
+         |> put_flash(:error, reason)}
+    end
+  end
+
+  def handle_event("scan_dnsx", _, socket) do
+    domain_id = socket.assigns.domain.id
+    socket = assign(socket, :scanning, true)
+
+    case Scans.run_dnsx_scan(domain_id) do
+      {:ok, _metadata} ->
+        domain = Domains.get_domain_with_preloads!(domain_id)
+
+        {:noreply,
+         socket
+         |> assign(:scanning, false)
+         |> assign(:domain, domain)
+         |> put_flash(:info, "DNS scan completed")}
 
       {:error, reason} ->
         {:noreply,
