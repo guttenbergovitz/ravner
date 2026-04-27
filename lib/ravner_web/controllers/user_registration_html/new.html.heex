@@ -1,32 +1,32 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="mx-auto max-w-sm">
-    <div class="text-center">
-      <.header>
-        Register for an account
-        <:subtitle>
-          Already registered?
-          <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
-            Log in
-          </.link>
-          to your account now.
-        </:subtitle>
-      </.header>
-    </div>
+  <div class="max-w-sm mx-auto py-16">
+    <h1 class="text-2xl font-light tracking-tight mb-2">Register</h1>
+    <p class="text-sm font-light text-neutral-500 mb-10">
+      Already registered?
+      <.link navigate={~p"/users/log-in"} class="text-neutral-900 underline underline-offset-4 hover:text-neutral-600">
+        Log in
+      </.link>
+    </p>
 
-    <.form :let={f} for={@changeset} action={~p"/users/register"}>
-      <.input
-        field={f[:email]}
-        type="email"
-        label="Email"
-        autocomplete="username"
-        spellcheck="false"
-        required
-        phx-mounted={JS.focus()}
-      />
-
-      <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
-        Create an account
-      </.button>
+    <.form :let={f} for={@changeset} action={~p"/users/register"} class="space-y-6">
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
+        <input
+          type="email"
+          name={f[:email].name}
+          id={f[:email].id}
+          value={f[:email].value}
+          class="input-line"
+          placeholder="you@company.com"
+          autocomplete="username"
+          spellcheck="false"
+          required
+          phx-mounted={JS.focus()}
+        />
+      </div>
+      <button type="submit" phx-disable-with="Creating account..." class="btn-line-filled w-full justify-center">
+        Create account
+      </button>
     </.form>
   </div>
 </Layouts.app>

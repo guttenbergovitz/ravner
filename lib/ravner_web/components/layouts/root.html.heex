@@ -1,56 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="Ravner" suffix=" · Phoenix Framework">
+    <.live_title default="ravner">
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
-      (() => {
-        const setTheme = (theme) => {
-          if (theme === "system") {
-            localStorage.removeItem("phx:theme");
-            document.documentElement.removeAttribute("data-theme");
-          } else {
-            localStorage.setItem("phx:theme", theme);
-            document.documentElement.setAttribute("data-theme", theme);
-          }
-        };
-        if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
-        }
-        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
-        
-        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
-      })();
-    </script>
   </head>
-  <body>
-    <ul class="menu menu-horizontal w-full relative z-10 flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end">
-      <%= if @current_scope do %>
-        <li>
-          {@current_scope.user.email}
-        </li>
-        <li>
-          <.link href={~p"/users/settings"}>Settings</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log-out"} method="delete">Log out</.link>
-        </li>
-      <% else %>
-        <li>
-          <.link href={~p"/users/register"}>Register</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log-in"}>Log in</.link>
-        </li>
-      <% end %>
-    </ul>
-    {@inner_content}
+  <body class="h-full flex flex-col">
+    <header class="border-b border-neutral-200">
+      <nav class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+        <.link href={~p"/"} class="text-lg font-light tracking-[0.2em] uppercase">
+          ravner
+        </.link>
+
+        <ul class="flex items-center gap-8 text-sm font-light tracking-wide">
+          <%= if @current_scope do %>
+            <li class="text-neutral-500">
+              {@current_scope.user.email}
+            </li>
+            <li>
+              <.link href={~p"/users/settings"} class="hover:text-neutral-500 transition-colors">
+                Settings
+              </.link>
+            </li>
+            <li>
+              <.link href={~p"/users/log-out"} method="delete" class="hover:text-neutral-500 transition-colors">
+                Log out
+              </.link>
+            </li>
+          <% else %>
+            <li>
+              <.link href={~p"/users/register"} class="hover:text-neutral-500 transition-colors">
+                Register
+              </.link>
+            </li>
+            <li>
+              <.link href={~p"/users/log-in"} class="btn-line text-xs">
+                Log in
+              </.link>
+            </li>
+          <% end %>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="flex-1">
+      {@inner_content}
+    </main>
+
+    <footer class="border-t border-neutral-200 py-6">
+      <div class="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs font-light text-neutral-400 tracking-wide">
+        <span>ravner</span>
+        <span>ecosystem visibility</span>
+      </div>
+    </footer>
   </body>
 </html>

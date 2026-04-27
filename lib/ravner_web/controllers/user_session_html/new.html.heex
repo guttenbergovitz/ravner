@@ -1,73 +1,84 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="mx-auto max-w-sm space-y-4">
-    <div class="text-center">
-      <.header>
-        <p>Log in</p>
-        <:subtitle>
-          <%= if @current_scope do %>
-            You need to reauthenticate to perform sensitive actions on your account.
-          <% else %>
-            Don't have an account? <.link
-              navigate={~p"/users/register"}
-              class="font-semibold text-brand hover:underline"
-              phx-no-format
-            >Sign up</.link> for an account now.
-          <% end %>
-        </:subtitle>
-      </.header>
+  <div class="max-w-sm mx-auto py-16">
+    <h1 class="text-2xl font-light tracking-tight mb-2">Log in</h1>
+    <p class="text-sm font-light text-neutral-500 mb-10">
+      <%= if @current_scope do %>
+        You need to reauthenticate to perform sensitive actions.
+      <% else %>
+        Don't have an account?
+        <.link navigate={~p"/users/register"} class="text-neutral-900 underline underline-offset-4 hover:text-neutral-600">
+          Sign up
+        </.link>
+      <% end %>
+    </p>
+
+    <div :if={local_mail_adapter?()} class="mb-8 p-4 border border-neutral-200 text-xs font-light text-neutral-500">
+      <p>Running local mail adapter.</p>
+      <p>Visit <.link href="/dev/mailbox" class="underline">the mailbox</.link> to see emails.</p>
     </div>
 
-    <div :if={local_mail_adapter?()} class="alert alert-info">
-      <.icon name="hero-information-circle" class="size-6 shrink-0" />
+    <.form :let={f} for={@form} as={:user} id="login_form_magic" action={~p"/users/log-in"} class="space-y-6">
       <div>
-        <p>You are running the local mail adapter.</p>
-        <p>
-          To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
-        </p>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
+        <input
+          type="email"
+          name={f[:email].name}
+          id={f[:email].id}
+          value={f[:email].value}
+          class="input-line"
+          placeholder="you@company.com"
+          autocomplete="username"
+          spellcheck="false"
+          required
+          phx-mounted={JS.focus()}
+        />
       </div>
-    </div>
-
-    <.form :let={f} for={@form} as={:user} id="login_form_magic" action={~p"/users/log-in"}>
-      <.input
-        readonly={!!@current_scope}
-        field={f[:email]}
-        type="email"
-        label="Email"
-        autocomplete="username"
-        spellcheck="false"
-        required
-        phx-mounted={JS.focus()}
-      />
-      <.button class="btn btn-primary w-full">
-        Log in with email <span aria-hidden="true">→</span>
-      </.button>
+      <button type="submit" class="btn-line-filled w-full justify-center">
+        Log in with email
+      </button>
     </.form>
 
-    <div class="divider">or</div>
+    <div class="my-8 flex items-center gap-4">
+      <div class="h-px flex-1 bg-neutral-200"></div>
+      <span class="text-xs font-light text-neutral-400 uppercase tracking-wide">or</span>
+      <div class="h-px flex-1 bg-neutral-200"></div>
+    </div>
 
-    <.form :let={f} for={@form} as={:user} id="login_form_password" action={~p"/users/log-in"}>
-      <.input
-        readonly={!!@current_scope}
-        field={f[:email]}
-        type="email"
-        label="Email"
-        autocomplete="username"
-        spellcheck="false"
-        required
-      />
-      <.input
-        field={f[:password]}
-        type="password"
-        label="Password"
-        autocomplete="current-password"
-        spellcheck="false"
-      />
-      <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
-        Log in and stay logged in <span aria-hidden="true">→</span>
-      </.button>
-      <.button class="btn btn-primary btn-soft w-full mt-2">
-        Log in only this time
-      </.button>
+    <.form :let={f} for={@form} as={:user} id="login_form_password" action={~p"/users/log-in"} class="space-y-6">
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
+        <input
+          type="email"
+          name={f[:email].name}
+          id={f[:email].id}
+          value={f[:email].value}
+          class="input-line"
+          placeholder="you@company.com"
+          autocomplete="username"
+          spellcheck="false"
+          required
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Password</label>
+        <input
+          type="password"
+          name={f[:password].name}
+          id={f[:password].id}
+          class="input-line"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          spellcheck="false"
+        />
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" name={@form[:remember_me].name} value="true" class="btn-line-filled flex-1 justify-center">
+          Stay logged in
+        </button>
+        <button type="submit" class="btn-line flex-1 justify-center">
+          This time only
+        </button>
+      </div>
     </.form>
   </div>
 </Layouts.app>
