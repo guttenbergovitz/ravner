@@ -69,6 +69,33 @@
 
       <div class="space-y-6">
         <div class="card-line">
+          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Discovery</h2>
+          <button
+            phx-click="scan_subdomains"
+            disabled={@scanning}
+            class={[
+              "btn-line w-full justify-center text-xs",
+              @scanning && "opacity-50 cursor-not-allowed"
+            ]}
+          >
+            <%= if @scanning do %>
+              <.icon name="hero-arrow-path" class="w-4 h-4 motion-safe:animate-spin" />
+              Scanning...
+            <% else %>
+              <.icon name="hero-magnifying-glass" class="w-4 h-4" />
+              Discover subdomains
+            <% end %>
+          </button>
+
+          <%= if @scan_results do %>
+            <div class="mt-4 pt-4 border-t border-neutral-100 text-sm font-light">
+              <p class="text-neutral-500">Found: <span class="text-neutral-900">{@scan_results.found}</span></p>
+              <p class="text-neutral-500">New: <span class="text-neutral-900">{@scan_results.new}</span></p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Tags</h2>
           <%= if @domain.domain_tags == [] do %>
             <p class="text-sm font-light text-neutral-400">No tags</p>

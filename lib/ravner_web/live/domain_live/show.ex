@@ -2,6 +2,7 @@ defmodule RavnerWeb.DomainLive.Show do
   use RavnerWeb, :live_view
 
   alias Ravner.Domains
+  alias Ravner.Scans
 
   @impl true
   def mount(_params, _session, socket) do
@@ -15,7 +16,34 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply,
      socket
      |> assign(:page_title, domain.name)
-     |> assign(:domain, domain)}
+     |> assign(:domain, domain)
+     |> assign(:scan_results, nil)
+     |> assign(:scanning, false)}
+  end
+
+  @impl true
+  def handle_event("scan_subdomains", _, socket) do
+    domain_id = socket.assigns.domain.id
+
+    socket = assign(socket, :scanning, true)
+
+    case Scans.run_subdomain_scan(domain_id) do
+      {:ok, results} ->
+        domain = Domains.get_domain_with_preloads!(domain_id)
+
+        {:noreply,
+         socket
+         |> assign(:scanning, false)
+         |> assign(:scan_results, results)
+         |> assign(:domain, domain)
+         |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:scanning, false)
+         |> put_flash(:error, reason)}
+    end
   end
 
   defp lifecycle_color(:active), do: "bg-green-500"
