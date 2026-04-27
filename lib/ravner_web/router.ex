@@ -67,6 +67,18 @@ defmodule RavnerWeb.Router do
   end
 
   scope "/", RavnerWeb do
+    pipe_through([:browser, :require_authenticated_user])
+
+    live_session :authenticated, on_mount: [{RavnerWeb.UserAuth, :ensure_authenticated}] do
+      live("/domains", DomainLive.Index, :index)
+      live("/domains/new", DomainLive.Index, :new)
+      live("/domains/import", DomainLive.Index, :import)
+      live("/domains/:id", DomainLive.Show, :show)
+      live("/domains/:id/edit", DomainLive.Show, :edit)
+    end
+  end
+
+  scope "/", RavnerWeb do
     pipe_through([:browser])
 
     get("/users/log-in", UserSessionController, :new)

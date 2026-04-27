@@ -1,0 +1,108 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="mb-8">
+      <.link navigate={~p"/domains"} class="text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors mb-4 inline-flex items-center gap-1">
+        <.icon name="hero-arrow-left" class="w-3 h-3" />
+        Back to domains
+      </.link>
+
+      <div class="flex items-center gap-3 mt-4">
+        <div class={["w-3 h-3 rounded-full", lifecycle_color(@domain.lifecycle_state)]} title={@domain.lifecycle_state}></div>
+        <h1 class="text-2xl font-light tracking-tight">{@domain.name}</h1>
+        <span class="text-xs font-light text-neutral-400 uppercase tracking-wide">{@domain.type}</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 space-y-6">
+        <div class="card-line">
+          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Details</h2>
+          <div class="grid grid-cols-2 gap-6 text-sm">
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">URL</span>
+              <span :if={@domain.url} class="font-light">{@domain.url}</span>
+              <span :if={!@domain.url} class="text-neutral-400 font-light">—</span>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Lifecycle</span>
+              <span class="font-light uppercase tracking-wide">{@domain.lifecycle_state}</span>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">PM</span>
+              <span :if={@domain.pm_email} class="font-light">{@domain.pm_email}</span>
+              <span :if={!@domain.pm_email} class="text-neutral-400 font-light">—</span>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">PO</span>
+              <span :if={@domain.po_email} class="font-light">{@domain.po_email}</span>
+              <span :if={!@domain.po_email} class="text-neutral-400 font-light">—</span>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Delivery</span>
+              <span :if={@domain.delivery_organization} class="font-light">{@domain.delivery_organization}</span>
+              <span :if={!@domain.delivery_organization} class="text-neutral-400 font-light">—</span>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Repository</span>
+              <span :if={@domain.repository_url} class="font-light">{@domain.repository_url}</span>
+              <span :if={!@domain.repository_url} class="text-neutral-400 font-light">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-line">
+          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
+          <div class="grid grid-cols-2 gap-6 text-sm">
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Hosting</span>
+              <span :if={@domain.hosting_platform} class="font-light">{@domain.hosting_platform}</span>
+              <span :if={!@domain.hosting_platform} class="text-neutral-400 font-light">—</span>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Registrar</span>
+              <span :if={@domain.domain_registrar} class="font-light">{@domain.domain_registrar}</span>
+              <span :if={!@domain.domain_registrar} class="text-neutral-400 font-light">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="card-line">
+          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Tags</h2>
+          <%= if @domain.domain_tags == [] do %>
+            <p class="text-sm font-light text-neutral-400">No tags</p>
+          <% else %>
+            <div class="flex flex-wrap gap-2">
+              <%= for tag <- @domain.domain_tags do %>
+                <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide"><%= tag.tag %></span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <%= if @domain.subdomains != [] do %>
+          <div class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Subdomains</h2>
+            <div class="space-y-2">
+              <%= for sub <- @domain.subdomains do %>
+                <.link navigate={~p"/domains/#{sub.id}"} class="text-sm font-light hover:underline block">
+                  {sub.name}
+                </.link>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @domain.parent_domain do %>
+          <div class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Parent Domain</h2>
+            <.link navigate={~p"/domains/#{@domain.parent_domain.id}"} class="text-sm font-light hover:underline">
+              {@domain.parent_domain.name}
+            </.link>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

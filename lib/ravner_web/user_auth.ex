@@ -211,6 +211,32 @@ defmodule RavnerWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_authenticated, _params, session, socket) do
+    socket = mount_current_scope(session, socket)
+
+    if socket.assigns.current_scope && socket.assigns.current_scope.user do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
+
+      {:halt, socket}
+    end
+  end
+
+  defp mount_current_scope(session, socket) do
+    case session do
+      %{"user_token" => token} ->
+        {user, _token_inserted_at} = Accounts.get_user_by_session_token(token)
+        Phoenix.Component.assign(socket, :current_scope, Scope.for_user(user))
+
+      _ ->
+        Phoenix.Component.assign(socket, :current_scope, Scope.for_user(nil))
+    end
+  end
+
   defp maybe_store_return_to(%{method: "GET"} = conn) do
     put_session(conn, :user_return_to, current_path(conn))
   end
