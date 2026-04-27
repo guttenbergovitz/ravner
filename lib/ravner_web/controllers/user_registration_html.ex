@@ -1,0 +1,5 @@
+defmodule RavnerWeb.UserRegistrationHTML do
+  use RavnerWeb, :html
+
+  embed_templates "user_registration_html/*"
+end
