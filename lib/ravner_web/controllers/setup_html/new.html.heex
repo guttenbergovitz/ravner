@@ -24,6 +24,34 @@
         />
       </div>
 
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Password</label>
+        <input
+          type="password"
+          name={f[:password].name}
+          id={f[:password].id}
+          class="input-line"
+          placeholder="Minimum 12 characters"
+          autocomplete="new-password"
+          spellcheck="false"
+          required
+        />
+      </div>
+
+      <div>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Confirm password</label>
+        <input
+          type="password"
+          name={f[:password_confirmation].name}
+          id={f[:password_confirmation].id}
+          class="input-line"
+          placeholder="Repeat password"
+          autocomplete="new-password"
+          spellcheck="false"
+          required
+        />
+      </div>
+
       <button type="submit" class="btn-line-filled w-full justify-center">
         Create root account
       </button>

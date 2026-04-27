@@ -14,11 +14,11 @@ defmodule RavnerWeb.SetupController do
     end
   end
 
-  def create(conn, %{"user" => %{"email" => email}}) do
+  def create(conn, %{"user" => user_params}) do
     if Accounts.has_users?() do
       redirect(conn, to: ~p"/")
     else
-      case Accounts.register_user(%{email: email}) do
+      case Accounts.register_user_with_password(user_params) do
         {:ok, user} ->
           # Confirm the root user immediately
           user

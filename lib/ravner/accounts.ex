@@ -87,6 +87,16 @@ defmodule Ravner.Accounts do
     |> Repo.insert()
   end
 
+  @doc """
+  Registers a user with email and password.
+  """
+  def register_user_with_password(attrs) do
+    %User{}
+    |> User.email_changeset(attrs)
+    |> User.password_changeset(attrs)
+    |> Repo.insert()
+  end
+
   ## Settings
 
   @doc """
