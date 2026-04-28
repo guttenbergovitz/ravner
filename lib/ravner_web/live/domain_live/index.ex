@@ -10,7 +10,12 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:domains, Domains.list_domains_with_preloads())
      |> assign(:expanded_domains, MapSet.new())
-     |> assign(:lifecycle_menu_open, nil)}
+     |> assign(:lifecycle_menu_open, nil)
+     |> allow_upload(:domains_file,
+       accept: ~w(.txt),
+       max_entries: 1,
+       max_file_size: 5_000_000
+     )}
   end
 
   @impl true
@@ -132,63 +137,52 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
-  def handle_event("import", %{"domains" => domains_text}, socket) do
-    lines =
-      domains_text
-      |> String.split("\n")
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
+  def handle_event("close_modal", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/domains")}
+  end
 
-    results =
-      Enum.map(lines, fn line ->
-        case validate_domain(line) do
-          :ok ->
-            case Domains.create_domain(%{name: line, type: domain_type(line)}) do
-              {:ok, domain} -> {:ok, domain}
-              {:error, changeset} -> {:error, line, changeset}
-            end
-
-          {:error, reason} ->
-            {:error, line, reason}
-        end
-      end)
-
-    successful = Enum.filter(results, &match?({:ok, _}, &1))
-    failed = Enum.reject(results, &match?({:ok, _}, &1))
-
-    socket =
-      socket
-      |> assign(:import_results, %{
-        total: length(lines),
-        successful: length(successful),
-        failed: failed
-      })
-
-    socket =
-      Enum.reduce(successful, socket, fn {:ok, domain}, acc ->
-        domain = Domains.get_domain_with_preloads!(domain.id)
-        update(acc, :domains, fn domains -> [domain | domains] end)
-      end)
-
+  def handle_event("validate_upload", _params, socket) do
     {:noreply, socket}
   end
 
-  defp validate_domain(name) do
-    if Regex.match?(~r/^[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z0-9][-a-zA-Z0-9.]*$/, name) do
-      :ok
+  def handle_event("clear_import_results", _params, socket) do
+    {:noreply, assign(socket, :import_results, nil)}
+  end
+
+  def handle_event("import", %{"import" => %{"domains" => domains_text}}, socket) do
+    run_import(domains_text, socket)
+  end
+
+  def handle_event("import_file", _params, socket) do
+    text =
+      consume_uploaded_entries(socket, :domains_file, fn %{path: path}, _entry ->
+        {:ok, File.read!(path)}
+      end)
+      |> List.first()
+
+    if text do
+      run_import(text, socket)
     else
-      {:error, "invalid domain format"}
+      {:noreply, put_flash(socket, :error, "No file selected")}
     end
   end
 
-  defp domain_type(name) do
-    parts = String.split(name, ".")
+  defp run_import(text, socket) do
+    results = Domains.bulk_import(text)
 
-    if length(parts) > 2 do
-      :subdomain
-    else
-      :domain
-    end
+    socket =
+      Enum.reduce(results.added, socket, fn name, acc ->
+        case Domains.find_domain_by_name(name) do
+          nil ->
+            acc
+
+          domain ->
+            domain = Domains.get_domain_with_preloads!(domain.id)
+            update(acc, :domains, fn domains -> [domain | domains] end)
+        end
+      end)
+
+    {:noreply, assign(socket, :import_results, results)}
   end
 
   defp editor?(nil), do: false
