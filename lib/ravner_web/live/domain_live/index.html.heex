@@ -507,6 +507,7 @@
                           <button
                             phx-click="open_lifecycle_menu"
                             phx-value-id={sub.id}
+                            phx-stop
                             class={[
                               "w-1.5 h-1.5 rounded-full transition-transform hover:scale-150 cursor-pointer",
                               lifecycle_color(sub.lifecycle_state)
@@ -524,6 +525,7 @@
                                   phx-click="set_lifecycle"
                                   phx-value-id={sub.id}
                                   phx-value-state={state}
+                                  phx-stop
                                   class={[
                                     "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors",
                                     sub.lifecycle_state == state && "font-medium"
