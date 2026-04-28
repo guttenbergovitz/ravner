@@ -3,6 +3,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   alias Ravner.Domains
   alias Ravner.Domains.Domain
+  alias Ravner.Scans
 
   @impl true
   def mount(_params, _session, socket) do
@@ -12,6 +13,10 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:lifecycle_menu_open, nil)
      |> assign(:importing, false)
      |> assign(:suggestions, [])
+     |> assign(:selection_mode, false)
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:include_subdomains, false)
+     |> assign(:bulk_action, nil)
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -42,6 +47,11 @@ defmodule RavnerWeb.DomainLive.Index do
     lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
     page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
 
+    # Clear selection when filters change
+    prev_search = socket.assigns[:search] || ""
+    prev_lifecycle = socket.assigns[:lifecycle_filter]
+    filters_changed = search != prev_search || lifecycle != prev_lifecycle
+
     result = Domains.list_domains_filtered(search: search, lifecycle: lifecycle, page: page)
 
     socket
@@ -53,6 +63,9 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:total_pages, result.total_pages)
     |> assign(:search, search)
     |> assign(:lifecycle_filter, lifecycle)
+    |> then(fn s ->
+      if filters_changed, do: assign(s, :selected_ids, MapSet.new()), else: s
+    end)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -82,6 +95,8 @@ defmodule RavnerWeb.DomainLive.Index do
   rescue
     _ -> nil
   end
+
+  # ── Search & suggestions ────────────────────────────────────────────────────
 
   @impl true
   def handle_event("search", %{"search" => query}, socket) do
@@ -117,11 +132,81 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
+  def handle_event("clear_filters", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/domains")}
+  end
+
   def handle_event("paginate", %{"page" => page_str}, socket) do
     page = page_str |> Integer.parse() |> elem(0)
     params = build_params(socket, page: page)
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
+
+  # ── Selection mode ──────────────────────────────────────────────────────────
+
+  def handle_event("enter_selection_mode", _params, socket) do
+    {:noreply, assign(socket, :selection_mode, true)}
+  end
+
+  def handle_event("exit_selection_mode", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:selection_mode, false)
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:include_subdomains, false)
+     |> assign(:bulk_action, nil)}
+  end
+
+  def handle_event("toggle_select", %{"id" => id}, socket) do
+    selected = socket.assigns.selected_ids
+
+    new_selected =
+      if MapSet.member?(selected, id) do
+        MapSet.delete(selected, id)
+      else
+        MapSet.put(selected, id)
+      end
+
+    {:noreply, assign(socket, :selected_ids, new_selected)}
+  end
+
+  def handle_event("select_all_matching", _params, socket) do
+    ids =
+      Domains.ids_matching_filters(
+        search: socket.assigns.search,
+        lifecycle: socket.assigns.lifecycle_filter
+      )
+      |> Enum.map(&to_string/1)
+
+    {:noreply, assign(socket, :selected_ids, MapSet.new(ids))}
+  end
+
+  def handle_event("select_visible", _params, socket) do
+    ids = socket.assigns.domains |> Enum.map(&to_string(&1.id))
+    {:noreply, assign(socket, :selected_ids, MapSet.new(ids))}
+  end
+
+  def handle_event("toggle_include_subdomains", _params, socket) do
+    {:noreply, assign(socket, :include_subdomains, !socket.assigns.include_subdomains)}
+  end
+
+  def handle_event("bulk_action_confirm", %{"action" => action}, socket) do
+    {:noreply, assign(socket, :bulk_action, String.to_existing_atom(action))}
+  end
+
+  def handle_event("bulk_action_cancel", _params, socket) do
+    {:noreply, assign(socket, :bulk_action, nil)}
+  end
+
+  def handle_event("bulk_action_execute", _params, socket) do
+    case socket.assigns.bulk_action do
+      :delete -> execute_bulk_delete(socket)
+      :scan -> execute_bulk_scan(socket)
+      _ -> {:noreply, socket}
+    end
+  end
+
+  # ── Domain CRUD ─────────────────────────────────────────────────────────────
 
   def handle_event("validate", %{"domain" => domain_params}, socket) do
     changeset =
@@ -175,16 +260,21 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("toggle_expand", %{"id" => id}, socket) do
-    expanded = socket.assigns.expanded_domains
+    # Ignore expand clicks when in selection mode — treat as toggle_select
+    if socket.assigns.selection_mode do
+      handle_event("toggle_select", %{"id" => id}, socket)
+    else
+      expanded = socket.assigns.expanded_domains
 
-    new_expanded =
-      if MapSet.member?(expanded, id) do
-        MapSet.delete(expanded, id)
-      else
-        MapSet.put(expanded, id)
-      end
+      new_expanded =
+        if MapSet.member?(expanded, id) do
+          MapSet.delete(expanded, id)
+        else
+          MapSet.put(expanded, id)
+        end
 
-    {:noreply, assign(socket, :expanded_domains, new_expanded)}
+      {:noreply, assign(socket, :expanded_domains, new_expanded)}
+    end
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
@@ -202,9 +292,7 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains")}
   end
 
-  def handle_event("clear_filters", _params, socket) do
-    {:noreply, push_patch(socket, to: ~p"/domains")}
-  end
+  # ── Import ──────────────────────────────────────────────────────────────────
 
   def handle_event("validate_upload", _params, socket) do
     {:noreply, socket}
@@ -232,6 +320,67 @@ defmodule RavnerWeb.DomainLive.Index do
 
       run_import(text || "", assign(socket, :importing, true))
     end
+  end
+
+  # ── Private helpers ─────────────────────────────────────────────────────────
+
+  defp execute_bulk_delete(socket) do
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+    else
+      ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
+      {:ok, count} = Domains.bulk_delete(ids)
+
+      params = build_params(socket)
+
+      {:noreply,
+       socket
+       |> assign(:selection_mode, false)
+       |> assign(:selected_ids, MapSet.new())
+       |> assign(:include_subdomains, false)
+       |> assign(:bulk_action, nil)
+       |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
+       |> push_patch(to: ~p"/domains?#{params}")}
+    end
+  end
+
+  defp execute_bulk_scan(socket) do
+    ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
+    include_subdomains = socket.assigns.include_subdomains
+
+    domains = Enum.map(ids, &Domains.get_domain_with_preloads!/1)
+
+    scan_targets =
+      if include_subdomains do
+        domains ++ Enum.flat_map(domains, & &1.subdomains)
+      else
+        domains
+      end
+
+    Task.async_stream(
+      scan_targets,
+      fn domain ->
+        Scans.run_dnsx_scan(domain.id)
+        Scans.run_httpx_scan(domain.id)
+        Scans.run_rdap_scan(domain.id)
+        Scans.run_subdomain_scan(domain.id)
+      end,
+      ordered: false,
+      timeout: :infinity
+    )
+    |> Stream.run()
+
+    count = length(scan_targets)
+    params = build_params(socket)
+
+    {:noreply,
+     socket
+     |> assign(:selection_mode, false)
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:include_subdomains, false)
+     |> assign(:bulk_action, nil)
+     |> put_flash(:info, "Scanned #{count} domain#{if count != 1, do: "s", else: ""}")
+     |> push_patch(to: ~p"/domains?#{params}")}
   end
 
   defp run_import(text, socket) do

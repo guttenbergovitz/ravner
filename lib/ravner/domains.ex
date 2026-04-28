@@ -26,6 +26,40 @@ defmodule Ravner.Domains do
     - `:lifecycle` - lifecycle_state atom or nil for all
     - `:page`      - 1-based page number (default 1)
   """
+  def ids_matching_filters(opts \\ []) do
+    search = Keyword.get(opts, :search, "")
+    lifecycle = Keyword.get(opts, :lifecycle, nil)
+
+    Domain
+    |> where(type: :domain)
+    |> then(fn q ->
+      if search && search != "" do
+        pattern = "%#{search}%"
+        where(q, [d], ilike(d.name, ^pattern))
+      else
+        q
+      end
+    end)
+    |> then(fn q ->
+      if lifecycle && lifecycle != "" && lifecycle != :all do
+        where(q, [d], d.lifecycle_state == ^lifecycle)
+      else
+        q
+      end
+    end)
+    |> select([d], d.id)
+    |> Repo.all()
+  end
+
+  def bulk_delete(ids) when is_list(ids) do
+    {count, _} =
+      Domain
+      |> where([d], d.id in ^ids)
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
   def list_domains_filtered(opts \\ []) do
     search = Keyword.get(opts, :search, "")
     lifecycle = Keyword.get(opts, :lifecycle, nil)
