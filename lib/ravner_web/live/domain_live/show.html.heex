@@ -1,15 +1,44 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <div class="max-w-6xl mx-auto px-6 py-8">
     <div class="mb-8">
-      <.link navigate={~p"/domains"} class="text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors mb-4 inline-flex items-center gap-1">
-        <.icon name="hero-arrow-left" class="w-3 h-3" />
-        Back to domains
-      </.link>
+      <%!-- Breadcrumb — for subdomains shows parent chain, for root domains simple back link --%>
+      <%= if @domain.parent_domain do %>
+        <nav class="flex items-center gap-1 text-xs font-light text-neutral-500 mb-4">
+          <.link
+            navigate={~p"/domains"}
+            class="hover:text-neutral-900 transition-colors"
+          >
+            Domains
+          </.link>
+          <.icon name="hero-chevron-right" class="w-3 h-3" />
+          <.link
+            navigate={~p"/domains/#{@domain.parent_domain.id}"}
+            class="hover:text-neutral-900 transition-colors"
+          >
+            {@domain.parent_domain.name}
+          </.link>
+          <.icon name="hero-chevron-right" class="w-3 h-3" />
+          <span class="text-neutral-900">{@domain.name}</span>
+        </nav>
+      <% else %>
+        <.link
+          navigate={~p"/domains"}
+          class="text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors mb-4 inline-flex items-center gap-1"
+        >
+          <.icon name="hero-arrow-left" class="w-3 h-3" /> Back to domains
+        </.link>
+      <% end %>
 
       <div class="flex items-center gap-3 mt-4">
-        <div class={["w-3 h-3 rounded-full", lifecycle_color(@domain.lifecycle_state)]} title={@domain.lifecycle_state}></div>
+        <div
+          class={["w-3 h-3 rounded-full", lifecycle_color(@domain.lifecycle_state)]}
+          title={@domain.lifecycle_state}
+        >
+        </div>
         <h1 class="text-2xl font-light tracking-tight">{@domain.name}</h1>
-        <span class="text-xs font-light text-neutral-400 uppercase tracking-wide">{@domain.type}</span>
+        <span class="text-xs font-light text-neutral-400 uppercase tracking-wide">
+          {@domain.type}
+        </span>
       </div>
     </div>
 
@@ -19,32 +48,122 @@
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Details</h2>
           <div class="grid grid-cols-2 gap-6 text-sm">
             <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">URL</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                URL
+              </span>
               <span :if={@domain.url} class="font-light">{@domain.url}</span>
               <span :if={!@domain.url} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Lifecycle</span>
-              <span class="font-light uppercase tracking-wide">{@domain.lifecycle_state}</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                Status
+              </span>
+              <%= case @domain_class do %>
+                <% {:ok, _} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-green-700 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>200 OK
+                  </span>
+                <% {:external_redirect, target} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-yellow-700 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0"></span>
+                    EXT → {target}
+                  </span>
+                <% {:redirect, target} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-yellow-600 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0"></span>
+                    Redirect → {target}
+                  </span>
+                <% {:client_error, code} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-orange-700 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span>
+                    {code} Client error
+                  </span>
+                <% {:server_error, code} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-red-700 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                    {code} Server error
+                  </span>
+                <% {:other, code} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-neutral-500 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0"></span>
+                    HTTP {code}
+                  </span>
+                <% {:scan_error, _} -> %>
+                  <span class="inline-flex items-center gap-1.5 text-red-600 font-light">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                    Scan error
+                  </span>
+                <% {:not_scanned, _} -> %>
+                  <span class="text-neutral-400 font-light">not scanned</span>
+              <% end %>
             </div>
             <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">PM</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                Lifecycle
+              </span>
+              <div class="relative" id="lifecycle-menu-show">
+                <button
+                  phx-click="toggle_lifecycle_menu"
+                  class="inline-flex items-center gap-2 font-light hover:opacity-70 transition-opacity cursor-pointer"
+                >
+                  <span class={["w-2 h-2 rounded-full shrink-0", lifecycle_color(@domain.lifecycle_state)]}></span>
+                  <span class="capitalize">{@domain.lifecycle_state |> Atom.to_string() |> String.replace("_", " ")}</span>
+                  <.icon name="hero-chevron-down" class="w-3 h-3 text-neutral-400" />
+                </button>
+                <%= if @lifecycle_menu_open do %>
+                  <div
+                    class="absolute left-0 top-7 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[170px]"
+                    phx-click-away="close_lifecycle_menu"
+                  >
+                    <%= for {state, label, color} <- lifecycle_options() do %>
+                      <button
+                        phx-click="set_lifecycle"
+                        phx-value-state={state}
+                        class={[
+                          "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors",
+                          @domain.lifecycle_state == state && "font-medium"
+                        ]}
+                      >
+                        <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                        {label}
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+            <div>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                PM
+              </span>
               <span :if={@domain.pm_email} class="font-light">{@domain.pm_email}</span>
               <span :if={!@domain.pm_email} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">PO</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                PO
+              </span>
               <span :if={@domain.po_email} class="font-light">{@domain.po_email}</span>
               <span :if={!@domain.po_email} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Delivery</span>
-              <span :if={@domain.delivery_organization} class="font-light">{@domain.delivery_organization}</span>
-              <span :if={!@domain.delivery_organization} class="text-neutral-400 font-light">—</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                Delivery
+              </span>
+              <span :if={@domain.delivery_organization} class="font-light">
+                {@domain.delivery_organization}
+              </span>
+              <span :if={!@domain.delivery_organization} class="text-neutral-400 font-light">
+                —
+              </span>
             </div>
             <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Repository</span>
-              <span :if={@domain.repository_url} class="font-light">{@domain.repository_url}</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                Repository
+              </span>
+              <span :if={@domain.repository_url} class="font-light">
+                {@domain.repository_url}
+              </span>
               <span :if={!@domain.repository_url} class="text-neutral-400 font-light">—</span>
             </div>
           </div>
@@ -55,40 +174,72 @@
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">HTTP</h2>
             <div class="grid grid-cols-2 gap-6 text-sm">
               <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Status</span>
-                <span :if={@domain.domain_metadata.http_status} class="font-light">{@domain.domain_metadata.http_status}</span>
-                <span :if={!@domain.domain_metadata.http_status} class="text-neutral-400 font-light">—</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Status
+                </span>
+                <span :if={@domain.domain_metadata.http_status} class="font-light">
+                  {@domain.domain_metadata.http_status}
+                </span>
+                <span
+                  :if={!@domain.domain_metadata.http_status}
+                  class="text-neutral-400 font-light"
+                >
+                  —
+                </span>
               </div>
               <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Server</span>
-                <span :if={@domain.domain_metadata.server_header} class="font-light">{@domain.domain_metadata.server_header}</span>
-                <span :if={!@domain.domain_metadata.server_header} class="text-neutral-400 font-light">—</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Server
+                </span>
+                <span :if={@domain.domain_metadata.server_header} class="font-light">
+                  {@domain.domain_metadata.server_header}
+                </span>
+                <span
+                  :if={!@domain.domain_metadata.server_header}
+                  class="text-neutral-400 font-light"
+                >
+                  —
+                </span>
               </div>
             </div>
 
             <div class="mt-4">
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">Final URL</span>
-              <span :if={@domain.domain_metadata.final_url} class="text-sm font-light break-all">{@domain.domain_metadata.final_url}</span>
-              <span :if={!@domain.domain_metadata.final_url} class="text-sm font-light text-neutral-400">—</span>
+              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
+                Final URL
+              </span>
+              <span :if={@domain.domain_metadata.final_url} class="text-sm font-light break-all">
+                {@domain.domain_metadata.final_url}
+              </span>
+              <span
+                :if={!@domain.domain_metadata.final_url}
+                class="text-sm font-light text-neutral-400"
+              >
+                —
+              </span>
             </div>
 
             <%= if @domain.domain_metadata.redirect_chain && @domain.domain_metadata.redirect_chain != [] do %>
               <div class="mt-6 border-t border-neutral-100 pt-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">Redirect Chain</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
+                  Redirect Chain
+                </span>
                 <div class="space-y-2">
                   <%= for hop <- @domain.domain_metadata.redirect_chain do %>
                     <div class="flex items-center gap-3 text-sm font-light">
                       <span class={[
                         "px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide",
-                        if(hop.status >= 300 && hop.status < 400,
+                        if(hop["status"] >= 300 && hop["status"] < 400,
                           do: "text-yellow-700 bg-yellow-50 border border-yellow-200",
                           else: "text-neutral-500 bg-neutral-50 border border-neutral-200"
                         )
                       ]}>
-                        {hop.status}
+                        {hop["status"]}
                       </span>
-                      <span class="truncate">{hop.url}</span>
-                      <.icon name="hero-arrow-turn-right-up" class="w-3 h-3 shrink-0 text-neutral-400" />
+                      <span class="truncate">{hop["url"]}</span>
+                      <.icon
+                        name="hero-arrow-turn-right-up"
+                        class="w-3 h-3 shrink-0 text-neutral-400"
+                      />
                     </div>
                   <% end %>
                 </div>
@@ -97,7 +248,9 @@
 
             <%= if @domain.domain_metadata.security_headers && @domain.domain_metadata.security_headers != %{} do %>
               <div class="mt-6 border-t border-neutral-100 pt-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">Security Headers</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
+                  Security Headers
+                </span>
                 <div class="space-y-1">
                   <%= for {key, val} <- @domain.domain_metadata.security_headers do %>
                     <div class="flex justify-between text-xs font-light">
@@ -110,12 +263,12 @@
               </div>
             <% end %>
 
-            <div :if={@domain.domain_metadata.scanned_at} class="mt-4 pt-4 border-t border-neutral-100">
+            <div
+              :if={@domain.domain_metadata.http_scanned_at}
+              class="mt-4 pt-4 border-t border-neutral-100"
+            >
               <span class="text-[10px] font-light text-neutral-400">
-                Scanned {DateTime.to_iso8601(@domain.domain_metadata.scanned_at)}
-                <%= if @domain.domain_metadata.scan_duration_ms do %>
-                  · {@domain.domain_metadata.scan_duration_ms}ms
-                <% end %>
+                Scanned {DateTime.to_iso8601(@domain.domain_metadata.http_scanned_at)}
               </span>
             </div>
           </div>
@@ -124,12 +277,17 @@
         <%= if @domain.domain_metadata && (@domain.domain_metadata.ip_v4 != [] || @domain.domain_metadata.ip_v6 != [] || @domain.domain_metadata.dns_records != []) do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">DNS</h2>
+
             <%= if @domain.domain_metadata.ip_v4 != [] do %>
               <div class="mb-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">IPv4</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
+                  IPv4
+                </span>
                 <div class="flex flex-wrap gap-2">
                   <%= for ip <- @domain.domain_metadata.ip_v4 do %>
-                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">{ip}</span>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">
+                      {ip}
+                    </span>
                   <% end %>
                 </div>
               </div>
@@ -137,10 +295,14 @@
 
             <%= if @domain.domain_metadata.ip_v6 != [] do %>
               <div class="mb-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">IPv6</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
+                  IPv6
+                </span>
                 <div class="flex flex-wrap gap-2">
                   <%= for ip <- @domain.domain_metadata.ip_v6 do %>
-                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">{ip}</span>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">
+                      {ip}
+                    </span>
                   <% end %>
                 </div>
               </div>
@@ -148,14 +310,82 @@
 
             <%= if @domain.domain_metadata.dns_records != [] do %>
               <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">Records</span>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
+                  Records
+                </span>
                 <div class="divide-y divide-neutral-100">
                   <%= for rec <- @domain.domain_metadata.dns_records do %>
                     <div class="py-2 flex items-center gap-3 text-sm font-light">
-                      <span class="px-1.5 py-0.5 border border-neutral-200 text-[10px] font-normal uppercase w-12 text-center">{rec.type}</span>
-                      <span class="truncate">{rec.value}</span>
-                      <span class="ml-auto text-[10px] text-neutral-400">TTL:{rec.ttl}</span>
+                      <span class="px-1.5 py-0.5 border border-neutral-200 text-[10px] font-normal uppercase w-12 text-center">
+                        {rec["type"]}
+                      </span>
+                      <span class="truncate">{rec["value"]}</span>
+                      <span class="ml-auto text-[10px] text-neutral-400">TTL:{rec["ttl"]}</span>
                     </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <div
+              :if={@domain.domain_metadata.dns_scanned_at}
+              class="mt-4 pt-4 border-t border-neutral-100"
+            >
+              <span class="text-[10px] font-light text-neutral-400">
+                Scanned {DateTime.to_iso8601(@domain.domain_metadata.dns_scanned_at)}
+              </span>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @domain.domain_metadata && (@domain.domain_metadata.hosting_platform || @domain.domain_metadata.asn_org || (@domain.domain_metadata.tech_stack && @domain.domain_metadata.tech_stack != [])) do %>
+          <div class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
+            <div class="grid grid-cols-2 gap-6 text-sm">
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Hosting
+                </span>
+                <span :if={@domain.domain_metadata.hosting_platform} class="font-light">
+                  {@domain.domain_metadata.hosting_platform}
+                </span>
+                <span
+                  :if={!@domain.domain_metadata.hosting_platform}
+                  class="text-neutral-400 font-light"
+                >
+                  —
+                </span>
+              </div>
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  ASN
+                </span>
+                <%= if @domain.domain_metadata.asn_org || @domain.domain_metadata.asn_number do %>
+                  <span class="font-light">
+                    <%= if @domain.domain_metadata.asn_number do %>
+                      <span class="font-mono text-xs text-neutral-500">
+                        {@domain.domain_metadata.asn_number}
+                      </span>
+                      {" "}
+                    <% end %>
+                    {@domain.domain_metadata.asn_org}
+                  </span>
+                <% else %>
+                  <span class="text-neutral-400 font-light">—</span>
+                <% end %>
+              </div>
+            </div>
+
+            <%= if @domain.domain_metadata.tech_stack && @domain.domain_metadata.tech_stack != [] do %>
+              <div class="mt-4">
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
+                  Tech Stack
+                </span>
+                <div class="flex flex-wrap gap-2">
+                  <%= for tech <- @domain.domain_metadata.tech_stack do %>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-light">
+                      {tech}
+                    </span>
                   <% end %>
                 </div>
               </div>
@@ -163,59 +393,196 @@
           </div>
         <% end %>
 
-        <div class="card-line">
-          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
-          <div class="grid grid-cols-2 gap-6 text-sm">
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Hosting</span>
-              <span :if={@domain.hosting_platform} class="font-light">{@domain.hosting_platform}</span>
-              <span :if={!@domain.hosting_platform} class="text-neutral-400 font-light">—</span>
+        <%= if @domain.domain_metadata && (@domain.domain_metadata.registrar || @domain.domain_metadata.registration_date || @domain.domain_metadata.expiration_date || @domain.domain_metadata.registrant_org) do %>
+          <div class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Registration</h2>
+            <div class="grid grid-cols-2 gap-6 text-sm">
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Registrar
+                </span>
+                <span :if={@domain.domain_metadata.registrar} class="font-light">
+                  {@domain.domain_metadata.registrar}
+                </span>
+                <span :if={!@domain.domain_metadata.registrar} class="text-neutral-400 font-light">
+                  —
+                </span>
+              </div>
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Registrant
+                </span>
+                <span :if={@domain.domain_metadata.registrant_org} class="font-light">
+                  {@domain.domain_metadata.registrant_org}
+                </span>
+                <span
+                  :if={!@domain.domain_metadata.registrant_org}
+                  class="text-neutral-400 font-light"
+                >
+                  —
+                </span>
+              </div>
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Registered
+                </span>
+                <span
+                  :if={@domain.domain_metadata.registration_date}
+                  class="font-light font-mono text-xs"
+                >
+                  {DateTime.to_iso8601(@domain.domain_metadata.registration_date)}
+                </span>
+                <span
+                  :if={!@domain.domain_metadata.registration_date}
+                  class="text-neutral-400 font-light"
+                >
+                  —
+                </span>
+              </div>
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Expires
+                </span>
+                <span
+                  :if={@domain.domain_metadata.expiration_date}
+                  class="font-light font-mono text-xs"
+                >
+                  {DateTime.to_iso8601(@domain.domain_metadata.expiration_date)}
+                </span>
+                <span
+                  :if={!@domain.domain_metadata.expiration_date}
+                  class="text-neutral-400 font-light"
+                >
+                  —
+                </span>
+              </div>
             </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">Registrar</span>
-              <span :if={@domain.domain_registrar} class="font-light">{@domain.domain_registrar}</span>
-              <span :if={!@domain.domain_registrar} class="text-neutral-400 font-light">—</span>
+
+            <div
+              :if={@domain.domain_metadata.rdap_scanned_at}
+              class="mt-4 pt-4 border-t border-neutral-100"
+            >
+              <span class="text-[10px] font-light text-neutral-400">
+                Scanned {DateTime.to_iso8601(@domain.domain_metadata.rdap_scanned_at)}
+              </span>
             </div>
           </div>
-        </div>
+        <% end %>
       </div>
 
       <div class="space-y-6">
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Discovery</h2>
           <div class="space-y-3">
+            <%!-- Run all scans — primary action, visually differentiated --%>
             <button
-              phx-click="scan_subdomains"
+              phx-click="scan_all"
               disabled={@scanning}
-              class={["btn-line w-full justify-center text-xs", @scanning && "opacity-50 cursor-not-allowed"]}
+              class={[
+                "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
+                @scanning &&
+                  "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
+                !@scanning &&
+                  "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
+              ]}
             >
-              <.icon name="hero-magnifying-glass" class="w-4 h-4" />
-              Discover subdomains
+              <%= if @scanning do %>
+                <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                </span>
+                Scanning<span class="animate-pulse">…</span>
+              <% else %>
+                <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run all scans
+              <% end %>
             </button>
 
-            <button
-              phx-click="scan_httpx"
-              disabled={@scanning}
-              class={["btn-line w-full justify-center text-xs", @scanning && "opacity-50 cursor-not-allowed"]}
-            >
-              <.icon name="hero-globe-alt" class="w-4 h-4" />
-              HTTP scan
-            </button>
+            <div class="border-t border-neutral-100 pt-3 space-y-3">
+              <button
+                phx-click="scan_subdomains"
+                disabled={@scanning}
+                class={[
+                  "btn-line w-full justify-center text-xs",
+                  @scanning && "opacity-50 cursor-not-allowed"
+                ]}
+              >
+                <.icon name="hero-magnifying-glass" class="w-4 h-4" /> Discover subdomains
+              </button>
+              <%= if @domain.domain_metadata && @domain.domain_metadata.subdomains_scanned_at do %>
+                <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                  Last: {Calendar.strftime(
+                    @domain.domain_metadata.subdomains_scanned_at,
+                    "%Y-%m-%d %H:%M"
+                  )}
+                </p>
+              <% end %>
 
-            <button
-              phx-click="scan_dnsx"
-              disabled={@scanning}
-              class={["btn-line w-full justify-center text-xs", @scanning && "opacity-50 cursor-not-allowed"]}
-            >
-              <.icon name="hero-server-stack" class="w-4 h-4" />
-              DNS scan
-            </button>
+              <button
+                phx-click="scan_httpx"
+                disabled={@scanning}
+                class={[
+                  "btn-line w-full justify-center text-xs",
+                  @scanning && "opacity-50 cursor-not-allowed"
+                ]}
+              >
+                <.icon name="hero-globe-alt" class="w-4 h-4" /> HTTP scan
+              </button>
+              <%= if @domain.domain_metadata && @domain.domain_metadata.http_scanned_at do %>
+                <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                  Last: {Calendar.strftime(
+                    @domain.domain_metadata.http_scanned_at,
+                    "%Y-%m-%d %H:%M"
+                  )}
+                </p>
+              <% end %>
+
+              <button
+                phx-click="scan_dnsx"
+                disabled={@scanning}
+                class={[
+                  "btn-line w-full justify-center text-xs",
+                  @scanning && "opacity-50 cursor-not-allowed"
+                ]}
+              >
+                <.icon name="hero-server-stack" class="w-4 h-4" /> DNS scan
+              </button>
+              <%= if @domain.domain_metadata && @domain.domain_metadata.dns_scanned_at do %>
+                <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                  Last: {Calendar.strftime(
+                    @domain.domain_metadata.dns_scanned_at,
+                    "%Y-%m-%d %H:%M"
+                  )}
+                </p>
+              <% end %>
+
+              <button
+                phx-click="scan_rdap"
+                disabled={@scanning}
+                class={[
+                  "btn-line w-full justify-center text-xs",
+                  @scanning && "opacity-50 cursor-not-allowed"
+                ]}
+              >
+                <.icon name="hero-identification" class="w-4 h-4" /> Registration scan
+              </button>
+              <%= if @domain.domain_metadata && @domain.domain_metadata.rdap_scanned_at do %>
+                <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                  Last: {Calendar.strftime(
+                    @domain.domain_metadata.rdap_scanned_at,
+                    "%Y-%m-%d %H:%M"
+                  )}
+                </p>
+              <% end %>
+            </div>
+            <%!-- end individual scans div --%>
           </div>
 
           <%= if @scan_results do %>
             <div class="mt-4 pt-4 border-t border-neutral-100 text-sm font-light">
-              <p class="text-neutral-500">Found: <span class="text-neutral-900">{@scan_results.found}</span></p>
-              <p class="text-neutral-500">New: <span class="text-neutral-900">{@scan_results.new}</span></p>
+              <p class="text-neutral-500">
+                Found: <span class="text-neutral-900">{@scan_results.found}</span>
+              </p>
+              <p class="text-neutral-500">
+                New: <span class="text-neutral-900">{@scan_results.new}</span>
+              </p>
             </div>
           <% end %>
         </div>
@@ -227,7 +594,9 @@
           <% else %>
             <div class="flex flex-wrap gap-2">
               <%= for tag <- @domain.domain_tags do %>
-                <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide"><%= tag.tag %></span>
+                <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide">
+                  {tag.tag}
+                </span>
               <% end %>
             </div>
           <% end %>
@@ -238,10 +607,22 @@
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Subdomains</h2>
             <div class="space-y-2">
               <%= for sub <- @domain.subdomains do %>
-                <.link navigate={~p"/domains/#{sub.id}"} class="text-sm font-light hover:underline block">
+                <.link
+                  navigate={~p"/domains/#{sub.id}"}
+                  class="text-sm font-light hover:underline block"
+                >
                   {sub.name}
                 </.link>
               <% end %>
+            </div>
+
+            <div
+              :if={@domain.domain_metadata && @domain.domain_metadata.subdomains_scanned_at}
+              class="mt-4 pt-4 border-t border-neutral-100"
+            >
+              <span class="text-[10px] font-light text-neutral-400">
+                Scanned {DateTime.to_iso8601(@domain.domain_metadata.subdomains_scanned_at)}
+              </span>
             </div>
           </div>
         <% end %>
@@ -249,7 +630,10 @@
         <%= if @domain.parent_domain do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Parent Domain</h2>
-            <.link navigate={~p"/domains/#{@domain.parent_domain.id}"} class="text-sm font-light hover:underline">
+            <.link
+              navigate={~p"/domains/#{@domain.parent_domain.id}"}
+              class="text-sm font-light hover:underline"
+            >
               {@domain.parent_domain.name}
             </.link>
           </div>

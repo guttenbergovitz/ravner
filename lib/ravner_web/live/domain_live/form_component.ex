@@ -1,7 +1,6 @@
 defmodule RavnerWeb.DomainLive.FormComponent do
   use RavnerWeb, :live_component
 
-  alias Phoenix.LiveView.JS
   alias Ravner.Domains
 
   @impl true
