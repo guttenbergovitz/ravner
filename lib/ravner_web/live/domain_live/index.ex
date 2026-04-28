@@ -450,6 +450,7 @@ defmodule RavnerWeb.DomainLive.Index do
   defp lifecycle_color(:active), do: "bg-green-500"
   defp lifecycle_color(:placeholder), do: "bg-violet-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
+  defp lifecycle_color(:redirect), do: "bg-orange-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
   defp lifecycle_color(:abandoned), do: "bg-neutral-400"
@@ -461,7 +462,8 @@ defmodule RavnerWeb.DomainLive.Index do
       {:active, "Active", "bg-green-500"},
       {:placeholder, "Placeholder", "bg-violet-500"},
       {:under_review, "Under review", "bg-yellow-500"},
-      {:deprecated, "Deprecated", "bg-orange-500"},
+      {:redirect, "Redirect", "bg-orange-500"},
+      {:deprecated, "Deprecated", "bg-orange-400"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
       {:abandoned, "Abandoned", "bg-neutral-400"}
     ]

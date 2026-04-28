@@ -13,6 +13,7 @@ defmodule Ravner.Domains.Domain do
         :active,
         :placeholder,
         :under_review,
+        :redirect,
         :deprecated,
         :decommissioned,
         :abandoned
