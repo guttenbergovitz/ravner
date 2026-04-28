@@ -11,6 +11,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:expanded_domains, MapSet.new())
      |> assign(:lifecycle_menu_open, nil)
      |> assign(:importing, false)
+     |> assign(:suggestions, [])
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -85,7 +86,30 @@ defmodule RavnerWeb.DomainLive.Index do
   @impl true
   def handle_event("search", %{"search" => query}, socket) do
     params = build_params(socket, search: query, page: 1)
-    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+    {:noreply, socket |> assign(:suggestions, []) |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("suggest", %{"search" => query}, socket) do
+    suggestions = Domains.suggest_domains(query)
+    {:noreply, assign(socket, :suggestions, suggestions)}
+  end
+
+  def handle_event("suggest", _params, socket) do
+    {:noreply, assign(socket, :suggestions, [])}
+  end
+
+  def handle_event("dismiss_suggestions", _params, socket) do
+    {:noreply, assign(socket, :suggestions, [])}
+  end
+
+  def handle_event("clear_search", _params, socket) do
+    params = build_params(socket, search: "", page: 1)
+    {:noreply, socket |> assign(:suggestions, []) |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("select_suggestion", %{"name" => name}, socket) do
+    params = build_params(socket, search: name, page: 1)
+    {:noreply, socket |> assign(:suggestions, []) |> push_patch(to: ~p"/domains?#{params}")}
   end
 
   def handle_event("filter_lifecycle", %{"lifecycle" => lc}, socket) do

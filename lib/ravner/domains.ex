@@ -72,6 +72,22 @@ defmodule Ravner.Domains do
     }
   end
 
+  def suggest_domains(query, limit \\ 5)
+
+  def suggest_domains(query, limit) when is_binary(query) and byte_size(query) > 0 do
+    pattern = "%#{query}%"
+
+    Domain
+    |> where(type: :domain)
+    |> where([d], ilike(d.name, ^pattern))
+    |> order_by([d], asc: d.name)
+    |> limit(^limit)
+    |> select([d], d.name)
+    |> Repo.all()
+  end
+
+  def suggest_domains(_query, _limit), do: []
+
   def list_domains_with_preloads do
     Domain
     |> where(type: :domain)
