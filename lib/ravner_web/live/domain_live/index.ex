@@ -532,7 +532,7 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   # Returns true if final_url points to a different host than the domain name.
-  defp external_redirect?(domain_name, final_url) when is_binary(final_url) do
+  def external_redirect?(domain_name, final_url) when is_binary(final_url) do
     final_host =
       final_url
       |> URI.parse()
@@ -544,7 +544,7 @@ defmodule RavnerWeb.DomainLive.Index do
     final_host != "" && final_host != own_host
   end
 
-  defp external_redirect?(_domain_name, _final_url), do: false
+  def external_redirect?(_domain_name, _final_url), do: false
 
   defp page_range(_current, total) when total <= 7 do
     Enum.to_list(1..total)
