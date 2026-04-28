@@ -1,0 +1,86 @@
+<h2>Bulk operations — jak zaznaczać domeny?</h2>
+<p class="subtitle">Trzy podejścia do UX selekcji na listingu</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Checkbox po lewej każdego wiersza</h3>
+      <p>Klasyczny wzorzec — checkbox pojawia się zawsze (lub on hover). Osobny przycisk "Select all on page" i "Select all matching filters". Bulk actions bar pojawia się na górze gdy cokolwiek zaznaczone.</p>
+      <div style="margin-top:12px; border:1px solid #e5e5e5; font-size:12px; font-family:monospace; line-height:1.8; padding:10px; background:#fafafa;">
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #eee;">
+          <span style="width:14px;height:14px;border:1px solid #999;display:inline-block;flex-shrink:0"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+          <span>example.com</span>
+          <span style="color:#999;margin-left:auto">3 subdomains</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #eee;background:#f0f0f0;">
+          <span style="width:14px;height:14px;border:1px solid #333;background:#333;display:inline-block;flex-shrink:0;position:relative">
+            <span style="color:white;font-size:10px;position:absolute;top:-1px;left:2px">✓</span>
+          </span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span>
+          <span>another.io</span>
+          <span style="color:#999;margin-left:auto">1 subdomain</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+          <span style="width:14px;height:14px;border:1px solid #999;display:inline-block;flex-shrink:0"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span>
+          <span>old-brand.de</span>
+          <span style="color:#999;margin-left:auto">–</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Checkbox tylko w trybie selekcji</h3>
+      <p>Normalnie checkboxy nie widać. Przycisk "Select" w headerze wchodzi w tryb selekcji — wtedy pojawiają się checkboxy i action bar. Wyjście przez "Cancel" lub wykonanie akcji.</p>
+      <div style="margin-top:12px; border:1px solid #e5e5e5; font-size:12px; font-family:monospace; line-height:1.8; padding:10px; background:#fafafa;">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#000;color:#fff;margin-bottom:8px;font-size:11px;">
+          <span>2 selected</span>
+          <span style="margin-left:auto;cursor:pointer;border:1px solid #555;padding:2px 8px">Scan all</span>
+          <span style="cursor:pointer;border:1px solid #ef4444;color:#ef4444;padding:2px 8px">Delete</span>
+          <span style="cursor:pointer;color:#999;margin-left:8px">✕ Cancel</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #eee;background:#f0f0f0;">
+          <span style="width:14px;height:14px;border:1px solid #333;background:#333;display:inline-block;flex-shrink:0;position:relative">
+            <span style="color:white;font-size:10px;position:absolute;top:-1px;left:2px">✓</span>
+          </span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+          <span>example.com</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+          <span style="width:14px;height:14px;border:1px solid #999;display:inline-block;flex-shrink:0"></span>
+          <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span>
+          <span>another.io</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Klik na wiersz = zaznaczenie (toggle)</h3>
+      <p>Brak checkboxów. Klik na wiersz zaznacza go (highlight). Gdy cokolwiek zaznaczone — action bar pojawia się na dole (sticky). Toggle expand działa tylko gdy nie jesteś w selekcji.</p>
+      <div style="margin-top:12px; border:1px solid #e5e5e5; font-size:12px; font-family:monospace; line-height:1.8; padding:10px; background:#fafafa;">
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #eee;background:#e8f0fe;border-left:3px solid #1d4ed8;padding-left:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>
+          <span style="font-weight:500">example.com</span>
+          <span style="color:#1d4ed8;margin-left:auto;font-size:10px">SELECTED</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span>
+          <span>another.io</span>
+        </div>
+        <div style="margin-top:8px;background:#000;color:#fff;padding:6px 10px;font-size:11px;display:flex;gap:10px;">
+          <span>1 selected</span>
+          <span style="margin-left:auto">Scan</span>
+          <span style="color:#ef4444">Delete</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
