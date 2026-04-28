@@ -3,6 +3,8 @@ defmodule Ravner.Scans do
   The Scans context.
   """
 
+  require Logger
+
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Repo
@@ -97,24 +99,27 @@ defmodule Ravner.Scans do
     if is_nil(api_key) || api_key == "" do
       {:error, "No Chaos API key"}
     else
-      case Req.get("#{@chaos_api}/#{domain_name}/subdomains",
-             headers: [authorization: api_key],
+      case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
+             headers: %{"authorization" => api_key},
              retry: false,
              receive_timeout: 30_000
            ) do
-        {:ok, %{status: 200, body: body}} ->
-          subdomains =
-            body
-            |> String.split("\n")
-            |> Enum.map(&String.trim/1)
-            |> Enum.reject(&(&1 == ""))
-
+        {:ok, %{status: 200, body: %{"subdomains" => subdomains}}} when is_list(subdomains) ->
           {:ok, subdomains}
 
-        {:ok, %{status: status}} ->
+        {:ok, %{status: 200, body: body}} ->
+          Logger.warning("Chaos API unexpected body for #{domain_name}: #{inspect(body)}")
+          {:error, "Chaos API returned unexpected response format"}
+
+        {:ok, %{status: 404}} ->
+          {:error, "Chaos has no data for #{domain_name}"}
+
+        {:ok, %{status: status, body: body}} ->
+          Logger.warning("Chaos API error #{status} for #{domain_name}: #{inspect(body)}")
           {:error, "Chaos API returned #{status}"}
 
         {:error, exception} ->
+          Logger.warning("Chaos request failed for #{domain_name}: #{inspect(exception)}")
           {:error, "Chaos request failed: #{inspect(exception)}"}
       end
     end
@@ -126,31 +131,41 @@ defmodule Ravner.Scans do
            receive_timeout: 30_000
          ) do
       {:ok, %{status: 200, body: body}} ->
-        lines =
-          body
-          |> String.split("\n")
-          |> Enum.map(&String.trim/1)
-          |> Enum.reject(&(&1 == ""))
+        if is_binary(body) and
+             (body =~ "API count exceeded" or body =~ "error check your" or
+                body =~ "invalid host") do
+          Logger.warning(
+            "HackerTarget quota/error for #{domain_name}: #{String.slice(body, 0, 100)}"
+          )
 
-        subdomains =
-          lines
-          |> Enum.map(fn line ->
-            case String.split(line, ",") do
-              [subdomain, _ip] -> subdomain
-              _ -> line
-            end
-          end)
-          |> Enum.map(fn full ->
-            if String.ends_with?(full, ".#{domain_name}") do
-              String.replace_suffix(full, ".#{domain_name}", "")
-            else
-              full
-            end
-          end)
-          |> Enum.reject(&(&1 == ""))
-          |> Enum.uniq()
+          {:error, "HackerTarget: #{String.trim(body)}"}
+        else
+          lines =
+            body
+            |> String.split("\n")
+            |> Enum.map(&String.trim/1)
+            |> Enum.reject(&(&1 == ""))
 
-        {:ok, subdomains}
+          subdomains =
+            lines
+            |> Enum.map(fn line ->
+              case String.split(line, ",") do
+                [subdomain, _ip] -> subdomain
+                _ -> line
+              end
+            end)
+            |> Enum.map(fn full ->
+              if String.ends_with?(full, ".#{domain_name}") do
+                String.replace_suffix(full, ".#{domain_name}", "")
+              else
+                full
+              end
+            end)
+            |> Enum.reject(&(&1 == ""))
+            |> Enum.uniq()
+
+          {:ok, subdomains}
+        end
 
       {:ok, %{status: status}} ->
         {:error, "HackerTarget returned #{status}"}
@@ -191,8 +206,19 @@ defmodule Ravner.Scans do
                type: :subdomain,
                parent_domain_id: parent_id
              }) do
-          {:ok, subdomain} -> {:new, subdomain}
-          {:error, _changeset} -> {:skip, nil}
+          {:ok, subdomain} ->
+            {:new, subdomain}
+
+          {:error, changeset} ->
+            errors =
+              Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+                Enum.reduce(opts, msg, fn {key, value}, acc ->
+                  String.replace(acc, "%{#{key}}", to_string(value))
+                end)
+              end)
+
+            Logger.warning("Skipping invalid subdomain #{inspect(name)}: #{inspect(errors)}")
+            {:skip, nil}
         end
 
       existing ->

@@ -26,7 +26,10 @@
         </div>
 
         <%= for invite <- @invites do %>
-          <div id={"invite-#{invite.id}"} class="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-6 py-4 hover:bg-neutral-50 transition-colors">
+          <div
+            id={"invite-#{invite.id}"}
+            class="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-6 py-4 hover:bg-neutral-50 transition-colors"
+          >
             <div>
               <div class="text-sm font-normal">{invite.email}</div>
               <%= if invite.name do %>
@@ -60,8 +63,19 @@
     <div class="fixed inset-x-0 top-20 bottom-8 mx-auto max-w-lg bg-white border border-neutral-200 z-50 p-8 overflow-y-auto">
       <h2 class="text-xl font-light tracking-tight mb-6">Send invite</h2>
 
-      <.form for={@form} id="invite-form" phx-change="validate" phx-submit="send_invite" class="space-y-6">
-        <.input field={@form[:email]} type="email" label="Email" placeholder="colleague@example.com" />
+      <.form
+        for={@form}
+        id="invite-form"
+        phx-change="validate"
+        phx-submit="send_invite"
+        class="space-y-6"
+      >
+        <.input
+          field={@form[:email]}
+          type="email"
+          label="Email"
+          placeholder="colleague@example.com"
+        />
         <.input field={@form[:name]} type="text" label="Name (optional)" placeholder="Full name" />
         <.input
           field={@form[:role]}
