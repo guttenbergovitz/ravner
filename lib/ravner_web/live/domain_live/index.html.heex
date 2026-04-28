@@ -136,8 +136,8 @@
       <% end %>
     </div>
 
-    <%!-- Toolbar: search + lifecycle filters --%>
-    <div class="flex flex-col sm:flex-row gap-3 mb-4">
+    <%!-- Toolbar: search + IP on one row --%>
+    <div class="flex flex-col sm:flex-row gap-3 mb-3">
       <%!-- Search with autocomplete --%>
       <div class="relative flex-1" id="search-wrapper">
         <form phx-submit="search" phx-change="suggest" id="search-form">
@@ -175,41 +175,61 @@
         <% end %>
       </div>
 
-      <div class="flex items-center gap-1 flex-wrap">
+      <%!-- IP filter --%>
+      <div class="relative w-full sm:w-48">
+        <.icon
+          name="hero-globe-europe-africa"
+          class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none"
+        />
+        <form phx-change="filter_ip" id="ip-filter-form">
+          <input
+            type="text"
+            name="ip"
+            value={@ip_filter}
+            placeholder="Filter by IP…"
+            phx-debounce="300"
+            autocomplete="off"
+            class="w-full pl-9 pr-4 py-2 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+          />
+        </form>
+      </div>
+    </div>
+
+    <%!-- Toolbar row 2: lifecycle filters --%>
+    <div class="flex items-center gap-1 flex-wrap mb-4">
+      <button
+        phx-click="filter_lifecycle"
+        phx-value-lifecycle=""
+        class={[
+          "px-3 py-1.5 text-xs font-light border transition-colors",
+          if(is_nil(@lifecycle_filter),
+            do: "border-neutral-900 text-neutral-900 bg-neutral-50",
+            else: "border-neutral-200 text-neutral-500 hover:border-neutral-400"
+          )
+        ]}
+      >
+        All
+      </button>
+      <%= for {state, label, color} <- lifecycle_options() do %>
         <button
           phx-click="filter_lifecycle"
-          phx-value-lifecycle=""
+          phx-value-lifecycle={state}
           class={[
-            "px-3 py-1.5 text-xs font-light border transition-colors",
-            if(is_nil(@lifecycle_filter),
+            "px-3 py-1.5 text-xs font-light border transition-colors flex items-center gap-1.5",
+            if(@lifecycle_filter == state,
               do: "border-neutral-900 text-neutral-900 bg-neutral-50",
               else: "border-neutral-200 text-neutral-500 hover:border-neutral-400"
             )
           ]}
         >
-          All
+          <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+          {label}
         </button>
-        <%= for {state, label, color} <- lifecycle_options() do %>
-          <button
-            phx-click="filter_lifecycle"
-            phx-value-lifecycle={state}
-            class={[
-              "px-3 py-1.5 text-xs font-light border transition-colors flex items-center gap-1.5",
-              if(@lifecycle_filter == state,
-                do: "border-neutral-900 text-neutral-900 bg-neutral-50",
-                else: "border-neutral-200 text-neutral-500 hover:border-neutral-400"
-              )
-            ]}
-          >
-            <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
-            {label}
-          </button>
-        <% end %>
-      </div>
+      <% end %>
     </div>
 
     <%!-- Applied filters chips --%>
-    <%= if @search != "" || not is_nil(@lifecycle_filter) do %>
+    <%= if @search != "" || @ip_filter != "" || not is_nil(@lifecycle_filter) do %>
       <div class="flex items-center gap-2 mb-5 flex-wrap">
         <span class="text-xs font-light text-neutral-400 uppercase tracking-wide">Filters:</span>
         <%= if @search != "" do %>
@@ -220,6 +240,19 @@
               phx-click="clear_search"
               class="ml-0.5 text-neutral-400 hover:text-neutral-700 transition-colors"
               aria-label="Remove search filter"
+            >
+              <.icon name="hero-x-mark" class="w-3.5 h-3.5" />
+            </button>
+          </span>
+        <% end %>
+        <%= if @ip_filter != "" do %>
+          <span class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 border border-neutral-300 text-xs font-light text-neutral-700">
+            <.icon name="hero-globe-europe-africa" class="w-3 h-3 text-neutral-400" />
+            {@ip_filter}
+            <button
+              phx-click="clear_ip"
+              class="ml-0.5 text-neutral-400 hover:text-neutral-700 transition-colors"
+              aria-label="Remove IP filter"
             >
               <.icon name="hero-x-mark" class="w-3.5 h-3.5" />
             </button>
@@ -436,6 +469,17 @@
                       >
                         {List.first(meta.ip_v4)}
                       </span>
+                      <button
+                        type="button"
+                        id={"copy-ip-#{domain.id}"}
+                        phx-hook=".Copy"
+                        data-copy={List.first(meta.ip_v4)}
+                        data-domain={domain.name}
+                        class="hidden md:inline-flex text-neutral-400 hover:text-neutral-700 transition-colors"
+                        title="Copy IP"
+                      >
+                        <.icon name="hero-clipboard" class="w-3 h-3" />
+                      </button>
                     <% end %>
 
                     <%!-- Tech stack (first 2) --%>
@@ -557,9 +601,13 @@
                                 <span class="max-w-[100px] truncate">{target}</span>
                               </span>
                             <% sub_meta.http_status == 200 -> %>
-                              <span class="hidden sm:inline text-xs text-green-600 font-normal">200 OK</span>
+                              <span class="hidden sm:inline text-xs text-green-600 font-normal">
+                                200 OK
+                              </span>
                             <% sub_meta.http_status && sub_meta.http_status > 0 -> %>
-                              <span class="hidden sm:inline text-xs text-red-500 font-normal">{sub_meta.http_status}</span>
+                              <span class="hidden sm:inline text-xs text-red-500 font-normal">
+                                {sub_meta.http_status}
+                              </span>
                             <% true -> %>
                               <span></span>
                           <% end %>
@@ -571,6 +619,17 @@
                             >
                               {List.first(sub_meta.ip_v4)}
                             </span>
+                            <button
+                              type="button"
+                              id={"copy-ip-sub-#{sub.id}"}
+                              phx-hook=".Copy"
+                              data-copy={List.first(sub_meta.ip_v4)}
+                              data-domain={sub.name}
+                              class="hidden md:inline-flex text-neutral-400 hover:text-neutral-700 transition-colors"
+                              title="Copy IP"
+                            >
+                              <.icon name="hero-clipboard" class="w-3 h-3" />
+                            </button>
                           <% end %>
 
                           <%= if sub_meta.tech_stack && sub_meta.tech_stack != [] do %>
@@ -1005,4 +1064,32 @@
       <% end %>
     </div>
   <% end %>
+  <script :type={Phoenix.LiveView.ColocatedHook} name=".Copy">
+    export default {
+      mounted() {
+        this.el.addEventListener("click", e => {
+          e.preventDefault();
+          e.stopPropagation();
+          const text = this.el.getAttribute("data-copy");
+          if (!text) return;
+          const domain = this.el.getAttribute("data-domain") || "";
+          const notify = () => this.pushEvent("ip_copied", { ip: text, domain: domain });
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(notify).catch(() => {});
+          } else {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand("copy"); } catch (_) {}
+            document.body.removeChild(ta);
+            if (ok) notify();
+          }
+        });
+      }
+    }
+  </script>
 </Layouts.app>

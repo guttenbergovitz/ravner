@@ -29,8 +29,6 @@ defmodule RavnerWeb.Router do
   scope "/", RavnerWeb do
     pipe_through(:browser)
 
-    get("/", PageController, :home)
-
     get("/setup", SetupController, :new)
     post("/setup", SetupController, :create)
   end
@@ -78,6 +76,7 @@ defmodule RavnerWeb.Router do
     pipe_through([:browser, :require_authenticated_user])
 
     live_session :authenticated, on_mount: [{RavnerWeb.UserAuth, :ensure_authenticated}] do
+      live("/", DashboardLive.Index, :index)
       live("/domains", DomainLive.Index, :index)
       live("/domains/new", DomainLive.Index, :new)
       live("/domains/import", DomainLive.Index, :import)

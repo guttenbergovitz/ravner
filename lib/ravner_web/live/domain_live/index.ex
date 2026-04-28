@@ -19,6 +19,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
+     |> assign(:ip_filter, "")
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -46,24 +47,48 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp apply_action(socket, :index, params) do
     search = Map.get(params, "search", "")
+    ip = Map.get(params, "ip", "")
     lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
     page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
 
     # Clear selection when filters change
     prev_search = socket.assigns[:search] || ""
+    prev_ip = socket.assigns[:ip_filter] || ""
     prev_lifecycle = socket.assigns[:lifecycle_filter]
-    filters_changed = search != prev_search || lifecycle != prev_lifecycle
+    filters_changed = search != prev_search || ip != prev_ip || lifecycle != prev_lifecycle
 
-    result = Domains.list_domains_filtered(search: search, lifecycle: lifecycle, page: page)
+    result =
+      Domains.list_domains_filtered(search: search, ip: ip, lifecycle: lifecycle, page: page)
+
+    # Re-apply subdomain metadata preload for any currently expanded domains,
+    # since list_domains_filtered/1 only preloads :subdomains (without their
+    # :domain_metadata). Without this, a push_patch after e.g. set_lifecycle
+    # would leave subdomain.domain_metadata as %Ecto.Association.NotLoaded{},
+    # crashing the template when the accordion is open.
+    expanded = socket.assigns[:expanded_domains] || MapSet.new()
+
+    domains =
+      if MapSet.size(expanded) > 0 do
+        Enum.map(result.domains, fn d ->
+          if MapSet.member?(expanded, "#{d.id}") do
+            Domains.preload_subdomain_metadata(d)
+          else
+            d
+          end
+        end)
+      else
+        result.domains
+      end
 
     socket
     |> assign(:page_title, "Domains")
     |> assign(:domain, nil)
-    |> assign(:domains, result.domains)
+    |> assign(:domains, domains)
     |> assign(:total, result.total)
     |> assign(:page, result.page)
     |> assign(:total_pages, result.total_pages)
     |> assign(:search, search)
+    |> assign(:ip_filter, ip)
     |> assign(:lifecycle_filter, lifecycle)
     |> then(fn s ->
       if filters_changed, do: assign(s, :selected_ids, MapSet.new()), else: s
@@ -147,6 +172,16 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains")}
   end
 
+  def handle_event("filter_ip", %{"ip" => ip}, socket) do
+    params = build_params(socket, ip: ip, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("clear_ip", _params, socket) do
+    params = build_params(socket, ip: "")
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
   def handle_event("paginate", %{"page" => page_str}, socket) do
     page = page_str |> Integer.parse() |> elem(0)
     params = build_params(socket, page: page)
@@ -167,7 +202,8 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
-     |> assign(:scanning_ids, MapSet.new())}
+     |> assign(:scanning_ids, MapSet.new())
+     |> assign(:ip_filter, "")}
   end
 
   def handle_event("toggle_select", %{"id" => id}, socket) do
@@ -187,6 +223,7 @@ defmodule RavnerWeb.DomainLive.Index do
     ids =
       Domains.ids_matching_filters(
         search: socket.assigns.search,
+        ip: socket.assigns.ip_filter,
         lifecycle: socket.assigns.lifecycle_filter
       )
       |> Enum.map(&to_string/1)
@@ -212,7 +249,8 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:bulk_action, {:lifecycle, String.to_existing_atom(state)})
      |> assign(:bulk_lifecycle_menu_open, false)
-     |> assign(:scanning_ids, MapSet.new())}
+     |> assign(:scanning_ids, MapSet.new())
+     |> assign(:ip_filter, "")}
   end
 
   def handle_event("bulk_action_cancel", _params, socket) do
@@ -335,9 +373,12 @@ defmodule RavnerWeb.DomainLive.Index do
 
           if domain && domain.subdomains != [] do
             updated_domain = Domains.preload_subdomain_metadata(domain)
-            updated_domains = Enum.map(socket.assigns.domains, fn d ->
-              if d.id == domain_id, do: updated_domain, else: d
-            end)
+
+            updated_domains =
+              Enum.map(socket.assigns.domains, fn d ->
+                if d.id == domain_id, do: updated_domain, else: d
+              end)
+
             assign(socket, :domains, updated_domains)
           else
             socket
@@ -363,6 +404,16 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("close_modal", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/domains")}
+  end
+
+  def handle_event("ip_copied", %{"ip" => ip, "domain" => domain}, socket) do
+    msg =
+      case domain do
+        "" -> "IP #{ip} copied to clipboard"
+        d -> "IP #{ip} of #{d} copied to clipboard"
+      end
+
+    {:noreply, put_flash(socket, :info, msg)}
   end
 
   # ── Import ──────────────────────────────────────────────────────────────────
@@ -426,6 +477,7 @@ defmodule RavnerWeb.DomainLive.Index do
        |> assign(:bulk_action, nil)
        |> assign(:bulk_lifecycle_menu_open, false)
        |> assign(:scanning_ids, MapSet.new())
+       |> assign(:ip_filter, "")
        |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
        |> push_patch(to: ~p"/domains?#{params}")}
     end
@@ -468,6 +520,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
+     |> assign(:ip_filter, "")
      |> put_flash(:info, "Scanned #{count} domain#{if count != 1, do: "s", else: ""}")
      |> push_patch(to: ~p"/domains?#{params}")}
   end
@@ -492,6 +545,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
+     |> assign(:ip_filter, "")
      |> put_flash(:info, "Set #{count} domain#{if count != 1, do: "s", else: ""} to #{label}")
      |> push_patch(to: ~p"/domains?#{params}")}
   end
@@ -507,6 +561,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp build_params(socket, overrides \\ []) do
     search = Keyword.get(overrides, :search, socket.assigns[:search] || "")
+    ip = Keyword.get(overrides, :ip, socket.assigns[:ip_filter] || "")
     page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
 
     lifecycle =
@@ -516,7 +571,7 @@ defmodule RavnerWeb.DomainLive.Index do
         str -> str
       end
 
-    [search: search, lifecycle: lifecycle, page: page]
+    [search: search, ip: ip, lifecycle: lifecycle, page: page]
     |> Enum.reject(fn {_, v} -> v == "" or v == 1 end)
   end
 
