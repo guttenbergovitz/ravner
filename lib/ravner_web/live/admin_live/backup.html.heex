@@ -1,0 +1,101 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-light tracking-tight mb-8">Backup & Restore</h1>
+
+    <%!-- Export --%>
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-2">Export business data</h2>
+      <p class="text-sm font-light text-neutral-500 mb-6">
+        Creates a PostgreSQL custom-format dump containing domains, tags, metadata,
+        and API keys. Authentication tables (users, tokens) are excluded.
+      </p>
+
+      <button phx-click="export" class="btn-line text-xs flex items-center gap-1.5">
+        <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Download .dump
+      </button>
+    </div>
+
+    <%!-- Import --%>
+    <div class="border border-neutral-200 p-6">
+      <h2 class="text-lg font-light tracking-tight mb-2">Restore from backup</h2>
+      <p class="text-sm font-light text-neutral-500 mb-6">
+        Upload a <code class="text-xs bg-neutral-100 px-1">.dump</code>
+        file to restore business data. Existing data will be overwritten.
+      </p>
+
+      <%= if !@restore_preview do %>
+        <form phx-change="validate" phx-submit="upload" id="restore-form">
+          <div class="flex items-center gap-3">
+            <.live_file_input
+              upload={@uploads.backup_file}
+              class="text-sm font-light file:mr-3 file:py-1.5 file:px-3 file:border file:border-neutral-200 file:bg-transparent file:text-xs file:font-light hover:file:bg-neutral-50"
+            />
+            <button type="submit" class="btn-line-filled text-xs">
+              Upload & Preview
+            </button>
+          </div>
+        </form>
+      <% else %>
+        <div class="border border-neutral-200 mb-4">
+          <div class="px-4 py-3 border-b border-neutral-100 bg-neutral-50">
+            <span class="text-xs font-normal uppercase tracking-wider text-neutral-500">
+              Backup contents ({length(@restore_preview)} objects)
+            </span>
+          </div>
+          <div class="max-h-64 overflow-y-auto p-4 space-y-1 text-xs font-mono text-neutral-600">
+            <%= for line <- Enum.take(@restore_preview, 100) do %>
+              <div>{line}</div>
+            <% end %>
+            <%= if length(@restore_preview) > 100 do %>
+              <div class="text-neutral-400">… and {length(@restore_preview) - 100} more</div>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            phx-click="confirm_restore"
+            data-confirm="This will OVERWRITE all business data. Are you sure?"
+            disabled={@restoring}
+            class="btn-line-filled text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <%= if @restoring do %>
+              <.icon name="hero-arrow-path" class="w-3.5 h-3.5 motion-safe:animate-spin" />
+              Restoring…
+            <% else %>
+              <.icon name="hero-arrow-up-tray" class="w-3.5 h-3.5" /> Confirm restore
+            <% end %>
+          </button>
+          <button
+            phx-click="cancel_restore"
+            disabled={@restoring}
+            class="btn-line text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <script :type={Phoenix.LiveView.ColocatedHook} name=".BackupDownload">
+    export default {
+      mounted() {
+        this.handleEvent("download_backup", ({ filename, content }) => {
+          const blob = new Blob(
+            [Uint8Array.from(atob(content), c => c.charCodeAt(0))],
+            { type: "application/octet-stream" }
+          );
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+  </script>
+</Layouts.app>

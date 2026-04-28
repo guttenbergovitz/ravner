@@ -98,6 +98,7 @@ defmodule RavnerWeb.Router do
       live("/invites", AdminLive.Invites, :index)
       live("/invites/new", AdminLive.Invites, :new)
       live("/settings", AdminLive.Settings, :index)
+      live("/settings/backup", AdminLive.Backup, :index)
     end
   end
 
