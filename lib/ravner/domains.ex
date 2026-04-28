@@ -62,6 +62,7 @@ defmodule Ravner.Domains do
 
   def list_domains_filtered(opts \\ []) do
     search = Keyword.get(opts, :search, "")
+    ip = Keyword.get(opts, :ip, "")
     lifecycle = Keyword.get(opts, :lifecycle, nil)
     page = max(Keyword.get(opts, :page, 1), 1)
 
@@ -79,6 +80,20 @@ defmodule Ravner.Domains do
       |> then(fn q ->
         if lifecycle && lifecycle != "" && lifecycle != :all do
           where(q, [d], d.lifecycle_state == ^lifecycle)
+        else
+          q
+        end
+      end)
+      |> then(fn q ->
+        if ip && ip != "" do
+          # Filter by IP in domain_metadata
+          pattern = "%#{ip}%"
+
+          join(q, :inner, [d], m in assoc(d, :domain_metadata))
+          |> where(
+            [_d, m],
+            fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
+          )
         else
           q
         end
@@ -397,10 +412,11 @@ defmodule Ravner.Domains do
     #  since httpx follows redirects and stores the final status)
     metadata_with_name =
       Repo.all(
-        from m in DomainMetadata,
+        from(m in DomainMetadata,
           join: d in Domain,
           on: m.domain_id == d.id and d.type == :domain,
           select: %{name: d.name, http_status: m.http_status, final_url: m.final_url}
+        )
       )
 
     {http_200, http_3xx, http_4xx_5xx} =
@@ -408,10 +424,17 @@ defmodule Ravner.Domains do
       |> Enum.map(fn row ->
         cond do
           row.http_status >= 200 and row.http_status < 400 and
-            external_redirect_dashboard?(row.name, row.final_url) -> {:redirect, 1}
-          row.http_status >= 200 and row.http_status < 300 -> {:ok, 1}
-          row.http_status == 0 or row.http_status >= 400 -> {:error, 1}
-          true -> {:ok, 0}
+              external_redirect_dashboard?(row.name, row.final_url) ->
+            {:redirect, 1}
+
+          row.http_status >= 200 and row.http_status < 300 ->
+            {:ok, 1}
+
+          row.http_status == 0 or row.http_status >= 400 ->
+            {:error, 1}
+
+          true ->
+            {:ok, 0}
         end
       end)
       |> Enum.reduce({0, 0, 0}, fn
@@ -526,5 +549,6 @@ defmodule Ravner.Domains do
     own_host = String.replace_leading(domain_name, "www.", "")
     final_host != "" && final_host != own_host
   end
+
   defp external_redirect_dashboard?(_name, _url), do: false
 end
