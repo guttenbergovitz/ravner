@@ -404,6 +404,16 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains")}
   end
 
+  def handle_event("ip_copied", %{"ip" => ip, "domain" => domain}, socket) do
+    msg =
+      case domain do
+        "" -> "IP #{ip} copied to clipboard"
+        d -> "IP #{ip} of #{d} copied to clipboard"
+      end
+
+    {:noreply, put_flash(socket, :info, msg)}
+  end
+
   # ── Import ──────────────────────────────────────────────────────────────────
 
   def handle_event("validate_upload", _params, socket) do
