@@ -41,7 +41,11 @@ defmodule RavnerWeb.CoreComponents do
           <p :if={@title} class="font-normal mb-1">{@title}</p>
           <p class="text-neutral-600">{msg}</p>
         </div>
-        <button type="button" class="shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors" aria-label={gettext("close")}>
+        <button
+          type="button"
+          class="shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors"
+          aria-label={gettext("close")}
+        >
           <.icon name="hero-x-mark" class="w-4 h-4" />
         </button>
       </div>
@@ -167,7 +171,12 @@ defmodule RavnerWeb.CoreComponents do
     ~H"""
     <div class="mb-4">
       <label>
-        <span :if={@label} class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">{@label}</span>
+        <span
+          :if={@label}
+          class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2"
+        >
+          {@label}
+        </span>
         <select
           id={@id}
           name={@name}
@@ -191,7 +200,12 @@ defmodule RavnerWeb.CoreComponents do
     ~H"""
     <div class="mb-4">
       <label>
-        <span :if={@label} class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">{@label}</span>
+        <span
+          :if={@label}
+          class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2"
+        >
+          {@label}
+        </span>
         <textarea
           id={@id}
           name={@name}
@@ -211,7 +225,12 @@ defmodule RavnerWeb.CoreComponents do
     ~H"""
     <div class="mb-4">
       <label>
-        <span :if={@label} class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">{@label}</span>
+        <span
+          :if={@label}
+          class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2"
+        >
+          {@label}
+        </span>
         <input
           type={@type}
           name={@name}
@@ -247,7 +266,10 @@ defmodule RavnerWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-6 mb-6 border-b border-neutral-100"]}>
+    <header class={[
+      @actions != [] && "flex items-center justify-between gap-6",
+      "pb-6 mb-6 border-b border-neutral-100"
+    ]}>
       <div>
         <h1 class="text-xl font-light tracking-tight">
           {render_slot(@inner_block)}
@@ -330,7 +352,9 @@ defmodule RavnerWeb.CoreComponents do
     <ul class="list-line">
       <li :for={item <- @item} class="list-line-item">
         <div>
-          <div class="text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">{item.title}</div>
+          <div class="text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+            {item.title}
+          </div>
           <div class="text-sm font-light">{render_slot(item)}</div>
         </div>
       </li>

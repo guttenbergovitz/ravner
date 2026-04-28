@@ -5,11 +5,19 @@
       Manage your account email address and password settings
     </p>
 
-    <.form :let={f} for={@email_changeset} action={~p"/users/settings"} id="update_email" class="space-y-6">
+    <.form
+      :let={f}
+      for={@email_changeset}
+      action={~p"/users/settings"}
+      id="update_email"
+      class="space-y-6"
+    >
       <input type="hidden" name="action" value="update_email" />
 
       <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Email</label>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">
+          Email
+        </label>
         <input
           type="email"
           name={f[:email].name}
@@ -22,7 +30,11 @@
         />
       </div>
 
-      <button type="submit" phx-disable-with="Changing..." class="btn-line-filled w-full justify-center">
+      <button
+        type="submit"
+        phx-disable-with="Changing..."
+        class="btn-line-filled w-full justify-center"
+      >
         Change Email
       </button>
     </.form>
@@ -33,11 +45,19 @@
       <div class="h-px flex-1 bg-neutral-200"></div>
     </div>
 
-    <.form :let={f} for={@password_changeset} action={~p"/users/settings"} id="update_password" class="space-y-6">
+    <.form
+      :let={f}
+      for={@password_changeset}
+      action={~p"/users/settings"}
+      id="update_password"
+      class="space-y-6"
+    >
       <input type="hidden" name="action" value="update_password" />
 
       <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">New password</label>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">
+          New password
+        </label>
         <input
           type="password"
           name={f[:password].name}
@@ -50,7 +70,9 @@
       </div>
 
       <div>
-        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">Confirm new password</label>
+        <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2">
+          Confirm new password
+        </label>
         <input
           type="password"
           name={f[:password_confirmation].name}
@@ -62,7 +84,11 @@
         />
       </div>
 
-      <button type="submit" phx-disable-with="Changing..." class="btn-line-filled w-full justify-center">
+      <button
+        type="submit"
+        phx-disable-with="Changing..."
+        class="btn-line-filled w-full justify-center"
+      >
         Save Password
       </button>
     </.form>

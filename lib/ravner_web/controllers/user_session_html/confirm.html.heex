@@ -40,7 +40,11 @@
     >
       <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
       <%= if @current_scope do %>
-        <button type="submit" phx-disable-with="Logging in..." class="btn-line-filled w-full justify-center">
+        <button
+          type="submit"
+          phx-disable-with="Logging in..."
+          class="btn-line-filled w-full justify-center"
+        >
           Log in
         </button>
       <% else %>
@@ -53,7 +57,11 @@
         >
           Keep me logged in on this device
         </button>
-        <button type="submit" phx-disable-with="Logging in..." class="btn-line w-full justify-center">
+        <button
+          type="submit"
+          phx-disable-with="Logging in..."
+          class="btn-line w-full justify-center"
+        >
           Log me in only this time
         </button>
       <% end %>
