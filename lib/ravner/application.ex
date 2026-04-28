@@ -7,6 +7,11 @@ defmodule Ravner.Application do
 
   @impl true
   def start(_type, _args) do
+    # Load .env file in development
+    if Application.get_env(:ravner, :env) == :dev do
+      Dotenvy.source([".env", ".env.dev", ".env.#{Mix.env()}"])
+    end
+
     children = [
       RavnerWeb.Telemetry,
       Ravner.Repo,
