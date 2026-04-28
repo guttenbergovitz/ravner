@@ -9,7 +9,8 @@ defmodule RavnerWeb.DomainLive.Index do
     {:ok,
      socket
      |> assign(:domains, Domains.list_domains_with_preloads())
-     |> assign(:expanded_domains, MapSet.new())}
+     |> assign(:expanded_domains, MapSet.new())
+     |> assign(:lifecycle_menu_open, nil)}
   end
 
   @impl true
@@ -65,6 +66,31 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
+  def handle_event("open_lifecycle_menu", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :lifecycle_menu_open, id)}
+  end
+
+  def handle_event("close_lifecycle_menu", _, socket) do
+    {:noreply, assign(socket, :lifecycle_menu_open, nil)}
+  end
+
+  def handle_event("set_lifecycle", %{"id" => id, "state" => state}, socket) do
+    domain = Domains.get_domain!(id)
+
+    case Domains.update_domain(domain, %{lifecycle_state: state}) do
+      {:ok, _} ->
+        domains = Domains.list_domains_with_preloads()
+
+        {:noreply,
+         socket
+         |> assign(:domains, domains)
+         |> assign(:lifecycle_menu_open, nil)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
+    end
+  end
+
   def handle_event("toggle_expand", %{"id" => id}, socket) do
     expanded = socket.assigns.expanded_domains
 
@@ -82,7 +108,8 @@ defmodule RavnerWeb.DomainLive.Index do
     domain = Domains.get_domain!(id)
     {:ok, _} = Domains.delete_domain(domain)
 
-    {:noreply, update(socket, :domains, fn domains -> Enum.reject(domains, &(&1.id == domain.id)) end)}
+    {:noreply,
+     update(socket, :domains, fn domains -> Enum.reject(domains, &(&1.id == domain.id)) end)}
   end
 
   def handle_event("import", %{"domains" => domains_text}, socket) do
@@ -150,4 +177,16 @@ defmodule RavnerWeb.DomainLive.Index do
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
   defp lifecycle_color(:abandoned), do: "bg-neutral-400"
   defp lifecycle_color(_), do: "bg-neutral-400"
+
+  defp lifecycle_options do
+    [
+      {:active, "Active", "bg-green-500"},
+      {:under_review, "Under review", "bg-yellow-500"},
+      {:deprecated, "Deprecated", "bg-orange-500"},
+      {:decommissioned, "Decommissioned", "bg-red-500"},
+      {:abandoned, "Abandoned", "bg-neutral-400"}
+    ]
+  end
 end
+
+  # This line intentionally left to trigger read - please ignore

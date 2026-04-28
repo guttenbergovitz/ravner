@@ -14,12 +14,10 @@
 
       <div class="flex items-center gap-3">
         <.link patch={~p"/domains/import"} class="btn-line text-xs">
-          <.icon name="hero-arrow-up-tray" class="w-4 h-4" />
-          Import
+          <.icon name="hero-arrow-up-tray" class="w-4 h-4" /> Import
         </.link>
         <.link patch={~p"/domains/new"} class="btn-line-filled text-xs">
-          <.icon name="hero-plus" class="w-4 h-4" />
-          Add domain
+          <.icon name="hero-plus" class="w-4 h-4" /> Add domain
         </.link>
       </div>
     </div>
@@ -27,8 +25,12 @@
     <%= if @domains == [] do %>
       <div class="text-center py-20 border border-neutral-200">
         <.icon name="hero-globe-alt" class="w-8 h-8 text-neutral-300 mx-auto mb-4" />
-        <h3 class="text-sm font-light tracking-wide uppercase text-neutral-500 mb-2">No domains yet</h3>
-        <p class="text-sm font-light text-neutral-400 mb-6">Add your first domain or import a list</p>
+        <h3 class="text-sm font-light tracking-wide uppercase text-neutral-500 mb-2">
+          No domains yet
+        </h3>
+        <p class="text-sm font-light text-neutral-400 mb-6">
+          Add your first domain or import a list
+        </p>
         <div class="flex items-center justify-center gap-3">
           <.link patch={~p"/domains/import"} class="btn-line text-xs">Import list</.link>
           <.link patch={~p"/domains/new"} class="btn-line-filled text-xs">Add domain</.link>
@@ -38,13 +40,52 @@
       <div class="border border-neutral-200 divide-y divide-neutral-100">
         <%= for domain <- @domains do %>
           <div id={"domain-#{domain.id}"}>
-            <div class="flex items-center justify-between py-4 px-6 hover:bg-neutral-50 transition-colors cursor-pointer"
-                 phx-click="toggle_expand"
-                 phx-value-id={domain.id}>
+            <div
+              class="flex items-center justify-between py-4 px-6 hover:bg-neutral-50 transition-colors cursor-pointer"
+              phx-click="toggle_expand"
+              phx-value-id={domain.id}
+            >
               <div class="flex items-center gap-4">
-                <div class={["w-2 h-2 rounded-full", lifecycle_color(domain.lifecycle_state)]} title={domain.lifecycle_state}></div>
+                <div class="relative" id={"lifecycle-menu-#{domain.id}"}>
+                  <button
+                    phx-click="open_lifecycle_menu"
+                    phx-value-id={domain.id}
+                    phx-stop
+                    class={[
+                      "w-2 h-2 rounded-full transition-transform hover:scale-150 cursor-pointer",
+                      lifecycle_color(domain.lifecycle_state)
+                    ]}
+                    title={domain.lifecycle_state}
+                  >
+                  </button>
+                  <%= if @lifecycle_menu_open == "#{domain.id}" do %>
+                    <div
+                      class="absolute left-0 top-5 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+                      phx-click-away="close_lifecycle_menu"
+                    >
+                      <%= for {state, label, color} <- lifecycle_options() do %>
+                        <button
+                          phx-click="set_lifecycle"
+                          phx-value-id={domain.id}
+                          phx-value-state={state}
+                          class={[
+                            "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors",
+                            domain.lifecycle_state == state && "font-medium"
+                          ]}
+                        >
+                          <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                          {label}
+                        </button>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
                 <div class="flex items-center gap-3">
-                  <.link navigate={~p"/domains/#{domain.id}"} class="text-sm font-normal hover:underline" phx-stop>
+                  <.link
+                    navigate={~p"/domains/#{domain.id}"}
+                    class="text-sm font-normal hover:underline"
+                    phx-stop
+                  >
                     {domain.name}
                   </.link>
                   <%= if domain.subdomains != [] do %>
@@ -56,12 +97,18 @@
               </div>
 
               <div class="flex items-center gap-6 text-xs font-light text-neutral-500">
-                <span :if={domain.hosting_platform} class="hidden sm:inline">{domain.hosting_platform}</span>
-                <span :if={domain.domain_registrar} class="hidden md:inline">{domain.domain_registrar}</span>
+                <span :if={domain.hosting_platform} class="hidden sm:inline">
+                  {domain.hosting_platform}
+                </span>
+                <span :if={domain.domain_registrar} class="hidden md:inline">
+                  {domain.domain_registrar}
+                </span>
 
                 <div class="flex items-center gap-2">
                   <%= for tag <- domain.domain_tags do %>
-                    <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide"><%= tag.tag %></span>
+                    <span class="px-2 py-0.5 border border-neutral-200 text-neutral-500 text-[10px] uppercase tracking-wide">
+                      {tag.tag}
+                    </span>
                   <% end %>
                 </div>
 
@@ -82,8 +129,43 @@
                 <%= for sub <- domain.subdomains do %>
                   <div class="flex items-center justify-between py-3 px-6 pl-12 hover:bg-neutral-100 transition-colors">
                     <div class="flex items-center gap-3">
-                      <div class={["w-1.5 h-1.5 rounded-full", lifecycle_color(sub.lifecycle_state)]}></div>
-                      <.link navigate={~p"/domains/#{sub.id}"} class="text-sm font-light hover:underline">
+                      <div class="relative" id={"lifecycle-menu-#{sub.id}"}>
+                        <button
+                          phx-click="open_lifecycle_menu"
+                          phx-value-id={sub.id}
+                          class={[
+                            "w-1.5 h-1.5 rounded-full transition-transform hover:scale-150 cursor-pointer",
+                            lifecycle_color(sub.lifecycle_state)
+                          ]}
+                          title={sub.lifecycle_state}
+                        >
+                        </button>
+                        <%= if @lifecycle_menu_open == "#{sub.id}" do %>
+                          <div
+                            class="absolute left-0 top-4 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+                            phx-click-away="close_lifecycle_menu"
+                          >
+                            <%= for {state, label, color} <- lifecycle_options() do %>
+                              <button
+                                phx-click="set_lifecycle"
+                                phx-value-id={sub.id}
+                                phx-value-state={state}
+                                class={[
+                                  "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors",
+                                  sub.lifecycle_state == state && "font-medium"
+                                ]}
+                              >
+                                <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                                {label}
+                              </button>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      </div>
+                      <.link
+                        navigate={~p"/domains/#{sub.id}"}
+                        class="text-sm font-light hover:underline"
+                      >
                         {sub.name}
                       </.link>
                     </div>
@@ -112,30 +194,45 @@
         <% :new -> %>
           <h2 class="text-xl font-light tracking-tight mb-6">Add Domain</h2>
 
-          <.form for={@form} phx-change="validate" phx-submit="save" id="domain-form" class="space-y-6">
+          <.form
+            for={@form}
+            phx-change="validate"
+            phx-submit="save"
+            id="domain-form"
+            class="space-y-6"
+          >
             <.input field={@form[:type]} type="hidden" value="domain" />
-            <.input field={@form[:name]} type="text" label="Domain name" placeholder="example.com" required />
+            <.input
+              field={@form[:name]}
+              type="text"
+              label="Domain name"
+              placeholder="example.com"
+              required
+            />
 
             <div class="flex items-center gap-3 pt-4">
-              <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">Add domain</button>
-              <.link patch={~p"/domains"} class="btn-line flex-1 justify-center text-xs">Cancel</.link>
+              <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">
+                Add domain
+              </button>
+              <.link patch={~p"/domains"} class="btn-line flex-1 justify-center text-xs">
+                Cancel
+              </.link>
             </div>
           </.form>
-
         <% :import -> %>
           <h2 class="text-xl font-light tracking-tight mb-2">Import Domains</h2>
           <p class="text-sm font-light text-neutral-500 mb-6">One domain per line</p>
 
           <%= if @import_results do %>
             <div class="mb-6 p-4 border border-neutral-200 bg-neutral-50 text-sm font-light">
-              <p>Total: <%= @import_results.total %></p>
-              <p class="text-green-700">Successful: <%= @import_results.successful %></p>
+              <p>Total: {@import_results.total}</p>
+              <p class="text-green-700">Successful: {@import_results.successful}</p>
               <%= if @import_results.failed != [] do %>
                 <div class="mt-2 text-red-700">
                   <p class="font-normal mb-1">Failed:</p>
                   <ul class="list-disc list-inside space-y-1">
                     <%= for {:error, line, reason} <- @import_results.failed do %>
-                      <li><%= line %>: <%= inspect(reason) %></li>
+                      <li>{line}: {inspect(reason)}</li>
                     <% end %>
                   </ul>
                 </div>
@@ -152,8 +249,12 @@
               required
             ></textarea>
             <div class="flex items-center gap-3">
-              <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">Import</button>
-              <.link patch={~p"/domains"} class="btn-line flex-1 justify-center text-xs">Cancel</.link>
+              <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">
+                Import
+              </button>
+              <.link patch={~p"/domains"} class="btn-line flex-1 justify-center text-xs">
+                Cancel
+              </.link>
             </div>
           </form>
       <% end %>

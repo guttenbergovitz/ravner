@@ -9,7 +9,7 @@ defmodule Ravner.Domains.Domain do
 
     field(:lifecycle_state, Ecto.Enum,
       values: [:active, :under_review, :deprecated, :decommissioned, :abandoned],
-      default: :active
+      default: :under_review
     )
 
     field(:pm_email, :string)
