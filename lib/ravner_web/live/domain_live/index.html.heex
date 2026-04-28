@@ -387,6 +387,15 @@
 
                   <%= if not @selection_mode do %>
                     <button
+                      phx-click="quick_scan"
+                      phx-value-id={domain.id}
+                      phx-stop
+                      class="text-neutral-400 hover:text-neutral-700 transition-colors"
+                      title="Quick scan"
+                    >
+                      <.icon name="hero-arrow-path" class="w-4 h-4" />
+                    </button>
+                    <button
                       phx-click="delete"
                       phx-value-id={domain.id}
                       data-confirm="Delete this domain?"
@@ -446,14 +455,24 @@
                         </.link>
                       </div>
                       <%= if not @selection_mode do %>
-                        <button
-                          phx-click="delete"
-                          phx-value-id={sub.id}
-                          data-confirm="Delete this subdomain?"
-                          class="text-neutral-400 hover:text-red-600 transition-colors"
-                        >
-                          <.icon name="hero-trash" class="w-3 h-3" />
-                        </button>
+                        <div class="flex items-center gap-2">
+                          <button
+                            phx-click="quick_scan"
+                            phx-value-id={sub.id}
+                            class="text-neutral-400 hover:text-neutral-700 transition-colors"
+                            title="Quick scan"
+                          >
+                            <.icon name="hero-arrow-path" class="w-3 h-3" />
+                          </button>
+                          <button
+                            phx-click="delete"
+                            phx-value-id={sub.id}
+                            data-confirm="Delete this subdomain?"
+                            class="text-neutral-400 hover:text-red-600 transition-colors"
+                          >
+                            <.icon name="hero-trash" class="w-3 h-3" />
+                          </button>
+                        </div>
                       <% end %>
                     </div>
                   <% end %>

@@ -215,6 +215,28 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
+  # ── Quick scan ──────────────────────────────────────────────────────────────
+
+  def handle_event("quick_scan", %{"id" => id}, socket) do
+    domain_id = String.to_integer(id)
+    liveview_pid = self()
+
+    Task.start(fn ->
+      Scans.run_dnsx_scan(domain_id)
+      Scans.run_httpx_scan(domain_id)
+      Scans.run_rdap_scan(domain_id)
+      Scans.run_subdomain_scan(domain_id)
+      send(liveview_pid, {:quick_scan_done, domain_id})
+    end)
+
+    {:noreply, put_flash(socket, :info, "Scan started")}
+  end
+
+  def handle_info({:quick_scan_done, _domain_id}, socket) do
+    params = build_params(socket)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
   # ── Domain CRUD ─────────────────────────────────────────────────────────────
 
   def handle_event("validate", %{"domain" => domain_params}, socket) do
