@@ -26,7 +26,7 @@ defmodule RavnerWeb.DashboardLive.Index do
   end
 
   defp build_lifecycle_chart(stats) do
-    lifecycle_colors = %{
+    colors = %{
       priority: "#737373",
       active: "#a3a3a3",
       placeholder: "#d4d4d4",
@@ -38,39 +38,10 @@ defmodule RavnerWeb.DashboardLive.Index do
       abandoned: "#d4d4d4"
     }
 
-    lifecycle_labels = %{
-      priority: "Priority",
-      active: "Active",
-      placeholder: "Placeholder",
-      under_review: "Under review",
-      redirect: "Redirect",
-      deprecated: "Deprecated",
-      decommissioned: "Decommissioned",
-      error: "Error",
-      abandoned: "Abandoned"
-    }
-
-    priority_order = [
-      :priority,
-      :active,
-      :placeholder,
-      :under_review,
-      :redirect,
-      :deprecated,
-      :decommissioned,
-      :error,
-      :abandoned
-    ]
-
     data =
-      priority_order
-      |> Enum.filter(fn state -> Map.get(stats.lifecycle, state, 0) > 0 end)
-      |> Enum.map(fn state ->
-        %{
-          label: Map.get(lifecycle_labels, state, Atom.to_string(state)),
-          value: Map.get(stats.lifecycle, state, 0),
-          color: Map.get(lifecycle_colors, state, "#d4d4d4")
-        }
+      stats.lifecycle_list
+      |> Enum.map(fn row ->
+        %{label: row.label, value: row.total, color: Map.get(colors, row.state, "#d4d4d4")}
       end)
 
     build_bar_chart_svg(data, stats.total)

@@ -372,8 +372,17 @@ defmodule Ravner.Domains do
     total_apex = Repo.aggregate(from(d in Domain, where: d.type == :domain), :count, :id)
     total_subdomains = Repo.aggregate(from(d in Domain, where: d.type == :subdomain), :count, :id)
 
-    lifecycle =
+    lifecycle_apex =
       Domain
+      |> where(type: :domain)
+      |> group_by([d], d.lifecycle_state)
+      |> select([d], {d.lifecycle_state, count(d.id)})
+      |> Repo.all()
+      |> Map.new()
+
+    lifecycle_sub =
+      Domain
+      |> where(type: :subdomain)
       |> group_by([d], d.lifecycle_state)
       |> select([d], {d.lifecycle_state, count(d.id)})
       |> Repo.all()
@@ -460,19 +469,23 @@ defmodule Ravner.Domains do
     lifecycle_list =
       lifecycle_order
       |> Enum.map(fn state ->
+        apex = Map.get(lifecycle_apex, state, 0)
+        sub = Map.get(lifecycle_sub, state, 0)
+
         %{
           state: state,
           label: Map.get(lifecycle_labels, state, Atom.to_string(state)),
-          count: Map.get(lifecycle, state, 0)
+          apex: apex,
+          sub: sub,
+          total: apex + sub
         }
       end)
-      |> Enum.filter(&(&1.count > 0))
+      |> Enum.filter(&(&1.total > 0))
 
     %{
       total: total,
       total_apex: total_apex,
       total_subdomains: total_subdomains,
-      lifecycle: lifecycle,
       lifecycle_list: lifecycle_list,
       http: %{
         http_200: http_200,
