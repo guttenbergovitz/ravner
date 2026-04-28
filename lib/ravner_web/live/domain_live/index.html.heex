@@ -336,72 +336,123 @@
               </button>
             </div>
           <% else %>
-            <%!-- File upload form --%>
-            <form
-              phx-submit="import_file"
-              phx-change="validate_upload"
-              id="import-file-form"
-              class="mb-4"
-            >
-              <div class="border border-neutral-200 p-6 text-center mb-4">
-                <.live_file_input
-                  upload={@uploads.domains_file}
-                  class="hidden"
-                  id="domains-file-input"
-                />
-                <label
-                  for="domains-file-input"
-                  class="cursor-pointer flex flex-col items-center gap-2 text-sm font-light text-neutral-500 hover:text-neutral-900 transition-colors"
-                >
-                  <.icon name="hero-arrow-up-tray" class="w-6 h-6 text-neutral-300" />
-                  <span>
-                    <%= if Enum.empty?(@uploads.domains_file.entries) do %>
-                      Click to select a .txt file
-                    <% else %>
-                      {hd(@uploads.domains_file.entries).client_name}
+            <%!-- Loading overlay --%>
+            <%= if @importing do %>
+              <div class="py-12 flex flex-col items-center gap-4 text-sm font-light text-neutral-500">
+                <svg class="w-6 h-6 animate-spin text-neutral-400" fill="none" viewBox="0 0 24 24">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Processing domains…</span>
+              </div>
+            <% else %>
+              <%!-- File upload form --%>
+              <form
+                phx-submit="import_file"
+                phx-change="validate_upload"
+                id="import-file-form"
+                class="mb-4"
+              >
+                <%!-- Drop zone / file picker --%>
+                <label class={[
+                  "flex flex-col items-center gap-3 p-6 border text-center cursor-pointer transition-colors mb-4",
+                  if(Enum.empty?(@uploads.domains_file.entries),
+                    do:
+                      "border-neutral-200 hover:border-neutral-400 text-neutral-400 hover:text-neutral-700",
+                    else: "border-neutral-900 text-neutral-900"
+                  )
+                ]}>
+                  <%= if Enum.empty?(@uploads.domains_file.entries) do %>
+                    <.icon name="hero-arrow-up-tray" class="w-7 h-7 text-neutral-300" />
+                    <div>
+                      <p class="text-sm font-light">
+                        Click to select a <span class="font-normal">.txt</span> file
+                      </p>
+                      <p class="text-xs text-neutral-400 mt-0.5">One domain per line, max 5 MB</p>
+                    </div>
+                  <% else %>
+                    <% entry = hd(@uploads.domains_file.entries) %>
+                    <.icon name="hero-document-text" class="w-7 h-7 text-neutral-500" />
+                    <div class="w-full">
+                      <p class="text-sm font-light text-neutral-700">{entry.client_name}</p>
+                      <p class="text-xs text-neutral-400 mt-0.5">
+                        {Float.round(entry.client_size / 1024, 1)} KB
+                      </p>
+                      <%!-- Progress bar --%>
+                      <div class="mt-3 w-full bg-neutral-100 h-px">
+                        <div
+                          class="bg-neutral-900 h-px transition-all duration-300"
+                          style={"width: #{entry.progress}%"}
+                        >
+                        </div>
+                      </div>
+                      <%= if entry.progress < 100 do %>
+                        <p class="text-xs text-neutral-400 mt-1">Uploading… {entry.progress}%</p>
+                      <% else %>
+                        <p class="text-xs text-green-700 mt-1">Ready to import</p>
+                      <% end %>
+                    </div>
+                    <%!-- Errors --%>
+                    <%= for err <- upload_errors(@uploads.domains_file, entry) do %>
+                      <p class="text-xs text-red-600">{Phoenix.Naming.humanize(err)}</p>
                     <% end %>
-                  </span>
+                  <% end %>
+                  <.live_file_input upload={@uploads.domains_file} class="sr-only" />
                 </label>
 
-                <%= for entry <- @uploads.domains_file.entries do %>
-                  <%= for err <- upload_errors(@uploads.domains_file, entry) do %>
-                    <p class="text-xs text-red-600 mt-2">{Phoenix.Naming.humanize(err)}</p>
+                <button
+                  type="submit"
+                  class={[
+                    "btn-line-filled w-full justify-center text-xs",
+                    "disabled:opacity-40 disabled:cursor-not-allowed"
+                  ]}
+                  disabled={
+                    Enum.empty?(@uploads.domains_file.entries) or
+                      (not Enum.empty?(@uploads.domains_file.entries) and
+                         hd(@uploads.domains_file.entries).progress < 100)
+                  }
+                >
+                  <%= if not Enum.empty?(@uploads.domains_file.entries) and hd(@uploads.domains_file.entries).progress < 100 do %>
+                    Uploading…
+                  <% else %>
+                    Import file
                   <% end %>
-                <% end %>
+                </button>
+              </form>
+
+              <div class="relative flex items-center my-4">
+                <div class="flex-1 border-t border-neutral-200"></div>
+                <span class="mx-3 text-xs text-neutral-400 uppercase tracking-wide">
+                  or paste
+                </span>
+                <div class="flex-1 border-t border-neutral-200"></div>
               </div>
 
-              <button
-                type="submit"
-                class="btn-line-filled w-full justify-center text-xs"
-                disabled={Enum.empty?(@uploads.domains_file.entries)}
-              >
-                Import file
-              </button>
-            </form>
+              <%!-- Paste form --%>
+              <.form for={%{}} as={:import} phx-submit="import" id="import-paste-form">
+                <textarea
+                  name="import[domains]"
+                  rows="7"
+                  class="w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light font-mono resize-none mb-4"
+                  placeholder="example.com\nexample.co.uk\nmy-brand.de"
+                  required
+                ></textarea>
+                <button type="submit" class="btn-line-filled w-full justify-center text-xs">
+                  Import pasted
+                </button>
+              </.form>
 
-            <div class="relative flex items-center my-4">
-              <div class="flex-1 border-t border-neutral-200"></div>
-              <span class="mx-3 text-xs text-neutral-400 uppercase tracking-wide">or paste</span>
-              <div class="flex-1 border-t border-neutral-200"></div>
-            </div>
-
-            <%!-- Paste form --%>
-            <.form for={%{}} as={:import} phx-submit="import" id="import-paste-form">
-              <textarea
-                name="import[domains]"
-                rows="7"
-                class="w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light font-mono resize-none mb-4"
-                placeholder="example.com\nexample.co.uk\nmy-brand.de"
-                required
-              ></textarea>
-              <button type="submit" class="btn-line-filled w-full justify-center text-xs">
-                Import pasted
-              </button>
-            </.form>
-
-            <.link patch={~p"/domains"} class="btn-line w-full justify-center text-xs mt-3">
-              Cancel
-            </.link>
+              <.link patch={~p"/domains"} class="btn-line w-full justify-center text-xs mt-3">
+                Cancel
+              </.link>
+            <% end %>
           <% end %>
       <% end %>
     </div>

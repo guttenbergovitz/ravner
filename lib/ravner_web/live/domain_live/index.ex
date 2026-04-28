@@ -11,10 +11,12 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:domains, Domains.list_domains_with_preloads())
      |> assign(:expanded_domains, MapSet.new())
      |> assign(:lifecycle_menu_open, nil)
+     |> assign(:importing, false)
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
-       max_file_size: 5_000_000
+       max_file_size: 5_000_000,
+       auto_upload: true
      )}
   end
 
@@ -55,6 +57,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:page_title, "Import Domains")
     |> assign(:domain, nil)
     |> assign(:import_results, nil)
+    |> assign(:importing, false)
   end
 
   @impl true
@@ -154,16 +157,18 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("import_file", _params, socket) do
-    text =
-      consume_uploaded_entries(socket, :domains_file, fn %{path: path}, _entry ->
-        {:ok, File.read!(path)}
-      end)
-      |> List.first()
+    entries = socket.assigns.uploads.domains_file.entries
 
-    if text do
-      run_import(text, socket)
-    else
+    if Enum.empty?(entries) do
       {:noreply, put_flash(socket, :error, "No file selected")}
+    else
+      text =
+        consume_uploaded_entries(socket, :domains_file, fn %{path: path}, _entry ->
+          {:ok, File.read!(path)}
+        end)
+        |> List.first()
+
+      run_import(text || "", assign(socket, :importing, true))
     end
   end
 
@@ -182,7 +187,10 @@ defmodule RavnerWeb.DomainLive.Index do
         end
       end)
 
-    {:noreply, assign(socket, :import_results, results)}
+    {:noreply,
+     socket
+     |> assign(:importing, false)
+     |> assign(:import_results, results)}
   end
 
   defp editor?(nil), do: false
