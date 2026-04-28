@@ -468,6 +468,25 @@
                       >
                         {List.first(meta.ip_v4)}
                       </span>
+                      <button
+                        phx-hook="Copy"
+                        data-copy={List.first(meta.ip_v4)}
+                        phx-click="copy-ip"
+                        class="hidden md:inline-flex text-neutral-400 hover:text-neutral-700 transition-colors"
+                        title="Copy IP"
+                      >
+                        <.icon name="hero-clipboard" class="w-3 h-3" />
+                      </button>
+                      <script :type={Phoenix.LiveView.ColocatedHook} name=".Copy">
+                        export default {
+                          mounted() {
+                            this.el.addEventListener("click", e => {
+                              const text = this.el.getAttribute("data-copy");
+                              navigator.clipboard.writeText(text).catch(() => {});
+                            });
+                          }
+                        }
+                      </script>
                     <% end %>
 
                     <%!-- Tech stack (first 2) --%>
@@ -607,6 +626,15 @@
                             >
                               {List.first(sub_meta.ip_v4)}
                             </span>
+                            <button
+                              phx-hook="Copy"
+                              data-copy={List.first(sub_meta.ip_v4)}
+                              phx-click="copy-ip"
+                              class="hidden md:inline-flex text-neutral-400 hover:text-neutral-700 transition-colors"
+                              title="Copy IP"
+                            >
+                              <.icon name="hero-clipboard" class="w-3 h-3" />
+                            </button>
                           <% end %>
 
                           <%= if sub_meta.tech_stack && sub_meta.tech_stack != [] do %>
