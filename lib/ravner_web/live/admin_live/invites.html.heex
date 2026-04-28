@@ -1,139 +1,84 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto px-6 py-8">
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="text-2xl font-semibold text-zinc-900">Invites</h1>
-        <p class="text-sm text-zinc-500 mt-1">Invite team members by email</p>
+        <h1 class="text-2xl font-light tracking-tight">Invites</h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">Invite team members by email</p>
       </div>
-      <.link
-        patch={~p"/admin/invites/new"}
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-zinc-900 rounded-lg hover:bg-zinc-700 transition-colors"
-      >
-        <.icon name="hero-envelope" class="w-4 h-4" /> New Invite
+      <.link patch={~p"/admin/invites/new"} class="btn-line-filled text-xs">
+        <.icon name="hero-envelope" class="w-4 h-4" /> New invite
       </.link>
     </div>
 
-    <%!-- Invite form modal --%>
-    <%= if @live_action == :new do %>
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-semibold text-zinc-900">Send Invite</h2>
-            <button phx-click="cancel" class="text-zinc-400 hover:text-zinc-600 transition-colors">
-              <.icon name="hero-x-mark" class="w-5 h-5" />
-            </button>
-          </div>
-
-          <.form
-            for={@form}
-            id="invite-form"
-            phx-change="validate"
-            phx-submit="send_invite"
-            class="space-y-4"
-          >
-            <.input
-              field={@form[:email]}
-              type="email"
-              label="Email"
-              placeholder="colleague@example.com"
-            />
-            <.input
-              field={@form[:name]}
-              type="text"
-              label="Name (optional)"
-              placeholder="Full name"
-            />
-            <.input
-              field={@form[:role]}
-              type="select"
-              label="Role"
-              options={[{"Viewer", "viewer"}, {"Editor", "editor"}, {"Admin", "admin"}]}
-            />
-
-            <div class="flex gap-3 pt-2">
-              <button
-                type="submit"
-                class="flex-1 py-2 px-4 text-sm font-medium text-white bg-zinc-900 rounded-lg hover:bg-zinc-700 transition-colors"
-              >
-                Send Invite
-              </button>
-              <button
-                type="button"
-                phx-click="cancel"
-                class="flex-1 py-2 px-4 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </.form>
+    <%= if @invites == [] do %>
+      <div class="text-center py-20 border border-neutral-200">
+        <.icon name="hero-envelope" class="w-8 h-8 text-neutral-300 mx-auto mb-4" />
+        <p class="text-sm font-light text-neutral-400">No invites yet</p>
+      </div>
+    <% else %>
+      <div class="border border-neutral-200 divide-y divide-neutral-100">
+        <div class="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 text-xs font-light tracking-wide uppercase text-neutral-400">
+          <span>Email</span>
+          <span>Role</span>
+          <span>Status</span>
+          <span>Invited by</span>
+          <span>Expires</span>
         </div>
+
+        <%= for invite <- @invites do %>
+          <div id={"invite-#{invite.id}"} class="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-6 py-4 hover:bg-neutral-50 transition-colors">
+            <div>
+              <div class="text-sm font-normal">{invite.email}</div>
+              <%= if invite.name do %>
+                <div class="text-xs font-light text-neutral-500">{invite.name}</div>
+              <% end %>
+            </div>
+            <div class="text-xs font-light text-neutral-600 w-16 text-center">
+              {invite.role}
+            </div>
+            <div class="w-16 text-center">
+              <%= if invite.accepted_at do %>
+                <span class="text-xs font-light text-neutral-500">accepted</span>
+              <% else %>
+                <span class="text-xs font-light text-neutral-400">pending</span>
+              <% end %>
+            </div>
+            <div class="text-xs font-light text-neutral-400 w-40">
+              {invite.invited_by && invite.invited_by.email}
+            </div>
+            <div class="text-xs font-light text-neutral-400 w-24">
+              {Calendar.strftime(invite.expires_at, "%b %d, %Y")}
+            </div>
+          </div>
+        <% end %>
       </div>
     <% end %>
-
-    <%!-- Invites list --%>
-    <div class="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
-      <%= if @invites == [] do %>
-        <div class="text-center py-16 text-zinc-400">
-          <.icon name="hero-envelope" class="w-8 h-8 mx-auto mb-3 opacity-40" />
-          <p class="text-sm">No invites yet</p>
-        </div>
-      <% else %>
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b border-zinc-100 bg-zinc-50">
-              <th class="text-left px-5 py-3 font-medium text-zinc-500">Email</th>
-              <th class="text-left px-5 py-3 font-medium text-zinc-500">Role</th>
-              <th class="text-left px-5 py-3 font-medium text-zinc-500">Status</th>
-              <th class="text-left px-5 py-3 font-medium text-zinc-500">Invited by</th>
-              <th class="text-left px-5 py-3 font-medium text-zinc-500">Expires</th>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for invite <- @invites do %>
-              <tr
-                id={"invite-#{invite.id}"}
-                class="border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition-colors"
-              >
-                <td class="px-5 py-4">
-                  <div class="font-medium text-zinc-900">{invite.email}</div>
-                  <%= if invite.name do %>
-                    <div class="text-zinc-500 text-xs">{invite.name}</div>
-                  <% end %>
-                </td>
-                <td class="px-5 py-4">
-                  <span class={[
-                    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                    invite.role == :admin && "bg-purple-100 text-purple-700",
-                    invite.role == :editor && "bg-blue-100 text-blue-700",
-                    invite.role == :viewer && "bg-zinc-100 text-zinc-600"
-                  ]}>
-                    {invite.role}
-                  </span>
-                </td>
-                <td class="px-5 py-4">
-                  <%= if invite.accepted_at do %>
-                    <span class="inline-flex items-center gap-1 text-xs text-emerald-700">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                      Accepted
-                    </span>
-                  <% else %>
-                    <span class="inline-flex items-center gap-1 text-xs text-amber-700">
-                      <span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
-                      Pending
-                    </span>
-                  <% end %>
-                </td>
-                <td class="px-5 py-4 text-zinc-500 text-xs">
-                  {invite.invited_by && invite.invited_by.email}
-                </td>
-                <td class="px-5 py-4 text-zinc-400 text-xs">
-                  {Calendar.strftime(invite.expires_at, "%b %d, %Y")}
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      <% end %>
-    </div>
   </div>
+
+  <%= if @live_action == :new do %>
+    <div class="fixed inset-0 bg-black/20 z-40" phx-click="cancel"></div>
+    <div class="fixed inset-x-0 top-20 bottom-8 mx-auto max-w-lg bg-white border border-neutral-200 z-50 p-8 overflow-y-auto">
+      <h2 class="text-xl font-light tracking-tight mb-6">Send invite</h2>
+
+      <.form for={@form} id="invite-form" phx-change="validate" phx-submit="send_invite" class="space-y-6">
+        <.input field={@form[:email]} type="email" label="Email" placeholder="colleague@example.com" />
+        <.input field={@form[:name]} type="text" label="Name (optional)" placeholder="Full name" />
+        <.input
+          field={@form[:role]}
+          type="select"
+          label="Role"
+          options={[{"Viewer", "viewer"}, {"Editor", "editor"}, {"Admin", "admin"}]}
+        />
+
+        <div class="flex items-center gap-3 pt-4">
+          <button type="submit" class="btn-line-filled flex-1 justify-center text-xs">
+            Send invite
+          </button>
+          <button type="button" phx-click="cancel" class="btn-line flex-1 justify-center text-xs">
+            Cancel
+          </button>
+        </div>
+      </.form>
+    </div>
+  <% end %>
 </Layouts.app>

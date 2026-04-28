@@ -24,6 +24,18 @@
               {@current_scope.user.email}
             </li>
             <li>
+              <.link href={~p"/domains"} class="hover:text-neutral-500 transition-colors">
+                Domains
+              </.link>
+            </li>
+            <%= if @current_scope.user.role == :admin do %>
+              <li>
+                <.link href={~p"/admin/users"} class="hover:text-neutral-500 transition-colors">
+                  Admin
+                </.link>
+              </li>
+            <% end %>
+            <li>
               <.link href={~p"/users/settings"} class="hover:text-neutral-500 transition-colors">
                 Settings
               </.link>
