@@ -7,7 +7,6 @@ defmodule RavnerWeb.DashboardLive.Index do
   def mount(_params, _session, socket) do
     stats = Domains.dashboard_stats()
 
-    lifecycle_chart = build_lifecycle_chart(stats)
     http_chart = build_http_chart(stats.http)
     scan_chart = build_scan_chart(stats.scan)
 
@@ -15,7 +14,6 @@ defmodule RavnerWeb.DashboardLive.Index do
      socket
      |> assign(:page_title, "Dashboard")
      |> assign(:stats, stats)
-     |> assign(:lifecycle_chart, lifecycle_chart)
      |> assign(:http_chart, http_chart)
      |> assign(:scan_chart, scan_chart)}
   end
