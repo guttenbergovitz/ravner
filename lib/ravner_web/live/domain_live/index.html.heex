@@ -65,6 +65,35 @@
             Incl. subdomains
           </button>
 
+          <%!-- Set status --%>
+          <div class="relative" id="bulk-lifecycle-menu">
+            <button
+              phx-click="toggle_bulk_lifecycle_menu"
+              disabled={MapSet.size(@selected_ids) == 0}
+              class="btn-line text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <.icon name="hero-tag" class="w-4 h-4" /> Set status
+              <.icon name="hero-chevron-down" class="w-3 h-3" />
+            </button>
+            <%= if @bulk_lifecycle_menu_open do %>
+              <div
+                class="absolute right-0 top-full mt-1 z-30 bg-white border border-neutral-200 py-1 min-w-[170px]"
+                phx-click-away="close_bulk_lifecycle_menu"
+              >
+                <%= for {state, label, color} <- lifecycle_options() do %>
+                  <button
+                    phx-click="bulk_action_confirm"
+                    phx-value-lifecycle={state}
+                    class="w-full flex items-center gap-2 px-3 py-2 text-xs font-light text-left hover:bg-neutral-50 transition-colors"
+                  >
+                    <span class={["w-2 h-2 rounded-full shrink-0", color]}></span>
+                    {label}
+                  </button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
           <%!-- Scan --%>
           <button
             phx-click="bulk_action_confirm"
@@ -584,10 +613,22 @@
     <div class="fixed inset-0 bg-black/20 z-40" phx-click="bulk_action_cancel"></div>
     <div class="fixed inset-x-0 top-20 mx-auto max-w-md bg-white border border-neutral-200 z-50 p-8">
       <h2 class="text-xl font-light tracking-tight mb-1">
-        <%= if @bulk_action == :delete do %>
-          Delete {selected_count} domain{if selected_count != 1, do: "s", else: ""}
-        <% else %>
-          Scan {selected_count} domain{if selected_count != 1, do: "s", else: ""}
+        <%= cond do %>
+          <% @bulk_action == :delete -> %>
+            Delete {selected_count} domain{if selected_count != 1, do: "s", else: ""}
+          <% @bulk_action == :scan -> %>
+            Scan {selected_count} domain{if selected_count != 1, do: "s", else: ""}
+          <% match?({:lifecycle, _}, @bulk_action) -> %>
+            <% {:lifecycle, state} = @bulk_action %>
+            <% {_, label, color} = Enum.find(lifecycle_options(), fn {s, _, _} -> s == state end) %>
+            <span class="flex items-center gap-2">
+              Set {selected_count} domain{if selected_count != 1, do: "s", else: ""} to
+              <span class="flex items-center gap-1.5">
+                <span class={["w-2 h-2 rounded-full", color]}></span>
+                {label}
+              </span>
+            </span>
+          <% true -> %>
         <% end %>
         <%= if @include_subdomains && subdomain_count > 0 do %>
           <span class="text-neutral-400">
@@ -596,12 +637,15 @@
         <% end %>
       </h2>
 
-      <%= if @bulk_action == :delete do %>
-        <p class="text-sm font-light text-neutral-500 mb-6">This action cannot be undone.</p>
-      <% else %>
-        <p class="text-sm font-light text-neutral-500 mb-6">
-          All scans will run in parallel.
-        </p>
+      <%= cond do %>
+        <% @bulk_action == :delete -> %>
+          <p class="text-sm font-light text-neutral-500 mb-6">This action cannot be undone.</p>
+        <% @bulk_action == :scan -> %>
+          <p class="text-sm font-light text-neutral-500 mb-6">All scans will run in parallel.</p>
+        <% true -> %>
+          <p class="text-sm font-light text-neutral-500 mb-6">
+            This will overwrite existing lifecycle states.
+          </p>
       <% end %>
 
       <%!-- Domain names preview --%>

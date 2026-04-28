@@ -17,6 +17,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:selected_ids, MapSet.new())
      |> assign(:include_subdomains, false)
      |> assign(:bulk_action, nil)
+     |> assign(:bulk_lifecycle_menu_open, false)
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -163,7 +164,8 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
      |> assign(:include_subdomains, false)
-     |> assign(:bulk_action, nil)}
+     |> assign(:bulk_action, nil)
+     |> assign(:bulk_lifecycle_menu_open, false)}
   end
 
   def handle_event("toggle_select", %{"id" => id}, socket) do
@@ -203,14 +205,31 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, assign(socket, :bulk_action, String.to_existing_atom(action))}
   end
 
+  def handle_event("bulk_action_confirm", %{"lifecycle" => state}, socket) do
+    {:noreply,
+     socket
+     |> assign(:bulk_action, {:lifecycle, String.to_existing_atom(state)})
+     |> assign(:bulk_lifecycle_menu_open, false)}
+  end
+
   def handle_event("bulk_action_cancel", _params, socket) do
     {:noreply, assign(socket, :bulk_action, nil)}
+  end
+
+  def handle_event("toggle_bulk_lifecycle_menu", _params, socket) do
+    {:noreply,
+     assign(socket, :bulk_lifecycle_menu_open, !socket.assigns.bulk_lifecycle_menu_open)}
+  end
+
+  def handle_event("close_bulk_lifecycle_menu", _params, socket) do
+    {:noreply, assign(socket, :bulk_lifecycle_menu_open, false)}
   end
 
   def handle_event("bulk_action_execute", _params, socket) do
     case socket.assigns.bulk_action do
       :delete -> execute_bulk_delete(socket)
       :scan -> execute_bulk_scan(socket)
+      {:lifecycle, state} -> execute_bulk_lifecycle(socket, state)
       _ -> {:noreply, socket}
     end
   end
@@ -373,6 +392,7 @@ defmodule RavnerWeb.DomainLive.Index do
        |> assign(:selected_ids, MapSet.new())
        |> assign(:include_subdomains, false)
        |> assign(:bulk_action, nil)
+       |> assign(:bulk_lifecycle_menu_open, false)
        |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
        |> push_patch(to: ~p"/domains?#{params}")}
     end
@@ -413,7 +433,31 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:selected_ids, MapSet.new())
      |> assign(:include_subdomains, false)
      |> assign(:bulk_action, nil)
+     |> assign(:bulk_lifecycle_menu_open, false)
      |> put_flash(:info, "Scanned #{count} domain#{if count != 1, do: "s", else: ""}")
+     |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  defp execute_bulk_lifecycle(socket, state) do
+    ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
+
+    Enum.each(ids, fn id ->
+      domain = Domains.get_domain!(id)
+      Domains.update_domain(domain, %{lifecycle_state: state})
+    end)
+
+    count = length(ids)
+    {_state, label, _color} = Enum.find(lifecycle_options(), fn {s, _, _} -> s == state end)
+    params = build_params(socket)
+
+    {:noreply,
+     socket
+     |> assign(:selection_mode, false)
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:include_subdomains, false)
+     |> assign(:bulk_action, nil)
+     |> assign(:bulk_lifecycle_menu_open, false)
+     |> put_flash(:info, "Set #{count} domain#{if count != 1, do: "s", else: ""} to #{label}")
      |> push_patch(to: ~p"/domains?#{params}")}
   end
 
