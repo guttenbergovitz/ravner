@@ -16,6 +16,7 @@ defmodule Ravner.Domains.Domain do
         :redirect,
         :deprecated,
         :decommissioned,
+        :error,
         :abandoned
       ],
       default: :under_review

@@ -327,19 +327,67 @@ defmodule Ravner.Scans do
           end
 
         Domains.upsert_domain_metadata(domain_id, meta)
+        maybe_update_lifecycle_from_http(domain, data)
 
-      {:error, {:transport, kind}} ->
+      {:error, {:transport, _kind}} ->
         Domains.upsert_domain_metadata(domain_id, %{
           http_status: 0,
           http_scanned_at: DateTime.utc_now()
         })
 
-        {:ok, %{error: kind}}
+        maybe_set_error_lifecycle(domain)
+        {:ok, %{error: :connection_error}}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
+
+  # Auto-updates lifecycle based on HTTP scan result.
+  # Only sets redirect/error if the domain is in a "neutral" state —
+  # never overwrites intentional states like priority, deprecated, etc.
+  @auto_eligible_states [:active, :under_review, :redirect, :error, nil]
+
+  defp maybe_update_lifecycle_from_http(domain, data) do
+    if domain.lifecycle_state in @auto_eligible_states do
+      cond do
+        external_redirect?(domain.name, data.final_url) ->
+          Domains.update_domain(domain, %{lifecycle_state: :redirect})
+
+        data.http_status >= 400 ->
+          Domains.update_domain(domain, %{lifecycle_state: :error})
+
+        data.http_status == 200 ->
+          # Healthy — if it was previously auto-set to error/redirect, restore to active
+          if domain.lifecycle_state in [:error, :redirect] do
+            Domains.update_domain(domain, %{lifecycle_state: :active})
+          end
+
+        true ->
+          :ok
+      end
+    end
+  end
+
+  defp maybe_set_error_lifecycle(domain) do
+    if domain.lifecycle_state in @auto_eligible_states do
+      Domains.update_domain(domain, %{lifecycle_state: :error})
+    end
+  end
+
+  defp external_redirect?(domain_name, final_url) when is_binary(final_url) do
+    final_host =
+      final_url
+      |> URI.parse()
+      |> Map.get(:host)
+      |> Kernel.||("")
+      |> String.replace_leading("www.", "")
+
+    own_host = String.replace_leading(domain_name, "www.", "")
+    final_host != "" && final_host != own_host
+  end
+
+  defp external_redirect?(_domain_name, _final_url), do: false
 
   defp do_httpx_scan(domain_name) do
     https_url = "https://#{domain_name}"

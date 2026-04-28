@@ -232,11 +232,6 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, put_flash(socket, :info, "Scan started")}
   end
 
-  def handle_info({:quick_scan_done, _domain_id}, socket) do
-    params = build_params(socket)
-    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
-  end
-
   # ── Domain CRUD ─────────────────────────────────────────────────────────────
 
   def handle_event("validate", %{"domain" => domain_params}, socket) do
@@ -353,6 +348,14 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
+  # ── Info handlers ───────────────────────────────────────────────────────────
+
+  @impl true
+  def handle_info({:quick_scan_done, _domain_id}, socket) do
+    params = build_params(socket)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
   # ── Private helpers ─────────────────────────────────────────────────────────
 
   defp execute_bulk_delete(socket) do
@@ -450,7 +453,8 @@ defmodule RavnerWeb.DomainLive.Index do
   defp lifecycle_color(:active), do: "bg-green-500"
   defp lifecycle_color(:placeholder), do: "bg-violet-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
-  defp lifecycle_color(:redirect), do: "bg-orange-500"
+  defp lifecycle_color(:redirect), do: "bg-cyan-500"
+  defp lifecycle_color(:error), do: "bg-red-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
   defp lifecycle_color(:abandoned), do: "bg-neutral-400"
@@ -462,9 +466,10 @@ defmodule RavnerWeb.DomainLive.Index do
       {:active, "Active", "bg-green-500"},
       {:placeholder, "Placeholder", "bg-violet-500"},
       {:under_review, "Under review", "bg-yellow-500"},
-      {:redirect, "Redirect", "bg-orange-500"},
+      {:redirect, "Redirect", "bg-cyan-500"},
       {:deprecated, "Deprecated", "bg-orange-400"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
+      {:error, "Error", "bg-red-500"},
       {:abandoned, "Abandoned", "bg-neutral-400"}
     ]
   end
