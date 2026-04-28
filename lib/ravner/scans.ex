@@ -176,6 +176,7 @@ defmodule Ravner.Scans do
         case find_or_create_subdomain(full_name, parent_id) do
           {:new, sub} -> {count + 1, [sub | acc]}
           {:existing, sub} -> {count, [sub | acc]}
+          {:skip, _} -> {count, acc}
         end
       end)
 
@@ -185,14 +186,14 @@ defmodule Ravner.Scans do
   defp find_or_create_subdomain(name, parent_id) do
     case Repo.get_by(Domain, name: name) do
       nil ->
-        {:ok, subdomain} =
-          Domains.create_domain(%{
-            name: name,
-            type: :subdomain,
-            parent_domain_id: parent_id
-          })
-
-        {:new, subdomain}
+        case Domains.create_domain(%{
+               name: name,
+               type: :subdomain,
+               parent_domain_id: parent_id
+             }) do
+          {:ok, subdomain} -> {:new, subdomain}
+          {:error, _changeset} -> {:skip, nil}
+        end
 
       existing ->
         # Re-link to parent if orphaned (parent was deleted) or pointing to wrong parent
