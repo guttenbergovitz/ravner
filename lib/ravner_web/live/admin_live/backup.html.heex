@@ -10,9 +10,9 @@
         and API keys. Authentication tables (users, tokens) are excluded.
       </p>
 
-      <button phx-click="export" class="btn-line text-xs flex items-center gap-1.5">
+      <a href={~p"/admin/settings/backup/download"} class="btn-line text-xs flex items-center gap-1.5">
         <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Download .dump
-      </button>
+      </a>
     </div>
 
     <%!-- Import --%>
@@ -77,25 +77,4 @@
       <% end %>
     </div>
   </div>
-
-  <script :type={Phoenix.LiveView.ColocatedHook} name=".BackupDownload">
-    export default {
-      mounted() {
-        this.handleEvent("download_backup", ({ filename, content }) => {
-          const blob = new Blob(
-            [Uint8Array.from(atob(content), c => c.charCodeAt(0))],
-            { type: "application/octet-stream" }
-          );
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        });
-      }
-    }
-  </script>
 </Layouts.app>

@@ -100,6 +100,8 @@ defmodule RavnerWeb.Router do
       live("/settings", AdminLive.Settings, :index)
       live("/settings/backup", AdminLive.Backup, :index)
     end
+
+    get("/settings/backup/download", BackupController, :download)
   end
 
   # Invite accept route — accessible without full auth (user sets password here)

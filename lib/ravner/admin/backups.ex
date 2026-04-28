@@ -8,6 +8,16 @@ defmodule Ravner.Admin.Backups do
 
   @exclude_tables ~w(users users_tokens)
 
+  @common_pg_paths [
+    "/opt/homebrew/opt/postgresql@17/bin",
+    "/opt/homebrew/opt/postgresql@16/bin",
+    "/opt/homebrew/opt/postgresql@15/bin",
+    "/usr/local/opt/postgresql@17/bin",
+    "/usr/local/opt/postgresql@16/bin",
+    "/usr/local/opt/postgresql@15/bin",
+    "/Applications/Postgres.app/Contents/Versions/latest/bin"
+  ]
+
   @doc """
   Creates a PostgreSQL custom-format dump of business data.
   Returns `{:ok, binary}` with the dump content, or `{:error, reason}`.
@@ -23,21 +33,10 @@ defmodule Ravner.Admin.Backups do
       {:error, "Database name not configured"}
     else
       tmp_path = Path.join(System.tmp_dir!(), "ravner_backup_#{timestamp()}.dump")
-
-      args =
-        [
-          "-h",
-          hostname,
-          "-U",
-          username,
-          "-Fc"
-        ] ++
-          Enum.flat_map(@exclude_tables, &["--exclude-table", &1]) ++
-          ["-f", tmp_path, database]
-
+      args = build_dump_args(hostname, username, database, tmp_path)
       env = if password != "", do: [{"PGPASSWORD", password}], else: []
 
-      case System.cmd("pg_dump", args, env: env, stderr_to_stdout: true) do
+      case run_with_fallback("pg_dump", args, env) do
         {_, 0} ->
           content = File.read!(tmp_path)
           File.rm(tmp_path)
@@ -45,7 +44,7 @@ defmodule Ravner.Admin.Backups do
 
         {output, _} ->
           File.rm(tmp_path)
-          {:error, output}
+          {:error, normalize_pg_error(output)}
       end
     end
   end
@@ -80,10 +79,10 @@ defmodule Ravner.Admin.Backups do
 
       env = if password != "", do: [{"PGPASSWORD", password}], else: []
 
-      case System.cmd("pg_restore", args, env: env, stderr_to_stdout: true) do
+      case run_with_fallback("pg_restore", args, env) do
         {_, 0} -> :ok
         {_output, 1} -> :ok
-        {output, _} -> {:error, output}
+        {output, _} -> {:error, normalize_pg_error(output)}
       end
     end
   end
@@ -93,10 +92,89 @@ defmodule Ravner.Admin.Backups do
   Returns `{:ok, [String.t()]}` or `{:error, reason}`.
   """
   def list_dump_contents(path) when is_binary(path) do
-    case System.cmd("pg_restore", ["--list", path], stderr_to_stdout: true) do
+    case run_with_fallback("pg_restore", ["--list", path], []) do
       {output, 0} -> {:ok, String.split(output, "\n", trim: true)}
-      {output, _} -> {:error, output}
+      {output, _} -> {:error, normalize_pg_error(output)}
     end
+  end
+
+  defp build_dump_args(hostname, username, database, tmp_path) do
+    [
+      "-h",
+      hostname,
+      "-U",
+      username,
+      "-Fc"
+    ] ++
+      Enum.flat_map(@exclude_tables, &["--exclude-table", &1]) ++
+      ["-f", tmp_path, database]
+  end
+
+  @doc false
+  def run_with_fallback(cmd, args, env) do
+    case safe_cmd(cmd, args, env) do
+      {:ok, {_, 0} = ok} -> ok
+      {:ok, result} -> try_fallback(cmd, args, env, result)
+      {:error, :not_found} -> find_and_run(cmd, args, env)
+    end
+  end
+
+  defp safe_cmd(cmd, args, env) do
+    {:ok, System.cmd(cmd, args, env: env, stderr_to_stdout: true)}
+  rescue
+    ErlangError -> {:error, :not_found}
+  end
+
+  defp try_fallback(cmd, args, env, original_result) do
+    {output, _} = original_result
+
+    if String.contains?(output, "version mismatch") ||
+         String.contains?(output, "aborting because of server version mismatch") do
+      find_and_run(cmd, args, env)
+    else
+      original_result
+    end
+  end
+
+  defp find_and_run(cmd, args, env) do
+    case find_compatible_binary(cmd) do
+      nil ->
+        {version_msg(), 1}
+
+      path ->
+        case safe_cmd(path, args, env) do
+          {:ok, result} -> result
+          {:error, :not_found} -> {version_msg(), 1}
+        end
+    end
+  end
+
+  defp find_compatible_binary(cmd) do
+    @common_pg_paths
+    |> Enum.map(&Path.join(&1, cmd))
+    |> Enum.find(&File.exists?/1)
+  end
+
+  defp version_msg do
+    """
+    PostgreSQL client tools version mismatch.
+
+    Your pg_dump/pg_restore is older than the PostgreSQL server.
+    Install matching client tools, for example:
+
+      brew install postgresql@17
+
+    Or add the bin directory to your PATH:
+
+      export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+    """
+  end
+
+  defp normalize_pg_error(output) do
+    output
+    |> String.split("\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("; ")
   end
 
   defp timestamp do

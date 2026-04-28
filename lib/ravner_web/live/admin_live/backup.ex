@@ -18,7 +18,7 @@ defmodule RavnerWeb.AdminLive.Backup do
        |> assign(:restore_path, nil)
        |> assign(:restoring, false)
        |> allow_upload(:backup_file,
-         accept: ~w(.dump),
+         accept: :any,
          max_entries: 1,
          max_file_size: 500_000_000
        )}
@@ -28,26 +28,6 @@ defmodule RavnerWeb.AdminLive.Backup do
   @impl true
   def handle_params(_params, _url, socket) do
     {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("export", _params, socket) do
-    case Backups.create_dump() do
-      {:ok, content} ->
-        timestamp =
-          DateTime.utc_now()
-          |> Calendar.strftime("%Y%m%d_%H%M%S")
-
-        {:noreply,
-         socket
-         |> push_event("download_backup", %{
-           "filename" => "ravner_business_#{timestamp}.dump",
-           "content" => Base.encode64(content)
-         })}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Export failed: #{reason}")}
-    end
   end
 
   @impl true
