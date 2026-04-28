@@ -94,7 +94,7 @@ defmodule Ravner.Domains do
       |> order_by([d], asc: d.name)
       |> limit(@page_size)
       |> offset(^offset)
-      |> preload([:parent_domain, :domain_tags, :domain_metadata, subdomains: :domain_metadata])
+      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
       |> Repo.all()
 
     %{
@@ -133,9 +133,19 @@ defmodule Ravner.Domains do
 
   def get_domain_with_preloads!(id) do
     Domain
-    |> preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata])
+    |> preload([:parent_domain, :domain_tags, :domain_metadata, subdomains: :domain_metadata])
     |> Repo.get!(id)
   end
+
+  @doc """
+  Preloads domain_metadata for all subdomains of a given domain.
+  Used for lazy-loading when expanding a domain in the listing.
+  """
+  def preload_subdomain_metadata(%Domain{subdomains: subs} = domain) when is_list(subs) do
+    %{domain | subdomains: Repo.preload(subs, :domain_metadata)}
+  end
+
+  def preload_subdomain_metadata(domain), do: domain
 
   def create_domain(attrs \\ %{}) do
     %Domain{}

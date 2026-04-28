@@ -316,6 +316,7 @@ defmodule RavnerWeb.DomainLive.Index do
       handle_event("toggle_select", %{"id" => id}, socket)
     else
       expanded = socket.assigns.expanded_domains
+      is_expanding = !MapSet.member?(expanded, id)
 
       new_expanded =
         if MapSet.member?(expanded, id) do
@@ -324,7 +325,28 @@ defmodule RavnerWeb.DomainLive.Index do
           MapSet.put(expanded, id)
         end
 
-      {:noreply, assign(socket, :expanded_domains, new_expanded)}
+      socket = assign(socket, :expanded_domains, new_expanded)
+
+      # Lazy-load subdomain metadata when expanding
+      socket =
+        if is_expanding do
+          domain_id = String.to_integer(id)
+          domain = socket.assigns.domains |> Enum.find(&(&1.id == domain_id))
+
+          if domain && domain.subdomains != [] do
+            updated_domain = Domains.preload_subdomain_metadata(domain)
+            updated_domains = Enum.map(socket.assigns.domains, fn d ->
+              if d.id == domain_id, do: updated_domain, else: d
+            end)
+            assign(socket, :domains, updated_domains)
+          else
+            socket
+          end
+        else
+          socket
+        end
+
+      {:noreply, socket}
     end
   end
 
