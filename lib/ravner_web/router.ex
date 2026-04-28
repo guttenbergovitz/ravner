@@ -18,6 +18,14 @@ defmodule RavnerWeb.Router do
     plug(:accepts, ["json"])
   end
 
+  pipeline :require_admin do
+    plug(RavnerWeb.Plugs.RequireRole, :admin)
+  end
+
+  pipeline :require_editor do
+    plug(RavnerWeb.Plugs.RequireRole, :editor)
+  end
+
   scope "/", RavnerWeb do
     pipe_through(:browser)
 
@@ -76,6 +84,27 @@ defmodule RavnerWeb.Router do
       live("/domains/:id", DomainLive.Show, :show)
       live("/domains/:id/edit", DomainLive.Show, :edit)
     end
+  end
+
+  # Admin-only routes — require :admin role via plug and on_mount
+  scope "/admin", RavnerWeb do
+    pipe_through([:browser, :require_authenticated_user, :require_admin])
+
+    live_session :admin, on_mount: [{RavnerWeb.UserAuth, :ensure_admin}] do
+      live("/users", AdminLive.Users, :index)
+      live("/users/new", AdminLive.Users, :new)
+      live("/users/:id/edit", AdminLive.Users, :edit)
+      live("/invites", AdminLive.Invites, :index)
+      live("/invites/new", AdminLive.Invites, :new)
+    end
+  end
+
+  # Invite accept route — accessible without full auth (user sets password here)
+  scope "/", RavnerWeb do
+    pipe_through([:browser])
+
+    get("/users/invite/:token", UserInviteController, :show)
+    post("/users/invite/:token", UserInviteController, :create)
   end
 
   scope "/", RavnerWeb do

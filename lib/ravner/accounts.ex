@@ -311,4 +311,102 @@ defmodule Ravner.Accounts do
       end
     end)
   end
+
+  # ---------------------------------------------------------------------------
+  # Admin: user management
+  # ---------------------------------------------------------------------------
+
+  alias Ravner.Accounts.UserInvite
+
+  @doc "Returns all users ordered by inserted_at."
+  def list_users do
+    Repo.all(from u in User, order_by: [asc: u.inserted_at])
+  end
+
+  @doc "Creates a user directly (admin flow) with a temporary password."
+  def admin_create_user(attrs) do
+    %User{}
+    |> User.admin_changeset(attrs)
+    |> User.password_changeset(attrs)
+    |> User.confirm_changeset()
+    |> Repo.insert()
+  end
+
+  @doc "Updates user role, name or active flag."
+  def admin_update_user(%User{} = user, attrs) do
+    user
+    |> User.role_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc "Promotes the first user (root) to admin role."
+  def promote_first_user_to_admin do
+    case Repo.one(from u in User, order_by: [asc: u.inserted_at], limit: 1) do
+      nil -> :noop
+      user -> Repo.update!(User.role_changeset(user, %{role: :admin}))
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Invite flow
+  # ---------------------------------------------------------------------------
+
+  @invite_ttl_hours 48
+
+  @doc "Creates an invite token for a given email and role."
+  def create_invite(attrs, invited_by_id) do
+    token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+    expires_at = DateTime.add(DateTime.utc_now(:second), @invite_ttl_hours * 3600, :second)
+
+    %UserInvite{}
+    |> UserInvite.changeset(
+      Map.merge(attrs, %{
+        "token" => token,
+        "invited_by_id" => invited_by_id,
+        "expires_at" => expires_at
+      })
+    )
+    |> Ecto.Changeset.put_change(:token, token)
+    |> Repo.insert()
+  end
+
+  @doc "Gets a valid (unexpired, unaccepted) invite by token."
+  def get_valid_invite(token) do
+    now = DateTime.utc_now(:second)
+
+    Repo.one(
+      from i in UserInvite,
+        where: i.token == ^token and is_nil(i.accepted_at) and i.expires_at > ^now
+    )
+  end
+
+  @doc "Accepts an invite: creates the user account and marks the invite used."
+  def accept_invite(%UserInvite{} = invite, password) do
+    Repo.transaction(fn ->
+      {:ok, user} =
+        %User{}
+        |> User.admin_changeset(
+          %{
+            "email" => invite.email,
+            "name" => invite.name,
+            "role" => Atom.to_string(invite.role)
+          },
+          validate_unique: true
+        )
+        |> User.password_changeset(%{"password" => password, "password_confirmation" => password})
+        |> User.confirm_changeset()
+        |> Repo.insert()
+
+      invite
+      |> UserInvite.accept_changeset()
+      |> Repo.update!()
+
+      user
+    end)
+  end
+
+  @doc "Lists all invites ordered by newest first."
+  def list_invites do
+    Repo.all(from i in UserInvite, order_by: [desc: i.inserted_at], preload: [:invited_by])
+  end
 end

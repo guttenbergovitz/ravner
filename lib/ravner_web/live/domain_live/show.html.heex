@@ -90,8 +90,7 @@
                   </span>
                 <% {:scan_error, _} -> %>
                   <span class="inline-flex items-center gap-1.5 text-red-600 font-light">
-                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
-                    Scan error
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span> Scan error
                   </span>
                 <% {:not_scanned, _} -> %>
                   <span class="text-neutral-400 font-light">not scanned</span>
@@ -106,8 +105,14 @@
                   phx-click="toggle_lifecycle_menu"
                   class="inline-flex items-center gap-2 font-light hover:opacity-70 transition-opacity cursor-pointer"
                 >
-                  <span class={["w-2 h-2 rounded-full shrink-0", lifecycle_color(@domain.lifecycle_state)]}></span>
-                  <span class="capitalize">{@domain.lifecycle_state |> Atom.to_string() |> String.replace("_", " ")}</span>
+                  <span class={[
+                    "w-2 h-2 rounded-full shrink-0",
+                    lifecycle_color(@domain.lifecycle_state)
+                  ]}>
+                  </span>
+                  <span class="capitalize">
+                    {@domain.lifecycle_state |> Atom.to_string() |> String.replace("_", " ")}
+                  </span>
                   <.icon name="hero-chevron-down" class="w-3 h-3 text-neutral-400" />
                 </button>
                 <%= if @lifecycle_menu_open do %>

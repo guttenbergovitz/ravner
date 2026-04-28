@@ -3,11 +3,14 @@ defmodule Ravner.Accounts.User do
   import Ecto.Changeset
 
   schema "users" do
-    field :email, :string
-    field :password, :string, virtual: true, redact: true
-    field :hashed_password, :string, redact: true
-    field :confirmed_at, :utc_datetime
-    field :authenticated_at, :utc_datetime, virtual: true
+    field(:email, :string)
+    field(:password, :string, virtual: true, redact: true)
+    field(:hashed_password, :string, redact: true)
+    field(:confirmed_at, :utc_datetime)
+    field(:authenticated_at, :utc_datetime, virtual: true)
+    field(:role, Ecto.Enum, values: [:admin, :editor, :viewer], default: :viewer)
+    field(:name, :string)
+    field(:active, :boolean, default: true)
 
     timestamps(type: :utc_datetime)
   end
@@ -128,5 +131,26 @@ defmodule Ravner.Accounts.User do
   def valid_password?(_, _) do
     Bcrypt.no_user_verify()
     false
+  end
+
+  @doc """
+  Changeset for admin creating or editing a user manually.
+  """
+  def admin_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email, :name, :role, :active])
+    |> validate_required([:email, :role])
+    |> validate_inclusion(:role, [:admin, :editor, :viewer])
+    |> validate_email(opts)
+  end
+
+  @doc """
+  Changeset for admin updating only role/name/active.
+  """
+  def role_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:name, :role, :active])
+    |> validate_required([:role])
+    |> validate_inclusion(:role, [:admin, :editor, :viewer])
   end
 end

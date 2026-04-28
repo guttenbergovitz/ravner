@@ -226,6 +226,39 @@ defmodule RavnerWeb.UserAuth do
     end
   end
 
+  def on_mount(:ensure_admin, _params, session, socket) do
+    socket = mount_current_scope(session, socket)
+    user = socket.assigns.current_scope && socket.assigns.current_scope.user
+
+    if user && user.role == :admin do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You don't have permission to access this page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/domains")
+
+      {:halt, socket}
+    end
+  end
+
+  def on_mount(:ensure_editor, _params, session, socket) do
+    socket = mount_current_scope(session, socket)
+    user = socket.assigns.current_scope && socket.assigns.current_scope.user
+    role_rank = %{viewer: 0, editor: 1, admin: 2}
+
+    if user && Map.get(role_rank, user.role, 0) >= 1 do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You don't have permission to access this page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/domains")
+
+      {:halt, socket}
+    end
+  end
+
   defp mount_current_scope(session, socket) do
     case session do
       %{"user_token" => token} ->

@@ -20,10 +20,12 @@ defmodule RavnerWeb.SetupController do
     else
       case Accounts.register_user_with_password(user_params) do
         {:ok, user} ->
-          # Confirm the root user immediately
+          # Confirm the root user immediately and grant admin role
           user
           |> User.confirm_changeset()
           |> Repo.update!()
+
+          Ravner.Accounts.admin_update_user(user, %{role: :admin})
 
           conn
           |> put_flash(:info, "Root account created. Please log in.")

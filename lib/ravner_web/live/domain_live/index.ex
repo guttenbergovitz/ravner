@@ -15,7 +15,19 @@ defmodule RavnerWeb.DomainLive.Index do
 
   @impl true
   def handle_params(params, _url, socket) do
-    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+    socket = apply_action(socket, socket.assigns.live_action, params)
+
+    socket =
+      if socket.assigns.live_action in [:new, :edit, :import] &&
+           !editor?(socket.assigns.current_scope) do
+        socket
+        |> put_flash(:error, "You don't have permission to perform this action.")
+        |> push_patch(to: ~p"/domains")
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   defp apply_action(socket, :index, _params) do
@@ -75,19 +87,23 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("set_lifecycle", %{"id" => id, "state" => state}, socket) do
-    domain = Domains.get_domain!(id)
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+    else
+      domain = Domains.get_domain!(id)
 
-    case Domains.update_domain(domain, %{lifecycle_state: state}) do
-      {:ok, _} ->
-        domains = Domains.list_domains_with_preloads()
+      case Domains.update_domain(domain, %{lifecycle_state: state}) do
+        {:ok, _} ->
+          domains = Domains.list_domains_with_preloads()
 
-        {:noreply,
-         socket
-         |> assign(:domains, domains)
-         |> assign(:lifecycle_menu_open, nil)}
+          {:noreply,
+           socket
+           |> assign(:domains, domains)
+           |> assign(:lifecycle_menu_open, nil)}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
+      end
     end
   end
 
@@ -105,11 +121,15 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    domain = Domains.get_domain!(id)
-    {:ok, _} = Domains.delete_domain(domain)
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+    else
+      domain = Domains.get_domain!(id)
+      {:ok, _} = Domains.delete_domain(domain)
 
-    {:noreply,
-     update(socket, :domains, fn domains -> Enum.reject(domains, &(&1.id == domain.id)) end)}
+      {:noreply,
+       update(socket, :domains, fn domains -> Enum.reject(domains, &(&1.id == domain.id)) end)}
+    end
   end
 
   def handle_event("import", %{"domains" => domains_text}, socket) do
@@ -171,6 +191,14 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
+  defp editor?(nil), do: false
+
+  defp editor?(scope) do
+    role_rank = %{viewer: 0, editor: 1, admin: 2}
+    user = scope.user
+    user && Map.get(role_rank, user.role, 0) >= 1
+  end
+
   defp lifecycle_color(:active), do: "bg-green-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
@@ -189,4 +217,4 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 end
 
-  # This line intentionally left to trigger read - please ignore
+# This line intentionally left to trigger read - please ignore
