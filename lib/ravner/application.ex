@@ -10,6 +10,9 @@ defmodule Ravner.Application do
     children = [
       RavnerWeb.Telemetry,
       Ravner.Repo,
+      {Ecto.Migrator,
+       repos: Application.fetch_env!(:ravner, :ecto_repos),
+       skip: System.get_env("SKIP_MIGRATIONS") == "true"},
       {DNSCluster, query: Application.get_env(:ravner, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ravner.PubSub},
       # Start a worker by calling: Ravner.Worker.start_link(arg)
