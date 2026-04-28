@@ -339,7 +339,7 @@
                   <%!-- HTTP status / redirect --%>
                   <%= if meta = domain.domain_metadata do %>
                     <%= cond do %>
-                      <% meta.final_url && meta.http_status in [301, 302, 303, 307, 308] -> %>
+                      <% meta.final_url && (meta.http_status in [301, 302, 303, 307, 308] || external_redirect?(domain.name, meta.final_url)) -> %>
                         <% target = URI.parse(meta.final_url).host || meta.final_url %>
                         <span class="flex items-center gap-1 text-amber-600">
                           <span class="font-normal">{meta.http_status}</span>
