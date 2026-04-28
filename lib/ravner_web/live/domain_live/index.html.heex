@@ -472,7 +472,6 @@
                         id={"copy-ip-#{domain.id}"}
                         phx-hook="Copy"
                         data-copy={List.first(meta.ip_v4)}
-                        phx-click="copy-ip"
                         class="hidden md:inline-flex text-neutral-400 hover:text-neutral-700 transition-colors"
                         title="Copy IP"
                       >
@@ -482,6 +481,7 @@
                         export default {
                           mounted() {
                             this.el.addEventListener("click", e => {
+                              e.stopPropagation();
                               const text = this.el.getAttribute("data-copy");
                               navigator.clipboard.writeText(text).catch(() => {});
                             });
@@ -631,7 +631,6 @@
                               id={"copy-ip-sub-#{sub.id}"}
                               phx-hook="Copy"
                               data-copy={List.first(sub_meta.ip_v4)}
-                              phx-click="copy-ip"
                               class="hidden md:inline-flex text-neutral-400 hover:text-neutral-700 transition-colors"
                               title="Copy IP"
                             >
