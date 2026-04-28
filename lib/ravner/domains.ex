@@ -369,6 +369,8 @@ defmodule Ravner.Domains do
   """
   def dashboard_stats do
     total = Repo.aggregate(Domain, :count, :id)
+    total_apex = Repo.aggregate(from(d in Domain, where: d.type == :domain), :count, :id)
+    total_subdomains = Repo.aggregate(from(d in Domain, where: d.type == :subdomain), :count, :id)
 
     lifecycle =
       Domain
@@ -431,9 +433,47 @@ defmodule Ravner.Domains do
 
     scan_never = max(0, total - scan_this_week - scan_this_month - scan_older)
 
+    lifecycle_order = [
+      :priority,
+      :active,
+      :placeholder,
+      :under_review,
+      :redirect,
+      :deprecated,
+      :decommissioned,
+      :error,
+      :abandoned
+    ]
+
+    lifecycle_labels = %{
+      priority: "Priority",
+      active: "Active",
+      placeholder: "Placeholder",
+      under_review: "Under review",
+      redirect: "Redirect",
+      deprecated: "Deprecated",
+      decommissioned: "Decommissioned",
+      error: "Error",
+      abandoned: "Abandoned"
+    }
+
+    lifecycle_list =
+      lifecycle_order
+      |> Enum.map(fn state ->
+        %{
+          state: state,
+          label: Map.get(lifecycle_labels, state, Atom.to_string(state)),
+          count: Map.get(lifecycle, state, 0)
+        }
+      end)
+      |> Enum.filter(&(&1.count > 0))
+
     %{
       total: total,
+      total_apex: total_apex,
+      total_subdomains: total_subdomains,
       lifecycle: lifecycle,
+      lifecycle_list: lifecycle_list,
       http: %{
         http_200: http_200,
         http_3xx: http_3xx,
