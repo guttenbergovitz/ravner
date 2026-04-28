@@ -40,6 +40,10 @@ defmodule Ravner.Domains.DomainMetadata do
     # Scan provenance
     field(:scanned_at, :utc_datetime)
     field(:scan_duration_ms, :integer)
+    field(:http_scanned_at, :utc_datetime)
+    field(:dns_scanned_at, :utc_datetime)
+    field(:subdomains_scanned_at, :utc_datetime)
+    field(:rdap_scanned_at, :utc_datetime)
 
     timestamps(type: :utc_datetime)
   end
@@ -71,7 +75,11 @@ defmodule Ravner.Domains.DomainMetadata do
       :server_header,
       :tech_stack,
       :scanned_at,
-      :scan_duration_ms
+      :scan_duration_ms,
+      :http_scanned_at,
+      :dns_scanned_at,
+      :subdomains_scanned_at,
+      :rdap_scanned_at
     ])
     |> validate_required([:domain_id])
     |> foreign_key_constraint(:domain_id)
