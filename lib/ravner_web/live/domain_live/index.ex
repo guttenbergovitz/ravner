@@ -8,7 +8,6 @@ defmodule RavnerWeb.DomainLive.Index do
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(:domains, Domains.list_domains_with_preloads())
      |> assign(:expanded_domains, MapSet.new())
      |> assign(:lifecycle_menu_open, nil)
      |> assign(:importing, false)
@@ -37,10 +36,22 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, socket}
   end
 
-  defp apply_action(socket, :index, _params) do
+  defp apply_action(socket, :index, params) do
+    search = Map.get(params, "search", "")
+    lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
+    page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
+
+    result = Domains.list_domains_filtered(search: search, lifecycle: lifecycle, page: page)
+
     socket
     |> assign(:page_title, "Domains")
     |> assign(:domain, nil)
+    |> assign(:domains, result.domains)
+    |> assign(:total, result.total)
+    |> assign(:page, result.page)
+    |> assign(:total_pages, result.total_pages)
+    |> assign(:search, search)
+    |> assign(:lifecycle_filter, lifecycle)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -60,7 +71,34 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:importing, false)
   end
 
+  defp parse_lifecycle(""), do: nil
+  defp parse_lifecycle(nil), do: nil
+
+  defp parse_lifecycle(s) do
+    valid = [:active, :under_review, :deprecated, :decommissioned, :abandoned]
+    atom = String.to_existing_atom(s)
+    if atom in valid, do: atom, else: nil
+  rescue
+    _ -> nil
+  end
+
   @impl true
+  def handle_event("search", %{"search" => query}, socket) do
+    params = build_params(socket, search: query, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("filter_lifecycle", %{"lifecycle" => lc}, socket) do
+    params = build_params(socket, lifecycle: lc, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("paginate", %{"page" => page_str}, socket) do
+    page = page_str |> Integer.parse() |> elem(0)
+    params = build_params(socket, page: page)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
   def handle_event("validate", %{"domain" => domain_params}, socket) do
     changeset =
       socket.assigns.domain
@@ -72,14 +110,11 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("save", %{"domain" => domain_params}, socket) do
     case Domains.create_domain(domain_params) do
-      {:ok, domain} ->
-        domain = Domains.get_domain_with_preloads!(domain.id)
-
+      {:ok, _domain} ->
         {:noreply,
          socket
          |> put_flash(:info, "Domain created successfully")
-         |> push_navigate(to: ~p"/domains")
-         |> update(:domains, fn domains -> [domain | domains] end)}
+         |> push_patch(to: ~p"/domains")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
@@ -102,12 +137,12 @@ defmodule RavnerWeb.DomainLive.Index do
 
       case Domains.update_domain(domain, %{lifecycle_state: state}) do
         {:ok, _} ->
-          domains = Domains.list_domains_with_preloads()
+          params = build_params(socket)
 
           {:noreply,
            socket
-           |> assign(:domains, domains)
-           |> assign(:lifecycle_menu_open, nil)}
+           |> assign(:lifecycle_menu_open, nil)
+           |> push_patch(to: ~p"/domains?#{params}")}
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
@@ -134,13 +169,16 @@ defmodule RavnerWeb.DomainLive.Index do
     else
       domain = Domains.get_domain!(id)
       {:ok, _} = Domains.delete_domain(domain)
-
-      {:noreply,
-       update(socket, :domains, fn domains -> Enum.reject(domains, &(&1.id == domain.id)) end)}
+      params = build_params(socket)
+      {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
     end
   end
 
   def handle_event("close_modal", _params, socket) do
+    {:noreply, push_patch(socket, to: ~p"/domains")}
+  end
+
+  def handle_event("clear_filters", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/domains")}
   end
 
@@ -175,22 +213,25 @@ defmodule RavnerWeb.DomainLive.Index do
   defp run_import(text, socket) do
     results = Domains.bulk_import(text)
 
-    socket =
-      Enum.reduce(results.added, socket, fn name, acc ->
-        case Domains.find_domain_by_name(name) do
-          nil ->
-            acc
-
-          domain ->
-            domain = Domains.get_domain_with_preloads!(domain.id)
-            update(acc, :domains, fn domains -> [domain | domains] end)
-        end
-      end)
-
     {:noreply,
      socket
      |> assign(:importing, false)
      |> assign(:import_results, results)}
+  end
+
+  defp build_params(socket, overrides \\ []) do
+    search = Keyword.get(overrides, :search, socket.assigns[:search] || "")
+    page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
+
+    lifecycle =
+      case Keyword.get(overrides, :lifecycle, socket.assigns[:lifecycle_filter]) do
+        nil -> ""
+        atom when is_atom(atom) -> Atom.to_string(atom)
+        str -> str
+      end
+
+    [search: search, lifecycle: lifecycle, page: page]
+    |> Enum.reject(fn {_, v} -> v == "" or v == 1 end)
   end
 
   defp editor?(nil), do: false
@@ -217,6 +258,21 @@ defmodule RavnerWeb.DomainLive.Index do
       {:abandoned, "Abandoned", "bg-neutral-400"}
     ]
   end
-end
 
-# This line intentionally left to trigger read - please ignore
+  defp page_range(_current, total) when total <= 7 do
+    Enum.to_list(1..total)
+  end
+
+  defp page_range(current, total) do
+    cond do
+      current <= 4 ->
+        Enum.to_list(1..5) ++ [:ellipsis, total]
+
+      current >= total - 3 ->
+        [1, :ellipsis] ++ Enum.to_list((total - 4)..total)
+
+      true ->
+        [1, :ellipsis] ++ Enum.to_list((current - 1)..(current + 1)) ++ [:ellipsis, total]
+    end
+  end
+end

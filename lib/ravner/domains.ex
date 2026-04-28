@@ -16,6 +16,62 @@ defmodule Ravner.Domains do
     Repo.all(Domain)
   end
 
+  @page_size 25
+
+  @doc """
+  Returns paginated, filtered domains.
+
+  Options:
+    - `:search`    - string matched against domain name (ilike)
+    - `:lifecycle` - lifecycle_state atom or nil for all
+    - `:page`      - 1-based page number (default 1)
+  """
+  def list_domains_filtered(opts \\ []) do
+    search = Keyword.get(opts, :search, "")
+    lifecycle = Keyword.get(opts, :lifecycle, nil)
+    page = max(Keyword.get(opts, :page, 1), 1)
+
+    base =
+      Domain
+      |> where(type: :domain)
+      |> then(fn q ->
+        if search && search != "" do
+          pattern = "%#{search}%"
+          where(q, [d], ilike(d.name, ^pattern))
+        else
+          q
+        end
+      end)
+      |> then(fn q ->
+        if lifecycle && lifecycle != "" && lifecycle != :all do
+          where(q, [d], d.lifecycle_state == ^lifecycle)
+        else
+          q
+        end
+      end)
+
+    total = Repo.aggregate(base, :count, :id)
+    total_pages = max(ceil(total / @page_size), 1)
+    page = min(page, total_pages)
+    offset = (page - 1) * @page_size
+
+    domains =
+      base
+      |> order_by([d], asc: d.name)
+      |> limit(@page_size)
+      |> offset(^offset)
+      |> preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata])
+      |> Repo.all()
+
+    %{
+      domains: domains,
+      page: page,
+      total_pages: total_pages,
+      total: total,
+      page_size: @page_size
+    }
+  end
+
   def list_domains_with_preloads do
     Domain
     |> where(type: :domain)
