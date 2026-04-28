@@ -482,11 +482,24 @@ defmodule Ravner.Domains do
       end)
       |> Enum.filter(&(&1.total > 0))
 
+    top_by_subs =
+      Domain
+      |> where(type: :domain)
+      |> join(:left, [d], s in Domain, on: s.parent_domain_id == d.id)
+      |> group_by([d], d.id)
+      |> select([d, s], %{name: d.name, count: count(s.id)})
+      |> order_by([_d, s], desc: count(s.id))
+      |> limit(20)
+      |> Repo.all()
+      |> Enum.map(&{&1.name, &1.count})
+      |> Enum.filter(fn {_, c} -> c > 0 end)
+
     %{
       total: total,
       total_apex: total_apex,
       total_subdomains: total_subdomains,
       lifecycle_list: lifecycle_list,
+      top_by_subs: top_by_subs,
       http: %{
         http_200: http_200,
         http_3xx: http_3xx,

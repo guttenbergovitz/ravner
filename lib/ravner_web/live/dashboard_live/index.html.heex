@@ -36,36 +36,53 @@
       </div>
     </div>
 
-    <%!-- Row 1: Lifecycle breakdown + HTTP status --%>
+    <%!-- Row 1: Lifecycle table + top domains by subdomains --%>
     <div class="grid grid-cols-2 gap-px mb-8">
-      <div class="border border-neutral-200 p-6">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">Lifecycle</div>
-        <div class="space-y-2 text-sm">
+      <div class="border border-neutral-200">
+        <div class="px-6 py-4 border-b border-neutral-100">
+          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">Lifecycle</span>
+        </div>
+        <div class="divide-y divide-neutral-100 text-sm">
           <%= for row <- @stats.lifecycle_list do %>
-            <div class="flex items-center gap-2">
-              <span class={[
-                "w-1.5 h-1.5 rounded-full shrink-0",
-                lifecycle_color(row.state)
-              ]}></span>
-              <span class="flex-1 font-light text-neutral-700">{row.label}</span>
-              <span class="font-light text-neutral-900">{row.total}</span>
-              <span class="text-xs text-neutral-400">
-                {row.apex}a · {row.sub}s
-              </span>
+            <div class="grid grid-cols-4 px-6 py-3">
+              <div class="flex items-center gap-2 col-span-2">
+                <span class={["w-1.5 h-1.5 rounded-full shrink-0", lifecycle_color(row.state)]}></span>
+                <span class="font-light text-neutral-700">{row.label}</span>
+              </div>
+              <span class="font-light text-neutral-900">{row.apex}</span>
+              <span class="font-light text-neutral-400">{row.sub}</span>
             </div>
           <% end %>
         </div>
       </div>
+
+      <div class="border border-neutral-200">
+        <div class="px-6 py-4 border-b border-neutral-100">
+          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">Top apex by subdomains</span>
+        </div>
+        <%= if @stats.top_by_subs == [] do %>
+          <div class="px-6 py-8 text-center text-sm text-neutral-400">No apex domains with subdomains yet</div>
+        <% else %>
+          <div class="divide-y divide-neutral-100 text-sm">
+            <%= for {name, count} <- @stats.top_by_subs do %>
+              <div class="grid grid-cols-4 px-6 py-3 gap-2">
+                <span class="col-span-3 font-light text-neutral-700 truncate">{name}</span>
+                <span class="font-light text-neutral-900">{count}</span>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Row 2: HTTP status + Scan recency --%>
+    <div class="grid grid-cols-2 gap-px mb-8">
       <div class="border border-neutral-200 p-6">
         <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">HTTP Status</div>
         <%= raw(@http_chart) %>
       </div>
-    </div>
-
-    <%!-- Row 2: Scan recency --%>
-    <div class="border border-neutral-200 p-6 mb-8">
-      <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">Scan Recency</div>
-      <div class="max-w-xl">
+      <div class="border border-neutral-200 p-6">
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">Scan Recency</div>
         <%= raw(@scan_chart) %>
       </div>
     </div>

@@ -25,27 +25,6 @@ defmodule RavnerWeb.DashboardLive.Index do
     {:noreply, socket}
   end
 
-  defp build_lifecycle_chart(stats) do
-    colors = %{
-      priority: "#737373",
-      active: "#a3a3a3",
-      placeholder: "#d4d4d4",
-      under_review: "#d4d4d4",
-      redirect: "#d4d4d4",
-      deprecated: "#d4d4d4",
-      decommissioned: "#d4d4d4",
-      error: "#d4d4d4",
-      abandoned: "#d4d4d4"
-    }
-
-    data =
-      stats.lifecycle_list
-      |> Enum.map(fn row ->
-        %{label: row.label, value: row.total, color: Map.get(colors, row.state, "#d4d4d4")}
-      end)
-
-    build_bar_chart_svg(data, stats.total)
-  end
 
   defp build_http_chart(http) do
     data = [
