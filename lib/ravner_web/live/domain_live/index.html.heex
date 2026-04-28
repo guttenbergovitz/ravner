@@ -469,6 +469,7 @@
                         {List.first(meta.ip_v4)}
                       </span>
                       <button
+                        id={"copy-ip-#{domain.id}"}
                         phx-hook="Copy"
                         data-copy={List.first(meta.ip_v4)}
                         phx-click="copy-ip"
@@ -627,6 +628,7 @@
                               {List.first(sub_meta.ip_v4)}
                             </span>
                             <button
+                              id={"copy-ip-sub-#{sub.id}"}
                               phx-hook="Copy"
                               data-copy={List.first(sub_meta.ip_v4)}
                               phx-click="copy-ip"
