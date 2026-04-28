@@ -392,35 +392,35 @@ defmodule Ravner.Domains do
     week_ago = DateTime.add(now, -7 * 24 * 60 * 60, :second)
     month_ago = DateTime.add(now, -30 * 24 * 60 * 60, :second)
 
-    http_200 =
-      from(m in DomainMetadata,
-        join: d in Domain,
-        on: m.domain_id == d.id and d.type == :domain,
-        where: m.http_status >= 200 and m.http_status < 300
+    # Fetch all apex metadata to compute proper counts
+    # (redirects are detected by comparing final_url to domain name,
+    #  since httpx follows redirects and stores the final status)
+    metadata_with_name =
+      Repo.all(
+        from m in DomainMetadata,
+          join: d in Domain,
+          on: m.domain_id == d.id and d.type == :domain,
+          select: %{name: d.name, http_status: m.http_status, final_url: m.final_url}
       )
-      |> Repo.aggregate(:count, :id)
 
-    http_3xx =
-      from(m in DomainMetadata,
-        join: d in Domain,
-        on: m.domain_id == d.id and d.type == :domain,
-        where: m.http_status >= 300 and m.http_status < 400
-      )
-      |> Repo.aggregate(:count, :id)
+    {http_200, http_3xx, http_4xx_5xx} =
+      metadata_with_name
+      |> Enum.map(fn row ->
+        cond do
+          row.http_status >= 200 and row.http_status < 400 and
+            external_redirect_dashboard?(row.name, row.final_url) -> {:redirect, 1}
+          row.http_status >= 200 and row.http_status < 300 -> {:ok, 1}
+          row.http_status == 0 or row.http_status >= 400 -> {:error, 1}
+          true -> {:ok, 0}
+        end
+      end)
+      |> Enum.reduce({0, 0, 0}, fn
+        {:ok, _}, {ok, redir, err} -> {ok + 1, redir, err}
+        {:redirect, _}, {ok, redir, err} -> {ok, redir + 1, err}
+        {:error, _}, {ok, redir, err} -> {ok, redir, err + 1}
+      end)
 
-    http_4xx_5xx =
-      from(m in DomainMetadata,
-        join: d in Domain,
-        on: m.domain_id == d.id and d.type == :domain,
-        where: m.http_status >= 400
-      )
-      |> Repo.aggregate(:count, :id)
-
-    scanned =
-      from(m in DomainMetadata, join: d in Domain, on: m.domain_id == d.id and d.type == :domain)
-      |> Repo.aggregate(:count, :id)
-
-    http_unscanned = max(0, total - scanned)
+    http_unscanned = max(0, total_apex - Enum.count(metadata_with_name))
 
     scan_this_week =
       from(m in DomainMetadata,
@@ -514,4 +514,17 @@ defmodule Ravner.Domains do
       }
     }
   end
+
+  defp external_redirect_dashboard?(domain_name, final_url) when is_binary(final_url) do
+    final_host =
+      final_url
+      |> URI.parse()
+      |> Map.get(:host)
+      |> Kernel.||("")
+      |> String.replace_leading("www.", "")
+
+    own_host = String.replace_leading(domain_name, "www.", "")
+    final_host != "" && final_host != own_host
+  end
+  defp external_redirect_dashboard?(_name, _url), do: false
 end
