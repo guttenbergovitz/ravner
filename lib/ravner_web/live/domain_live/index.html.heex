@@ -421,6 +421,16 @@
                         <span class="text-neutral-300">–</span>
                     <% end %>
 
+                    <%!-- IP address --%>
+                    <%= if meta.ip_v4 && meta.ip_v4 != [] do %>
+                      <span
+                        class="hidden md:inline text-neutral-400 font-mono text-[10px] tracking-tight"
+                        title={Enum.join(meta.ip_v4, ", ")}
+                      >
+                        {List.first(meta.ip_v4)}
+                      </span>
+                    <% end %>
+
                     <%!-- Tech stack (first 2) --%>
                     <%= if meta.tech_stack && meta.tech_stack != [] do %>
                       <span class="hidden lg:inline text-neutral-400 max-w-[160px] truncate">
