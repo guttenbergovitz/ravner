@@ -5,33 +5,43 @@
     <%!-- KPI row --%>
     <div class="grid grid-cols-3 divide-x divide-neutral-200 border border-neutral-200 mb-8">
       <div class="px-6 py-5">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">Total domains</div>
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
+          Total domains
+        </div>
         <div class="text-3xl font-light tracking-tight">{@stats.total}</div>
         <div class="text-xs text-neutral-400 mt-1">
-          <span class="text-neutral-700">{@stats.total_apex}</span> apex ·
-          <span class="text-neutral-700">{@stats.total_subdomains}</span> subdomains
+          <span class="text-neutral-700">{@stats.total_apex}</span>
+          apex · <span class="text-neutral-700">{@stats.total_subdomains}</span>
+          subdomains
         </div>
       </div>
       <div class="px-6 py-5">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">HTTP health</div>
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
+          HTTP health
+        </div>
         <div class="text-3xl font-light tracking-tight">
           {percentage(@stats.http.http_200, total_http(@stats.http))}%
         </div>
         <div class="text-xs text-neutral-400 mt-1">
-          {@stats.http.http_200} OK ·
-          <span class="text-amber-600">{@stats.http.http_3xx}</span> redirects ·
-          <span class="text-red-500">{@stats.http.http_4xx_5xx}</span> errors
+          {@stats.http.http_200} OK · <span class="text-amber-600">{@stats.http.http_3xx}</span>
+          redirects · <span class="text-red-500">{@stats.http.http_4xx_5xx}</span>
+          errors
         </div>
       </div>
       <div class="px-6 py-5">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">Scanned</div>
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
+          Scanned
+        </div>
         <div class="text-3xl font-light tracking-tight">
-          {percentage(@stats.scan.this_week + @stats.scan.this_month + @stats.scan.older, @stats.total)}%
+          {percentage(
+            @stats.scan.this_week + @stats.scan.this_month + @stats.scan.older,
+            @stats.total
+          )}%
         </div>
         <div class="text-xs text-neutral-400 mt-1">
-          {@stats.scan.this_week} this week ·
-          {@stats.scan.this_month} this month ·
-          <span class="text-neutral-500">{@stats.scan.never}</span> never
+          {@stats.scan.this_week} this week · {@stats.scan.this_month} this month ·
+          <span class="text-neutral-500">{@stats.scan.never}</span>
+          never
         </div>
       </div>
     </div>
@@ -40,13 +50,16 @@
     <div class="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 mb-8">
       <div>
         <div class="px-6 py-4 border-b border-neutral-100">
-          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">Lifecycle</span>
+          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
+            Lifecycle
+          </span>
         </div>
         <div class="divide-y divide-neutral-100 text-sm">
           <%= for row <- @stats.lifecycle_list do %>
             <div class="grid grid-cols-4 px-6 py-3">
               <div class="flex items-center gap-2 col-span-2">
-                <span class={["w-1.5 h-1.5 rounded-full shrink-0", lifecycle_color(row.state)]}></span>
+                <span class={["w-1.5 h-1.5 rounded-full shrink-0", lifecycle_color(row.state)]}>
+                </span>
                 <span class="font-light text-neutral-700">{row.label}</span>
               </div>
               <span class="font-light text-neutral-900">{row.apex}</span>
@@ -58,10 +71,14 @@
 
       <div>
         <div class="px-6 py-4 border-b border-neutral-100">
-          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">Top apex by subdomains</span>
+          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
+            Top apex by subdomains
+          </span>
         </div>
         <%= if @stats.top_by_subs == [] do %>
-          <div class="px-6 py-8 text-center text-sm text-neutral-400">No apex domains with subdomains yet</div>
+          <div class="px-6 py-8 text-center text-sm text-neutral-400">
+            No apex domains with subdomains yet
+          </div>
         <% else %>
           <div class="divide-y divide-neutral-100 text-sm">
             <%= for {name, count} <- @stats.top_by_subs do %>
@@ -78,42 +95,56 @@
     <%!-- Row 2: HTTP status + Scan recency --%>
     <div class="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 mb-8">
       <div class="p-6">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">HTTP Status</div>
-        <%= raw(@http_chart) %>
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
+          HTTP Status
+        </div>
+        {raw(@http_chart)}
       </div>
       <div class="p-6">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">Scan Recency</div>
-        <%= raw(@scan_chart) %>
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
+          Scan Recency
+        </div>
+        {raw(@scan_chart)}
       </div>
     </div>
 
     <%!-- Needs attention --%>
     <div class="border border-neutral-200">
       <div class="px-6 py-4 border-b border-neutral-100">
-        <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">Needs Attention</span>
+        <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
+          Needs Attention
+        </span>
       </div>
       <div class="grid grid-cols-4 divide-x divide-neutral-100">
         <div class="px-6 py-5">
           <.icon name="hero-exclamation-circle" class="w-4 h-4 text-red-500 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">HTTP errors</div>
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            HTTP errors
+          </div>
           <div class="text-xl font-light">{@stats.http.http_4xx_5xx}</div>
           <div class="text-xs text-neutral-400 mt-0.5">domains</div>
         </div>
         <div class="px-6 py-5">
           <.icon name="hero-shield-exclamation" class="w-4 h-4 text-amber-600 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">Unscanned</div>
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            Unscanned
+          </div>
           <div class="text-xl font-light">{@stats.scan.never}</div>
           <div class="text-xs text-neutral-400 mt-0.5">domains</div>
         </div>
         <div class="px-6 py-5">
           <.icon name="hero-arrow-path" class="w-4 h-4 text-neutral-500 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">No HTTP scan</div>
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            No HTTP scan
+          </div>
           <div class="text-xl font-light">{@stats.http.http_unscanned}</div>
           <div class="text-xs text-neutral-400 mt-0.5">no HTTP data</div>
         </div>
         <div class="px-6 py-5">
           <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">Redirecting</div>
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            Redirecting
+          </div>
           <div class="text-xl font-light">{@stats.http.http_3xx}</div>
           <div class="text-xs text-neutral-400 mt-0.5">domains</div>
         </div>

@@ -181,16 +181,17 @@
           name="hero-globe-europe-africa"
           class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none"
         />
-        <input
-          type="text"
-          name="ip"
-          value={@ip_filter}
-          placeholder="Filter by IP…"
-          phx-change="filter_ip"
-          phx-debounce="300"
-          autocomplete="off"
-          class="w-full pl-9 pr-4 py-2 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
-        />
+        <form phx-change="filter_ip" id="ip-filter-form">
+          <input
+            type="text"
+            name="ip"
+            value={@ip_filter}
+            placeholder="Filter by IP…"
+            phx-debounce="300"
+            autocomplete="off"
+            class="w-full pl-9 pr-4 py-2 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+          />
+        </form>
       </div>
     </div>
 

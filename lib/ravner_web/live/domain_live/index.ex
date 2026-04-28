@@ -57,7 +57,8 @@ defmodule RavnerWeb.DomainLive.Index do
     prev_lifecycle = socket.assigns[:lifecycle_filter]
     filters_changed = search != prev_search || ip != prev_ip || lifecycle != prev_lifecycle
 
-    result = Domains.list_domains_filtered(search: search, ip: ip, lifecycle: lifecycle, page: page)
+    result =
+      Domains.list_domains_filtered(search: search, ip: ip, lifecycle: lifecycle, page: page)
 
     # Re-apply subdomain metadata preload for any currently expanded domains,
     # since list_domains_filtered/1 only preloads :subdomains (without their
@@ -222,6 +223,7 @@ defmodule RavnerWeb.DomainLive.Index do
     ids =
       Domains.ids_matching_filters(
         search: socket.assigns.search,
+        ip: socket.assigns.ip_filter,
         lifecycle: socket.assigns.lifecycle_filter
       )
       |> Enum.map(&to_string/1)
@@ -475,7 +477,7 @@ defmodule RavnerWeb.DomainLive.Index do
        |> assign(:bulk_action, nil)
        |> assign(:bulk_lifecycle_menu_open, false)
        |> assign(:scanning_ids, MapSet.new())
-     |> assign(:ip_filter, "")
+       |> assign(:ip_filter, "")
        |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
        |> push_patch(to: ~p"/domains?#{params}")}
     end
@@ -559,6 +561,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp build_params(socket, overrides \\ []) do
     search = Keyword.get(overrides, :search, socket.assigns[:search] || "")
+    ip = Keyword.get(overrides, :ip, socket.assigns[:ip_filter] || "")
     page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
 
     lifecycle =
@@ -568,7 +571,7 @@ defmodule RavnerWeb.DomainLive.Index do
         str -> str
       end
 
-    [search: search, lifecycle: lifecycle, page: page]
+    [search: search, ip: ip, lifecycle: lifecycle, page: page]
     |> Enum.reject(fn {_, v} -> v == "" or v == 1 end)
   end
 

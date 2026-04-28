@@ -28,6 +28,7 @@ defmodule Ravner.Domains do
   """
   def ids_matching_filters(opts \\ []) do
     search = Keyword.get(opts, :search, "")
+    ip = Keyword.get(opts, :ip, "")
     lifecycle = Keyword.get(opts, :lifecycle, nil)
 
     Domain
@@ -43,6 +44,19 @@ defmodule Ravner.Domains do
     |> then(fn q ->
       if lifecycle && lifecycle != "" && lifecycle != :all do
         where(q, [d], d.lifecycle_state == ^lifecycle)
+      else
+        q
+      end
+    end)
+    |> then(fn q ->
+      if ip && ip != "" do
+        pattern = "%#{ip}%"
+
+        join(q, :inner, [d], m in assoc(d, :domain_metadata))
+        |> where(
+          [_d, m],
+          fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
+        )
       else
         q
       end

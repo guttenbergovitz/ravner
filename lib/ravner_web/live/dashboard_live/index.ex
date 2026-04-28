@@ -23,7 +23,6 @@ defmodule RavnerWeb.DashboardLive.Index do
     {:noreply, socket}
   end
 
-
   defp build_http_chart(http) do
     data = [
       %{label: "200 OK", value: http.http_200, color: "#737373"},
