@@ -89,7 +89,16 @@ defmodule RavnerWeb.DomainLive.Index do
   defp parse_lifecycle(nil), do: nil
 
   defp parse_lifecycle(s) do
-    valid = [:active, :under_review, :deprecated, :decommissioned, :abandoned]
+    valid = [
+      :priority,
+      :active,
+      :placeholder,
+      :under_review,
+      :deprecated,
+      :decommissioned,
+      :abandoned
+    ]
+
     atom = String.to_existing_atom(s)
     if atom in valid, do: atom, else: nil
   rescue
@@ -415,7 +424,9 @@ defmodule RavnerWeb.DomainLive.Index do
     user && Map.get(role_rank, user.role, 0) >= 1
   end
 
+  defp lifecycle_color(:priority), do: "bg-teal-600"
   defp lifecycle_color(:active), do: "bg-green-500"
+  defp lifecycle_color(:placeholder), do: "bg-violet-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
@@ -424,7 +435,9 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp lifecycle_options do
     [
+      {:priority, "Priority", "bg-teal-600"},
       {:active, "Active", "bg-green-500"},
+      {:placeholder, "Placeholder", "bg-violet-500"},
       {:under_review, "Under review", "bg-yellow-500"},
       {:deprecated, "Deprecated", "bg-orange-500"},
       {:decommissioned, "Decommissioned", "bg-red-500"},

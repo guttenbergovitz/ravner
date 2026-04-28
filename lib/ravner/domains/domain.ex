@@ -8,7 +8,15 @@ defmodule Ravner.Domains.Domain do
     field(:url, :string)
 
     field(:lifecycle_state, Ecto.Enum,
-      values: [:active, :under_review, :deprecated, :decommissioned, :abandoned],
+      values: [
+        :priority,
+        :active,
+        :placeholder,
+        :under_review,
+        :deprecated,
+        :decommissioned,
+        :abandoned
+      ],
       default: :under_review
     )
 
