@@ -56,10 +56,30 @@ defmodule RavnerWeb.DomainLive.Index do
 
     result = Domains.list_domains_filtered(search: search, lifecycle: lifecycle, page: page)
 
+    # Re-apply subdomain metadata preload for any currently expanded domains,
+    # since list_domains_filtered/1 only preloads :subdomains (without their
+    # :domain_metadata). Without this, a push_patch after e.g. set_lifecycle
+    # would leave subdomain.domain_metadata as %Ecto.Association.NotLoaded{},
+    # crashing the template when the accordion is open.
+    expanded = socket.assigns[:expanded_domains] || MapSet.new()
+
+    domains =
+      if MapSet.size(expanded) > 0 do
+        Enum.map(result.domains, fn d ->
+          if MapSet.member?(expanded, "#{d.id}") do
+            Domains.preload_subdomain_metadata(d)
+          else
+            d
+          end
+        end)
+      else
+        result.domains
+      end
+
     socket
     |> assign(:page_title, "Domains")
     |> assign(:domain, nil)
-    |> assign(:domains, result.domains)
+    |> assign(:domains, domains)
     |> assign(:total, result.total)
     |> assign(:page, result.page)
     |> assign(:total_pages, result.total_pages)
