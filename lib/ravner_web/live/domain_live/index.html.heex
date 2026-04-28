@@ -286,7 +286,11 @@
         <div class="border border-neutral-200 divide-y divide-neutral-100">
           <%= for domain <- @domains do %>
             <% selected = MapSet.member?(@selected_ids, "#{domain.id}") %>
-            <div id={"domain-#{domain.id}"} class={[selected && "bg-neutral-50"]}>
+            <% scanning = MapSet.member?(@scanning_ids, "#{domain.id}") %>
+            <div id={"domain-#{domain.id}"} class={[
+              selected && "bg-neutral-50",
+              scanning && "opacity-50"
+            ]}>
               <div
                 class="flex items-center justify-between py-4 px-6 hover:bg-neutral-50 transition-colors cursor-pointer"
                 phx-click="toggle_expand"
@@ -465,10 +469,11 @@
                       phx-click="quick_scan"
                       phx-value-id={domain.id}
                       phx-stop
-                      class="text-neutral-400 hover:text-neutral-700 transition-colors"
-                      title="Quick scan"
+                      disabled={scanning}
+                      class="text-neutral-400 hover:text-neutral-700 transition-colors disabled:cursor-not-allowed"
+                      title={if scanning, do: "Scanning...", else: "Quick scan"}
                     >
-                      <.icon name="hero-arrow-path" class="w-4 h-4" />
+                      <.icon name="hero-arrow-path" class={["w-4 h-4", scanning && "animate-spin"]} />
                     </button>
                     <button
                       phx-click="delete"
@@ -486,7 +491,11 @@
               <%= if MapSet.member?(@expanded_domains, "#{domain.id}") && domain.subdomains != [] do %>
                 <div class="bg-neutral-50 border-t border-neutral-100 divide-y divide-neutral-100">
                   <%= for sub <- domain.subdomains do %>
-                    <div class="flex items-center justify-between py-3 px-6 pl-12 hover:bg-neutral-100 transition-colors">
+                    <% sub_scanning = MapSet.member?(@scanning_ids, "#{sub.id}") %>
+                    <div class={[
+                      "flex items-center justify-between py-3 px-6 pl-12 hover:bg-neutral-100 transition-colors",
+                      sub_scanning && "opacity-50"
+                    ]}>
                       <div class="flex items-center gap-3">
                         <div class="relative" id={"lifecycle-menu-#{sub.id}"}>
                           <button
@@ -534,10 +543,11 @@
                           <button
                             phx-click="quick_scan"
                             phx-value-id={sub.id}
-                            class="text-neutral-400 hover:text-neutral-700 transition-colors"
-                            title="Quick scan"
+                            disabled={sub_scanning}
+                            class="text-neutral-400 hover:text-neutral-700 transition-colors disabled:cursor-not-allowed"
+                            title={if sub_scanning, do: "Scanning...", else: "Quick scan"}
                           >
-                            <.icon name="hero-arrow-path" class="w-3 h-3" />
+                            <.icon name="hero-arrow-path" class={["w-3 h-3", sub_scanning && "animate-spin"]} />
                           </button>
                           <button
                             phx-click="delete"
