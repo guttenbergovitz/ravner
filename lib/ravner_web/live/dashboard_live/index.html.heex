@@ -1,0 +1,118 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-light tracking-tight mb-8">Dashboard</h1>
+
+    <%!-- KPI row --%>
+    <div class="grid grid-cols-3 divide-x divide-neutral-200 border border-neutral-200 mb-8">
+      <div class="px-6 py-5">
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
+          Total domains
+        </div>
+        <div class="text-3xl font-light tracking-tight">{@stats.total}</div>
+        <div class="text-xs text-neutral-400 mt-1">
+          <span class="text-neutral-700">{Map.get(@stats.lifecycle, :active, 0)}</span>
+          active · <span class="text-neutral-700">{Map.get(@stats.lifecycle, :priority, 0)}</span>
+          priority
+        </div>
+      </div>
+      <div class="px-6 py-5">
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
+          HTTP health
+        </div>
+        <div class="text-3xl font-light tracking-tight">
+          {percentage(@stats.http.http_200, total_http(@stats.http))}%
+        </div>
+        <div class="text-xs text-neutral-400 mt-1">
+          {@stats.http.http_200} OK · <span class="text-amber-600">{@stats.http.http_3xx}</span>
+          redirects · <span class="text-red-500">{@stats.http.http_4xx_5xx}</span>
+          errors
+        </div>
+      </div>
+      <div class="px-6 py-5">
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
+          Scanned
+        </div>
+        <div class="text-3xl font-light tracking-tight">
+          {percentage(
+            @stats.scan.this_week + @stats.scan.this_month + @stats.scan.older,
+            @stats.total
+          )}%
+        </div>
+        <div class="text-xs text-neutral-400 mt-1">
+          {@stats.scan.this_week} this week · {@stats.scan.this_month} this month ·
+          <span class="text-neutral-500">{@stats.scan.never}</span>
+          never
+        </div>
+      </div>
+    </div>
+
+    <%!-- Row 1: Lifecycle + HTTP status --%>
+    <div class="grid grid-cols-2 gap-px mb-8">
+      <div class="border border-neutral-200 p-6">
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
+          Lifecycle Distribution
+        </div>
+        {@lifecycle_chart}
+      </div>
+      <div class="border border-neutral-200 p-6">
+        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
+          HTTP Status
+        </div>
+        {@http_chart}
+      </div>
+    </div>
+
+    <%!-- Row 2: Scan recency (full width) --%>
+    <div class="border border-neutral-200 p-6 mb-8">
+      <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
+        Scan Recency
+      </div>
+      <div class="max-w-xl">
+        {@scan_chart}
+      </div>
+    </div>
+
+    <%!-- Needs attention --%>
+    <div class="border border-neutral-200">
+      <div class="px-6 py-4 border-b border-neutral-100">
+        <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
+          Needs Attention
+        </span>
+      </div>
+      <div class="grid grid-cols-4 divide-x divide-neutral-100">
+        <div class="px-6 py-5">
+          <.icon name="hero-exclamation-circle" class="w-4 h-4 text-red-500 mb-2" />
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            HTTP errors
+          </div>
+          <div class="text-xl font-light">{@stats.http.http_4xx_5xx}</div>
+          <div class="text-xs text-neutral-400 mt-0.5">domains</div>
+        </div>
+        <div class="px-6 py-5">
+          <.icon name="hero-shield-exclamation" class="w-4 h-4 text-amber-600 mb-2" />
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            Unscanned
+          </div>
+          <div class="text-xl font-light">{@stats.scan.never}</div>
+          <div class="text-xs text-neutral-400 mt-0.5">domains</div>
+        </div>
+        <div class="px-6 py-5">
+          <.icon name="hero-arrow-path" class="w-4 h-4 text-neutral-500 mb-2" />
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            Not scanned yet
+          </div>
+          <div class="text-xl font-light">{@stats.http.http_unscanned}</div>
+          <div class="text-xs text-neutral-400 mt-0.5">no HTTP scan</div>
+        </div>
+        <div class="px-6 py-5">
+          <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500 mb-2" />
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+            Redirecting
+          </div>
+          <div class="text-xl font-light">{@stats.http.http_3xx}</div>
+          <div class="text-xs text-neutral-400 mt-0.5">domains</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

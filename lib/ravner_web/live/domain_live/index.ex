@@ -355,9 +355,12 @@ defmodule RavnerWeb.DomainLive.Index do
 
           if domain && domain.subdomains != [] do
             updated_domain = Domains.preload_subdomain_metadata(domain)
-            updated_domains = Enum.map(socket.assigns.domains, fn d ->
-              if d.id == domain_id, do: updated_domain, else: d
-            end)
+
+            updated_domains =
+              Enum.map(socket.assigns.domains, fn d ->
+                if d.id == domain_id, do: updated_domain, else: d
+              end)
+
             assign(socket, :domains, updated_domains)
           else
             socket

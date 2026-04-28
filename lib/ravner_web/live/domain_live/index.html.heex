@@ -557,9 +557,13 @@
                                 <span class="max-w-[100px] truncate">{target}</span>
                               </span>
                             <% sub_meta.http_status == 200 -> %>
-                              <span class="hidden sm:inline text-xs text-green-600 font-normal">200 OK</span>
+                              <span class="hidden sm:inline text-xs text-green-600 font-normal">
+                                200 OK
+                              </span>
                             <% sub_meta.http_status && sub_meta.http_status > 0 -> %>
-                              <span class="hidden sm:inline text-xs text-red-500 font-normal">{sub_meta.http_status}</span>
+                              <span class="hidden sm:inline text-xs text-red-500 font-normal">
+                                {sub_meta.http_status}
+                              </span>
                             <% true -> %>
                               <span></span>
                           <% end %>

@@ -363,4 +363,89 @@ defmodule Ravner.Domains do
         |> Repo.update()
     end
   end
+
+  @doc """
+  Returns aggregate dashboard statistics.
+  """
+  def dashboard_stats do
+    total = Repo.aggregate(Domain, :count, :id)
+
+    lifecycle =
+      Domain
+      |> group_by([d], d.lifecycle_state)
+      |> select([d], {d.lifecycle_state, count(d.id)})
+      |> Repo.all()
+      |> Map.new()
+
+    now = DateTime.utc_now()
+    week_ago = DateTime.add(now, -7 * 24 * 60 * 60, :second)
+    month_ago = DateTime.add(now, -30 * 24 * 60 * 60, :second)
+
+    http_200 =
+      from(m in DomainMetadata,
+        join: d in Domain,
+        on: m.domain_id == d.id and d.type == :domain,
+        where: m.http_status >= 200 and m.http_status < 300
+      )
+      |> Repo.aggregate(:count, :id)
+
+    http_3xx =
+      from(m in DomainMetadata,
+        join: d in Domain,
+        on: m.domain_id == d.id and d.type == :domain,
+        where: m.http_status >= 300 and m.http_status < 400
+      )
+      |> Repo.aggregate(:count, :id)
+
+    http_4xx_5xx =
+      from(m in DomainMetadata,
+        join: d in Domain,
+        on: m.domain_id == d.id and d.type == :domain,
+        where: m.http_status >= 400
+      )
+      |> Repo.aggregate(:count, :id)
+
+    scanned =
+      from(m in DomainMetadata, join: d in Domain, on: m.domain_id == d.id and d.type == :domain)
+      |> Repo.aggregate(:count, :id)
+
+    http_unscanned = max(0, total - scanned)
+
+    scan_this_week =
+      from(m in DomainMetadata,
+        where: m.scanned_at >= ^week_ago
+      )
+      |> Repo.aggregate(:count, :id)
+
+    scan_this_month =
+      from(m in DomainMetadata,
+        where: m.scanned_at >= ^month_ago and m.scanned_at < ^week_ago
+      )
+      |> Repo.aggregate(:count, :id)
+
+    scan_older =
+      from(m in DomainMetadata,
+        where: m.scanned_at < ^month_ago
+      )
+      |> Repo.aggregate(:count, :id)
+
+    scan_never = max(0, total - scan_this_week - scan_this_month - scan_older)
+
+    %{
+      total: total,
+      lifecycle: lifecycle,
+      http: %{
+        http_200: http_200,
+        http_3xx: http_3xx,
+        http_4xx_5xx: http_4xx_5xx,
+        http_unscanned: http_unscanned
+      },
+      scan: %{
+        this_week: scan_this_week,
+        this_month: scan_this_month,
+        older: scan_older,
+        never: scan_never
+      }
+    }
+  end
 end
