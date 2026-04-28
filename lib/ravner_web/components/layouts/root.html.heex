@@ -31,13 +31,18 @@
             <%= if @current_scope.user.role == :admin do %>
               <li>
                 <.link href={~p"/admin/users"} class="hover:text-neutral-500 transition-colors">
-                  Admin
+                  Users
+                </.link>
+              </li>
+              <li>
+                <.link href={~p"/admin/settings"} class="hover:text-neutral-500 transition-colors">
+                  Settings
                 </.link>
               </li>
             <% end %>
             <li>
               <.link href={~p"/users/settings"} class="hover:text-neutral-500 transition-colors">
-                Settings
+                Account
               </.link>
             </li>
             <li>
