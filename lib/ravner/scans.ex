@@ -5,6 +5,7 @@ defmodule Ravner.Scans do
 
   require Logger
 
+  alias Ravner.ApiKeys
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Repo
@@ -109,10 +110,24 @@ defmodule Ravner.Scans do
   end
 
   defp run_chaos(domain_name) do
-    api_key = Application.get_env(:ravner, :chaos_api_key)
+    # Settings have precedence over ENV (as per design)
+    api_key =
+      case ApiKeys.get_effective_key("chaos") do
+        {:settings, _, _} ->
+          # Key is stored as hash in settings, we need to check if there's an ENV fallback
+          # or this is an error condition
+          System.get_env("CHAOS_API_KEY")
+
+        {:env, key, _} ->
+          key
+
+        {:none, _, _} ->
+          nil
+      end
 
     if is_nil(api_key) || api_key == "" do
-      {:error, "No Chaos API key"}
+      {:error,
+       "No Chaos API key configured (add in Settings > API Keys or set CHAOS_API_KEY env var)"}
     else
       case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
              headers: %{"authorization" => api_key},

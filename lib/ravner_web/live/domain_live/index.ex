@@ -403,7 +403,7 @@ defmodule RavnerWeb.DomainLive.Index do
        |> assign(:include_subdomains, false)
        |> assign(:bulk_action, nil)
        |> assign(:bulk_lifecycle_menu_open, false)
-     |> assign(:scanning_ids, MapSet.new())
+       |> assign(:scanning_ids, MapSet.new())
        |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
        |> push_patch(to: ~p"/domains?#{params}")}
     end

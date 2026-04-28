@@ -1,0 +1,154 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-light tracking-tight mb-8">Settings</h1>
+
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-2">API Keys</h2>
+      <p class="text-sm font-light text-neutral-500 mb-6">
+        Configure API keys for external services. Keys are encrypted before storage.
+        Settings have precedence over environment variables.
+      </p>
+
+      <div class="space-y-4">
+        <%= for key_info <- @known_keys do %>
+          <% stored_key = Enum.find(@api_keys, &(&1.name == key_info.name)) %>
+          <% source = Ravner.ApiKeys.get_key_source(key_info.name) %>
+
+          <div class="border border-neutral-200 p-4">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="font-normal">{key_info.label}</h3>
+                  <%= if key_info.required do %>
+                    <span class="text-xs text-red-500">*</span>
+                  <% else %>
+                    <span class="text-xs text-neutral-400">(optional)</span>
+                  <% end %>
+                </div>
+                <p class="text-xs text-neutral-500 mb-2">{key_info.description}</p>
+
+                <div class="flex items-center gap-3 text-xs">
+                  <%= case source do %>
+                    <% :settings -> %>
+                      <span class="flex items-center gap-1 text-green-600">
+                        <.icon name="hero-cog-6-tooth" class="w-3.5 h-3.5" /> From settings
+                      </span>
+                    <% :env -> %>
+                      <span class="flex items-center gap-1 text-blue-600">
+                        <.icon name="hero-server" class="w-3.5 h-3.5" /> From environment
+                      </span>
+                    <% :none -> %>
+                      <span class="flex items-center gap-1 text-neutral-400">
+                        <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> Not configured
+                      </span>
+                  <% end %>
+
+                  <%= if stored_key && stored_key.is_valid != nil do %>
+                    <%= if stored_key.is_valid do %>
+                      <span class="flex items-center gap-1 text-green-600">
+                        <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> Valid
+                      </span>
+                    <% else %>
+                      <span
+                        class="flex items-center gap-1 text-red-500"
+                        title={stored_key.error_message}
+                      >
+                        <.icon name="hero-exclamation-circle" class="w-3.5 h-3.5" /> Invalid
+                      </span>
+                    <% end %>
+                  <% end %>
+
+                  <%= if stored_key && stored_key.last_validated_at do %>
+                    <span class="text-neutral-400">
+                      Validated {Ravner.Formatting.time_ago(stored_key.last_validated_at)}
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <%= if source != :none do %>
+                  <button
+                    phx-click="validate_key"
+                    phx-value-name={key_info.name}
+                    class="btn-line text-xs"
+                  >
+                    <.icon name="hero-shield-check" class="w-3.5 h-3.5" /> Test
+                  </button>
+                <% end %>
+
+                <button
+                  phx-click="edit_key"
+                  phx-value-name={key_info.name}
+                  class="btn-line text-xs"
+                >
+                  <%= if stored_key do %>
+                    <.icon name="hero-pencil" class="w-3.5 h-3.5" /> Edit
+                  <% else %>
+                    <.icon name="hero-plus" class="w-3.5 h-3.5" /> Add
+                  <% end %>
+                </button>
+
+                <%= if stored_key do %>
+                  <button
+                    phx-click="delete_key"
+                    phx-value-id={stored_key.id}
+                    data-confirm="Remove this API key from settings?"
+                    class="text-neutral-400 hover:text-red-600 transition-colors"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" />
+                  </button>
+                <% end %>
+              </div>
+            </div>
+
+            <%= if @editing_key == key_info.name && @form do %>
+              <div class="mt-4 pt-4 border-t border-neutral-100">
+                <.form
+                  for={@form}
+                  phx-submit="save_key"
+                  id={"api-key-form-#{key_info.name}"}
+                  class="space-y-4"
+                >
+                  <div>
+                    <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                      API Key
+                    </label>
+                    <input
+                      type="password"
+                      name="api_key[key]"
+                      value={@form[:key].value}
+                      placeholder="Enter API key..."
+                      class="w-full px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+                    />
+                    <%= if @form[:key].errors != [] do %>
+                      <p class="text-xs text-red-500 mt-1">{elem(hd(@form[:key].errors), 0)}</p>
+                    <% end %>
+                  </div>
+
+                  <div class="flex items-center gap-3">
+                    <button type="submit" class="btn-line-filled text-xs">
+                      Save Key
+                    </button>
+                    <button
+                      type="button"
+                      phx-click="cancel_edit"
+                      class="btn-line text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </.form>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="text-xs text-neutral-400">
+      <p>* Required keys must be configured for full functionality.</p>
+      <p>Environment variables: CHAOS_API_KEY, SECURITYTRAILS_API_KEY, SHODAN_API_KEY</p>
+    </div>
+  </div>
+</Layouts.app>

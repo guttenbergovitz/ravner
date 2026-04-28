@@ -96,6 +96,7 @@ defmodule RavnerWeb.Router do
       live("/users/:id/edit", AdminLive.Users, :edit)
       live("/invites", AdminLive.Invites, :index)
       live("/invites/new", AdminLive.Invites, :new)
+      live("/settings", AdminLive.Settings, :index)
     end
   end
 
