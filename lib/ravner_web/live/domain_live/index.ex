@@ -543,8 +543,8 @@ defmodule RavnerWeb.DomainLive.Index do
     [
       {:priority, "Priority", "bg-teal-600"},
       {:active, "Active", "bg-green-500"},
-      {:placeholder, "Placeholder", "bg-violet-500"},
       {:under_review, "Under review", "bg-yellow-500"},
+      {:placeholder, "Placeholder", "bg-violet-500"},
       {:redirect, "Redirect", "bg-cyan-500"},
       {:deprecated, "Deprecated", "bg-orange-400"},
       {:decommissioned, "Decommissioned", "bg-red-500"},

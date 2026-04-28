@@ -11,8 +11,8 @@ defmodule Ravner.Domains.Domain do
       values: [
         :priority,
         :active,
-        :placeholder,
         :under_review,
+        :placeholder,
         :redirect,
         :deprecated,
         :decommissioned,
