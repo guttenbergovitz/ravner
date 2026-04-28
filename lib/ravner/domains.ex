@@ -27,12 +27,66 @@ defmodule Ravner.Domains do
     - `:page`      - 1-based page number (default 1)
   """
   def ids_matching_filters(opts \\ []) do
+    filtered_query(opts)
+    |> select([d], d.id)
+    |> Repo.all()
+  end
+
+  def bulk_delete(ids) when is_list(ids) do
+    {count, _} =
+      Domain
+      |> where([d], d.id in ^ids)
+      |> Repo.delete_all()
+
+    {:ok, count}
+  end
+
+  def list_domains_filtered(opts \\ []) do
+    base = filtered_query(opts)
+    page = max(Keyword.get(opts, :page, 1), 1)
+
+    total = Repo.aggregate(base, :count, :id)
+    total_pages = max(ceil(total / @page_size), 1)
+    page = min(page, total_pages)
+    offset = (page - 1) * @page_size
+
+    domains =
+      base
+      |> order_by([d], asc: d.name)
+      |> limit(@page_size)
+      |> offset(^offset)
+      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
+      |> Repo.all()
+
+    %{
+      domains: domains,
+      page: page,
+      total_pages: total_pages,
+      total: total,
+      page_size: @page_size
+    }
+  end
+
+  @doc """
+  Returns all domains matching the given filters, without pagination.
+  """
+  def list_domains_filtered_all(opts \\ []) do
+    filtered_query(opts)
+    |> order_by([d], asc: d.name)
+    |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
+    |> Repo.all()
+  end
+
+  defp filtered_query(opts) do
     search = Keyword.get(opts, :search, "")
     ip = Keyword.get(opts, :ip, "")
     lifecycle = Keyword.get(opts, :lifecycle, nil)
+    include_subs = Keyword.get(opts, :include_subdomains, false)
 
     Domain
-    |> where(type: :domain)
+    |> then(fn q ->
+      if include_subs, do: q, else: where(q, type: :domain)
+    end)
     |> then(fn q ->
       if search && search != "" do
         pattern = "%#{search}%"
@@ -61,78 +115,6 @@ defmodule Ravner.Domains do
         q
       end
     end)
-    |> select([d], d.id)
-    |> Repo.all()
-  end
-
-  def bulk_delete(ids) when is_list(ids) do
-    {count, _} =
-      Domain
-      |> where([d], d.id in ^ids)
-      |> Repo.delete_all()
-
-    {:ok, count}
-  end
-
-  def list_domains_filtered(opts \\ []) do
-    search = Keyword.get(opts, :search, "")
-    ip = Keyword.get(opts, :ip, "")
-    lifecycle = Keyword.get(opts, :lifecycle, nil)
-    page = max(Keyword.get(opts, :page, 1), 1)
-
-    base =
-      Domain
-      |> where(type: :domain)
-      |> then(fn q ->
-        if search && search != "" do
-          pattern = "%#{search}%"
-          where(q, [d], ilike(d.name, ^pattern))
-        else
-          q
-        end
-      end)
-      |> then(fn q ->
-        if lifecycle && lifecycle != "" && lifecycle != :all do
-          where(q, [d], d.lifecycle_state == ^lifecycle)
-        else
-          q
-        end
-      end)
-      |> then(fn q ->
-        if ip && ip != "" do
-          # Filter by IP in domain_metadata
-          pattern = "%#{ip}%"
-
-          join(q, :inner, [d], m in assoc(d, :domain_metadata))
-          |> where(
-            [_d, m],
-            fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
-          )
-        else
-          q
-        end
-      end)
-
-    total = Repo.aggregate(base, :count, :id)
-    total_pages = max(ceil(total / @page_size), 1)
-    page = min(page, total_pages)
-    offset = (page - 1) * @page_size
-
-    domains =
-      base
-      |> order_by([d], asc: d.name)
-      |> limit(@page_size)
-      |> offset(^offset)
-      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
-      |> Repo.all()
-
-    %{
-      domains: domains,
-      page: page,
-      total_pages: total_pages,
-      total: total,
-      page_size: @page_size
-    }
   end
 
   def suggest_domains(query, limit \\ 5)
@@ -565,4 +547,67 @@ defmodule Ravner.Domains do
   end
 
   defp external_redirect_dashboard?(_name, _url), do: false
+
+  @doc """
+  Converts a list of domains to CSV binary.
+  """
+  def to_csv(domains) when is_list(domains) do
+    header =
+      "Name,Type,Lifecycle,HTTP Status,Final URL,IP v4,Tech Stack,Registrar,Expires,Scanned,Subdomains\n"
+
+    rows =
+      Enum.map(domains, fn d ->
+        m = d.domain_metadata
+
+        ip = if m && m.ip_v4, do: Enum.join(m.ip_v4, "; "), else: ""
+        tech = if m && m.tech_stack, do: Enum.join(m.tech_stack, "; "), else: ""
+        registrar = if m && m.registrar, do: m.registrar, else: ""
+
+        expires =
+          if m && m.expiration_date,
+            do: Calendar.strftime(m.expiration_date, "%Y-%m-%d"),
+            else: ""
+
+        scanned =
+          if m && m.scanned_at,
+            do: Calendar.strftime(m.scanned_at, "%Y-%m-%d %H:%M"),
+            else: ""
+
+        http = if m && m.http_status, do: to_string(m.http_status), else: ""
+        final = if m && m.final_url, do: m.final_url, else: ""
+        subs = length(d.subdomains || [])
+
+        [
+          d.name,
+          to_string(d.type),
+          to_string(d.lifecycle_state),
+          http,
+          final,
+          ip,
+          tech,
+          registrar,
+          expires,
+          scanned,
+          to_string(subs)
+        ]
+        |> Enum.map(&csv_escape/1)
+        |> Enum.join(",")
+      end)
+      |> Enum.join("\n")
+
+    header <> rows <> "\n"
+  end
+
+  defp csv_escape(nil), do: ""
+
+  defp csv_escape(value) do
+    str = to_string(value)
+
+    if String.contains?(str, [",", "\"", "\n", "\r"]) do
+      escaped = String.replace(str, "\"", "\"\"")
+      "\"#{escaped}\""
+    else
+      str
+    end
+  end
 end

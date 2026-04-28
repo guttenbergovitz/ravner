@@ -75,6 +75,8 @@ defmodule RavnerWeb.Router do
   scope "/", RavnerWeb do
     pipe_through([:browser, :require_authenticated_user])
 
+    get("/domains/export", DomainExportController, :index)
+
     live_session :authenticated, on_mount: [{RavnerWeb.UserAuth, :ensure_authenticated}] do
       live("/", DashboardLive.Index, :index)
       live("/domains", DomainLive.Index, :index)

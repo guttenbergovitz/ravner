@@ -20,6 +20,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
      |> assign(:ip_filter, "")
+     |> assign(:export_include_subs, false)
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -188,6 +189,10 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
+  def handle_event("toggle_export_subs", _params, socket) do
+    {:noreply, assign(socket, :export_include_subs, !socket.assigns.export_include_subs)}
+  end
+
   # ── Selection mode ──────────────────────────────────────────────────────────
 
   def handle_event("enter_selection_mode", _params, socket) do
@@ -203,7 +208,8 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
-     |> assign(:ip_filter, "")}
+     |> assign(:ip_filter, "")
+     |> assign(:export_include_subs, false)}
   end
 
   def handle_event("toggle_select", %{"id" => id}, socket) do
@@ -250,7 +256,8 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_action, {:lifecycle, String.to_existing_atom(state)})
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
-     |> assign(:ip_filter, "")}
+     |> assign(:ip_filter, "")
+     |> assign(:export_include_subs, false)}
   end
 
   def handle_event("bulk_action_cancel", _params, socket) do
@@ -478,6 +485,7 @@ defmodule RavnerWeb.DomainLive.Index do
        |> assign(:bulk_lifecycle_menu_open, false)
        |> assign(:scanning_ids, MapSet.new())
        |> assign(:ip_filter, "")
+       |> assign(:export_include_subs, false)
        |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
        |> push_patch(to: ~p"/domains?#{params}")}
     end
@@ -521,6 +529,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
      |> assign(:ip_filter, "")
+     |> assign(:export_include_subs, false)
      |> put_flash(:info, "Scanned #{count} domain#{if count != 1, do: "s", else: ""}")
      |> push_patch(to: ~p"/domains?#{params}")}
   end
@@ -546,6 +555,7 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
      |> assign(:ip_filter, "")
+     |> assign(:export_include_subs, false)
      |> put_flash(:info, "Set #{count} domain#{if count != 1, do: "s", else: ""} to #{label}")
      |> push_patch(to: ~p"/domains?#{params}")}
   end

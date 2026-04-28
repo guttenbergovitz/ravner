@@ -718,6 +718,50 @@
           </button>
         </div>
       <% end %>
+
+      <%!-- Export --%>
+      <% export_q =
+        [
+          search: @search,
+          ip: @ip_filter,
+          lifecycle: if(@lifecycle_filter, do: to_string(@lifecycle_filter), else: ""),
+          include_subdomains: if(@export_include_subs, do: "true", else: "")
+        ]
+        |> Enum.reject(fn {_, v} -> v == "" end) %>
+      <div class="flex justify-end items-center gap-3 mt-4">
+        <div class="flex items-center border border-neutral-200">
+          <button
+            phx-click="toggle_export_subs"
+            class={[
+              "px-2.5 py-1.5 text-xs font-light transition-colors",
+              if(!@export_include_subs,
+                do: "bg-neutral-900 text-white",
+                else: "text-neutral-500 hover:bg-neutral-50"
+              )
+            ]}
+          >
+            Apex only
+          </button>
+          <button
+            phx-click="toggle_export_subs"
+            class={[
+              "px-2.5 py-1.5 text-xs font-light transition-colors",
+              if(@export_include_subs,
+                do: "bg-neutral-900 text-white",
+                else: "text-neutral-500 hover:bg-neutral-50"
+              )
+            ]}
+          >
+            All domains
+          </button>
+        </div>
+        <a
+          href={~p"/domains/export?#{export_q}"}
+          class="btn-line text-xs flex items-center gap-1.5"
+        >
+          <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Export CSV
+        </a>
+      </div>
     <% end %>
   </div>
 
