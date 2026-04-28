@@ -193,7 +193,7 @@ defmodule Ravner.Scans do
   defp run_crtsh(domain_name) do
     case Req.get("#{@crtsh_api}/?q=%25.#{domain_name}&output=json",
            retry: false,
-           receive_timeout: 20_000
+           receive_timeout: 8_000
          ) do
       {:ok, %{status: 200, body: body}} when is_list(body) ->
         subdomains =
@@ -221,6 +221,10 @@ defmodule Ravner.Scans do
 
       {:ok, %{status: status}} ->
         {:error, "crt.sh returned #{status}"}
+
+      {:error, %Req.TransportError{reason: :timeout}} ->
+        Logger.info("crt.sh timed out for #{domain_name}, treating as no results")
+        {:ok, []}
 
       {:error, exception} ->
         Logger.warning("crt.sh request failed for #{domain_name}: #{inspect(exception)}")
