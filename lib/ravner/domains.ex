@@ -94,7 +94,7 @@ defmodule Ravner.Domains do
       |> order_by([d], asc: d.name)
       |> limit(@page_size)
       |> offset(^offset)
-      |> preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata])
+      |> preload([:parent_domain, :domain_tags, :domain_metadata, subdomains: :domain_metadata])
       |> Repo.all()
 
     %{
