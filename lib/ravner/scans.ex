@@ -11,6 +11,7 @@ defmodule Ravner.Scans do
 
   @chaos_api "https://dns.projectdiscovery.io"
   @hackertarget_api "https://api.hackertarget.com/hostsearch"
+  @crtsh_api "https://crt.sh"
   @rdap_api "https://rdap.org/domain"
   @iana_bootstrap "https://data.iana.org/rdap/dns.json"
 
@@ -68,29 +69,43 @@ defmodule Ravner.Scans do
   def run_subdomain_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
 
-    result =
-      case run_chaos(domain.name) do
-        {:ok, subdomains} ->
-          save_subdomains(subdomains, domain.id)
+    # Subdomain discovery only makes sense for apex domains
+    if domain.parent_domain_id != nil do
+      Logger.info("Skipping subdomain scan for non-apex domain #{domain.name}")
+      {:error, "Subdomain scan only supported for apex domains"}
+    else
+      result = run_subdomain_sources(domain.name, domain.id)
 
-        {:error, _} ->
-          case run_hackertarget(domain.name) do
-            {:ok, subdomains} ->
-              save_subdomains(subdomains, domain.id)
+      case result do
+        {:ok, _} = ok ->
+          Domains.upsert_domain_metadata(domain_id, %{subdomains_scanned_at: DateTime.utc_now()})
+          ok
 
-            {:error, reason} ->
-              {:error, reason}
-          end
+        error ->
+          error
       end
-
-    case result do
-      {:ok, _} = ok ->
-        Domains.upsert_domain_metadata(domain_id, %{subdomains_scanned_at: DateTime.utc_now()})
-        ok
-
-      error ->
-        error
     end
+  end
+
+  # Tries each source in order, returning on first success.
+  # Chain: Chaos → HackerTarget → crt.sh
+  defp run_subdomain_sources(domain_name, domain_id) do
+    sources = [
+      fn -> run_chaos(domain_name) end,
+      fn -> run_hackertarget(domain_name) end,
+      fn -> run_crtsh(domain_name) end
+    ]
+
+    Enum.reduce_while(sources, {:error, "All subdomain sources exhausted"}, fn source, _acc ->
+      case source.() do
+        {:ok, subdomains} ->
+          {:halt, save_subdomains(subdomains, domain_id)}
+
+        {:error, reason} ->
+          Logger.info("Subdomain source failed for #{domain_name}: #{reason}, trying next")
+          {:cont, {:error, reason}}
+      end
+    end)
   end
 
   defp run_chaos(domain_name) do
@@ -172,6 +187,48 @@ defmodule Ravner.Scans do
 
       {:error, exception} ->
         {:error, "HackerTarget request failed: #{inspect(exception)}"}
+    end
+  end
+
+  defp run_crtsh(domain_name) do
+    case Req.get("#{@crtsh_api}/?q=%25.#{domain_name}&output=json",
+           retry: false,
+           receive_timeout: 20_000
+         ) do
+      {:ok, %{status: 200, body: body}} when is_list(body) ->
+        subdomains =
+          body
+          |> Enum.flat_map(fn entry ->
+            entry
+            |> Map.get("name_value", "")
+            |> String.split("\n")
+            |> Enum.map(&String.trim/1)
+            |> Enum.map(&String.trim_leading(&1, "*."))
+          end)
+          |> Enum.filter(&String.ends_with?(&1, ".#{domain_name}"))
+          |> Enum.map(&String.replace_suffix(&1, ".#{domain_name}", ""))
+          |> Enum.reject(&(&1 == "" or &1 == domain_name))
+          |> Enum.uniq()
+
+        if subdomains == [] do
+          {:error, "crt.sh returned no subdomains for #{domain_name}"}
+        else
+          {:ok, subdomains}
+        end
+
+      {:ok, %{status: 200, body: body}} when is_binary(body) ->
+        Logger.warning(
+          "crt.sh unexpected text body for #{domain_name}: #{String.slice(body, 0, 100)}"
+        )
+
+        {:error, "crt.sh returned unexpected response"}
+
+      {:ok, %{status: status}} ->
+        {:error, "crt.sh returned #{status}"}
+
+      {:error, exception} ->
+        Logger.warning("crt.sh request failed for #{domain_name}: #{inspect(exception)}")
+        {:error, "crt.sh request failed: #{inspect(exception)}"}
     end
   end
 
