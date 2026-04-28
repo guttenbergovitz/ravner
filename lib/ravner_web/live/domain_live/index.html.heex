@@ -584,6 +584,7 @@
                           <button
                             phx-click="quick_scan"
                             phx-value-id={sub.id}
+                            phx-stop
                             disabled={sub_scanning}
                             class="text-neutral-400 hover:text-neutral-700 transition-colors disabled:cursor-not-allowed"
                             title={if sub_scanning, do: "Scanning...", else: "Quick scan"}
