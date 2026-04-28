@@ -342,9 +342,27 @@ defmodule Ravner.Scans do
   end
 
   defp do_httpx_scan(domain_name) do
-    url = "https://#{domain_name}"
+    https_url = "https://#{domain_name}"
+    http_url = "http://#{domain_name}"
 
-    case follow_redirects(url) do
+    result =
+      case follow_redirects(https_url) do
+        {:ok, _} = ok ->
+          ok
+
+        {:error, {:transport, :tls_error}} ->
+          Logger.info("TLS failed for #{domain_name}, retrying over HTTP")
+          follow_redirects(http_url)
+
+        {:error, {:transport, :nxdomain}} = err ->
+          err
+
+        {:error, _} ->
+          # Any other HTTPS error: also try plain HTTP as fallback
+          follow_redirects(http_url)
+      end
+
+    case result do
       {:ok, {chain, final_response, final_url}} ->
         server = List.first(Req.Response.get_header(final_response, "server"))
 
