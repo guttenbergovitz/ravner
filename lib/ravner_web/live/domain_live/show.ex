@@ -1,6 +1,8 @@
 defmodule RavnerWeb.DomainLive.Show do
   use RavnerWeb, :live_view
 
+  require Logger
+
   alias Ravner.Domains
   alias Ravner.Scans
 
@@ -237,6 +239,16 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:domain, domain)
      |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "Registration scan completed via #{source_label}")}
+  end
+
+  def handle_info({:scan_done, :subdomains, {:error, reason}}, socket) do
+    # Subdomain scan failures are informational — no data found, not a crash
+    Logger.info("Subdomain scan returned no results: #{reason}")
+
+    {:noreply,
+     socket
+     |> finish_scan()
+     |> put_flash(:info, "No subdomains found")}
   end
 
   def handle_info({:scan_done, _kind, {:error, reason}}, socket) do

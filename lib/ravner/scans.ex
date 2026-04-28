@@ -210,11 +210,7 @@ defmodule Ravner.Scans do
           |> Enum.reject(&(&1 == "" or &1 == domain_name))
           |> Enum.uniq()
 
-        if subdomains == [] do
-          {:error, "crt.sh returned no subdomains for #{domain_name}"}
-        else
-          {:ok, subdomains}
-        end
+        {:ok, subdomains}
 
       {:ok, %{status: 200, body: body}} when is_binary(body) ->
         Logger.warning(
