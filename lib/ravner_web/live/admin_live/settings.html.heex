@@ -146,6 +146,16 @@
       </div>
     </div>
 
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-2">Database</h2>
+      <p class="text-sm font-light text-neutral-500 mb-4">
+        Export or restore business data. Authentication tables are never included.
+      </p>
+      <a href={~p"/admin/settings/backup"} class="btn-line text-xs flex items-center gap-1.5">
+        <.icon name="hero-circle-stack" class="w-4 h-4" /> Open backup & restore
+      </a>
+    </div>
+
     <div class="text-xs text-neutral-400">
       <p>* Required keys must be configured for full functionality.</p>
       <p>Environment variables: CHAOS_API_KEY, SECURITYTRAILS_API_KEY, SHODAN_API_KEY</p>

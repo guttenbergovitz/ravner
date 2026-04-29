@@ -75,6 +75,8 @@ defmodule RavnerWeb.Router do
   scope "/", RavnerWeb do
     pipe_through([:browser, :require_authenticated_user])
 
+    get("/domains/export", DomainExportController, :index)
+
     live_session :authenticated, on_mount: [{RavnerWeb.UserAuth, :ensure_authenticated}] do
       live("/", DashboardLive.Index, :index)
       live("/domains", DomainLive.Index, :index)
@@ -96,7 +98,10 @@ defmodule RavnerWeb.Router do
       live("/invites", AdminLive.Invites, :index)
       live("/invites/new", AdminLive.Invites, :new)
       live("/settings", AdminLive.Settings, :index)
+      live("/settings/backup", AdminLive.Backup, :index)
     end
+
+    get("/settings/backup/download", BackupController, :download)
   end
 
   # Invite accept route — accessible without full auth (user sets password here)

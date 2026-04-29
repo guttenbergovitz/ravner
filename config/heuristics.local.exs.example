@@ -1,0 +1,13 @@
+# ── Local heuristics overrides ─────────────────────────────────────────────────
+# This file is gitignored. Add or override registrar/tech/hosting heuristics
+# without affecting the shared config.
+#
+# Example:
+#
+#   ns_registrar_patterns = ns_registrar_patterns ++ [
+#     {"mycustomdns.com", "My Custom Registrar"}
+#   ]
+#
+#   tech_stack_patterns = tech_stack_patterns ++ [
+#     {~r/my-cms/i, "MyCMS"}
+#   ]

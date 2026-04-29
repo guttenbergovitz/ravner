@@ -5,6 +5,8 @@ defmodule Ravner.Scans do
 
   require Logger
 
+  import Ecto.Query
+
   alias Ravner.ApiKeys
   alias Ravner.Domains
   alias Ravner.Domains.Domain
@@ -16,51 +18,13 @@ defmodule Ravner.Scans do
   @rdap_api "https://rdap.org/domain"
   @iana_bootstrap "https://data.iana.org/rdap/dns.json"
 
-  # Nameserver suffix → registrar name heuristics
-  @ns_registrar_patterns [
-    {"domaincontrol.com", "GoDaddy"},
-    {"godaddy.com", "GoDaddy"},
-    {"namecheaphosting.com", "Namecheap"},
-    {"namecheap.com", "Namecheap"},
-    {"cloudflare.com", "Cloudflare"},
-    {"name-services.com", "Enom"},
-    {"enom.com", "Enom"},
-    {"registrar-servers.com", "Namecheap"},
-    {"ovh.net", "OVH"},
-    {"ovh.com", "OVH"},
-    {"hichina.com", "Alibaba Cloud"},
-    {"aliyun.com", "Alibaba Cloud"},
-    {"awsdns", "Amazon Route 53"},
-    {"azure-dns.com", "Azure DNS"},
-    {"azure-dns.net", "Azure DNS"},
-    {"azure-dns.org", "Azure DNS"},
-    {"azure-dns.info", "Azure DNS"},
-    {"googledomains.com", "Google Domains"},
-    {"dns.google.com", "Google"},
-    {"1and1.com", "IONOS"},
-    {"ionos.com", "IONOS"},
-    {"wpengine.com", "WP Engine"},
-    {"netlify.com", "Netlify"},
-    {"nsone.net", "NS1"},
-    {"dnsimple.com", "DNSimple"},
-    {"hover.com", "Hover"},
-    {"gandi.net", "Gandi"},
-    {"sav.com", "SAV"},
-    {"dynadot.com", "Dynadot"},
-    {"porkbun.com", "Porkbun"},
-    {"name.com", "Name.com"},
-    {"register.com", "Register.com"},
-    {"networksolutions.com", "Network Solutions"},
-    {"uniregistry.net", "Uniregistry"},
-    {"fastly.net", "Fastly"},
-    {"dns.com", "DNS.com"},
-    {"rcode0.net", "RcodeZero"},
-    {"dnsnode.net", "Netnod"},
-    {"home.pl", "home.pl"},
-    {"aftermarket.pl", "AfterMarket.pl"},
-    {"kei.pl", "KEI"},
-    {"nazwa.pl", "nazwa.pl"}
-  ]
+  defp heuristics(key, default),
+    do: Application.get_env(:ravner, :heuristics, %{})[key] || default
+
+  defp ns_registrar_patterns, do: heuristics(:ns_registrar_patterns, [])
+  defp tech_stack_patterns, do: heuristics(:tech_stack_patterns, [])
+  defp server_tech_map, do: heuristics(:server_tech_map, %{})
+  defp hosting_platform_headers, do: heuristics(:hosting_platform_headers, [])
 
   @doc """
   Runs a subdomain discovery scan for a domain.
@@ -250,63 +214,70 @@ defmodule Ravner.Scans do
   defp save_subdomains(subdomains, parent_id) do
     domain = Domains.get_domain!(parent_id)
 
-    {new_count, results} =
-      Enum.reduce(subdomains, {0, []}, fn subdomain_name, {count, acc} ->
-        # Normalize: some sources return full FQDNs, others return just the prefix
-        full_name =
-          if String.ends_with?(subdomain_name, ".#{domain.name}") || subdomain_name == domain.name do
-            subdomain_name
-          else
-            "#{subdomain_name}.#{domain.name}"
-          end
+    names =
+      subdomains
+      |> Enum.map(fn subdomain_name ->
+        if String.ends_with?(subdomain_name, ".#{domain.name}") || subdomain_name == domain.name do
+          subdomain_name
+        else
+          "#{subdomain_name}.#{domain.name}"
+        end
+      end)
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 == domain.name || &1 == ""))
 
-        case find_or_create_subdomain(full_name, parent_id) do
-          {:new, sub} -> {count + 1, [sub | acc]}
-          {:existing, sub} -> {count, [sub | acc]}
-          {:skip, _} -> {count, acc}
+    existing =
+      Domain
+      |> where([d], d.name in ^names)
+      |> select([d], {d.name, d.id, d.parent_domain_id})
+      |> Repo.all()
+      |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
+
+    {inserted_count, new_domains} =
+      names
+      |> Enum.reject(&Map.has_key?(existing, &1))
+      |> Enum.map(fn name ->
+        now = DateTime.utc_now()
+
+        %{
+          name: name,
+          type: "subdomain",
+          lifecycle_state: "under_review",
+          parent_domain_id: parent_id,
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+      |> then(fn entries ->
+        if entries == [] do
+          {0, []}
+        else
+          {count, _} =
+            Repo.insert_all(Domain, entries,
+              conflict: :nothing,
+              returning: [:id, :name, :type, :lifecycle_state, :parent_domain_id]
+            )
+
+          {count, entries |> Enum.map(fn e -> struct(Domain, e) end)}
         end
       end)
 
-    {:ok, %{found: length(subdomains), new: new_count, subdomains: Enum.reverse(results)}}
-  end
+    relinked =
+      existing
+      |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
+      |> Enum.map(fn {_name, {id, _pid}} ->
+        {id, parent_id}
+      end)
 
-  defp find_or_create_subdomain(name, parent_id) do
-    case Repo.get_by(Domain, name: name) do
-      nil ->
-        case Domains.create_domain(%{
-               name: name,
-               type: :subdomain,
-               parent_domain_id: parent_id
-             }) do
-          {:ok, subdomain} ->
-            {:new, subdomain}
-
-          {:error, changeset} ->
-            errors =
-              Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-                Enum.reduce(opts, msg, fn {key, value}, acc ->
-                  String.replace(acc, "%{#{key}}", to_string(value))
-                end)
-              end)
-
-            Logger.warning("Skipping invalid subdomain #{inspect(name)}: #{inspect(errors)}")
-            {:skip, nil}
-        end
-
-      existing ->
-        # Re-link to parent if orphaned (parent was deleted) or pointing to wrong parent
-        subdomain =
-          if existing.parent_domain_id != parent_id do
-            {:ok, updated} =
-              Domains.update_domain(existing, %{parent_domain_id: parent_id})
-
-            updated
-          else
-            existing
-          end
-
-        {:existing, subdomain}
+    if relinked != [] do
+      for {id, new_pid} <- relinked do
+        Domains.update_domain(%Domain{id: id}, %{parent_domain_id: new_pid})
+      end
     end
+
+    all_results = new_domains ++ Enum.map(existing, fn {_name, {id, _pid}} -> %Domain{id: id} end)
+
+    {:ok, %{found: length(names), new: inserted_count, subdomains: all_results}}
   end
 
   # HTTPX scan via Req (fast, non-blocking)
@@ -533,14 +504,9 @@ defmodule Ravner.Scans do
           []
 
         val ->
-          cond do
-            String.contains?(val, "nginx") -> ["nginx"]
-            String.contains?(val, "Apache") -> ["Apache"]
-            String.contains?(val, "IIS") -> ["IIS"]
-            String.contains?(val, "Caddy") -> ["Caddy"]
-            String.contains?(val, "LiteSpeed") -> ["LiteSpeed"]
-            true -> []
-          end
+          Enum.reduce(server_tech_map(), [], fn {pattern, name}, acc ->
+            if String.contains?(val, pattern), do: [name | acc], else: acc
+          end)
       end
 
     from_body = detect_tech_from_body(body_str)
@@ -554,25 +520,7 @@ defmodule Ravner.Scans do
   defp detect_tech_from_body(""), do: []
 
   defp detect_tech_from_body(body) when is_binary(body) do
-    patterns = [
-      {~r/<meta[^>]+name="generator"[^>]+content="([^"]+)"/i, :capture},
-      {~r/wp-content\//i, "WordPress"},
-      {~r/wp-includes\//i, "WordPress"},
-      {~r/cdn\.shopify\.com/i, "Shopify"},
-      {~r/Shopify\.theme/i, "Shopify"},
-      {~r/__nuxt/i, "Nuxt.js"},
-      {~r/__NEXT_DATA__/i, "Next.js"},
-      {~r/ng-version=/i, "Angular"},
-      {~r/data-reactroot/i, "React"},
-      {~r/window\.Squarespace/i, "Squarespace"},
-      {~r/static\.wixstatic\.com/i, "Wix"},
-      {~r/drupal\.js|drupalSettings/i, "Drupal"},
-      {~r/Joomla!/i, "Joomla"},
-      {~r/ghost\.org|ghost-theme/i, "Ghost"},
-      {~r/webflow\.com/i, "Webflow"}
-    ]
-
-    Enum.flat_map(patterns, fn
+    Enum.flat_map(tech_stack_patterns(), fn
       {regex, :capture} ->
         case Regex.run(regex, body, capture: :all_but_first) do
           [match | _] -> [match]
@@ -588,23 +536,9 @@ defmodule Ravner.Scans do
   defp detect_tech_from_body(_), do: []
 
   defp detect_hosting_platform(response) do
-    cond do
-      has_header?(response, "cf-ray") -> "Cloudflare"
-      has_header?(response, "cf-cache-status") -> "Cloudflare"
-      has_header?(response, "x-amz-cf-id") -> "AWS CloudFront"
-      has_header?(response, "x-amz-request-id") -> "AWS"
-      has_header?(response, "x-vercel-id") -> "Vercel"
-      has_header?(response, "x-nf-request-id") -> "Netlify"
-      has_header?(response, "x-github-request-id") -> "GitHub Pages"
-      has_header?(response, "x-fastly-request-id") -> "Fastly"
-      has_header?(response, "x-azure-ref") -> "Azure"
-      has_header?(response, "x-wix-request-id") -> "Wix"
-      true -> nil
-    end
-  end
-
-  defp has_header?(response, name) do
-    List.first(Req.Response.get_header(response, name)) != nil
+    Enum.find_value(hosting_platform_headers(), fn {header, platform} ->
+      if List.first(Req.Response.get_header(response, header)) != nil, do: platform
+    end)
   end
 
   defp lookup_asn(ip) do
@@ -925,7 +859,7 @@ defmodule Ravner.Scans do
       Enum.find_value(ns_records, fn ns ->
         ns_lower = String.downcase(ns)
 
-        Enum.find_value(@ns_registrar_patterns, fn {pattern, name} ->
+        Enum.find_value(ns_registrar_patterns(), fn {pattern, name} ->
           if String.contains?(ns_lower, pattern), do: name
         end)
       end)
