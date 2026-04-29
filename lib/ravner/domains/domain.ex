@@ -35,6 +35,10 @@ defmodule Ravner.Domains.Domain do
     has_many(:domain_tags, Ravner.Domains.DomainTag)
     has_one(:domain_metadata, Ravner.Domains.DomainMetadata)
 
+    belongs_to(:project, Ravner.Inventory.Project)
+    belongs_to(:brand, Ravner.Inventory.Brand)
+    belongs_to(:organization, Ravner.Inventory.Organization)
+
     timestamps(type: :utc_datetime)
   end
 
@@ -51,7 +55,10 @@ defmodule Ravner.Domains.Domain do
       :delivery_organization,
       :hosting_platform,
       :domain_registrar,
-      :repository_url
+      :repository_url,
+      :project_id,
+      :brand_id,
+      :organization_id
     ])
     |> validate_required([:name, :type])
     |> validate_format(:name, ~r/^[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z0-9][-a-zA-Z0-9.]*$/,

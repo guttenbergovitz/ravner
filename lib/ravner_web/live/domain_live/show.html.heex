@@ -139,28 +139,26 @@
             </div>
             <div>
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                PM
+                Brand
               </span>
-              <span :if={@domain.pm_email} class="font-light">{@domain.pm_email}</span>
-              <span :if={!@domain.pm_email} class="text-neutral-400 font-light">—</span>
+              <span :if={@domain.brand} class="font-light">{@domain.brand.name}</span>
+              <span :if={!@domain.brand} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                PO
+                Organization
               </span>
-              <span :if={@domain.po_email} class="font-light">{@domain.po_email}</span>
-              <span :if={!@domain.po_email} class="text-neutral-400 font-light">—</span>
+              <span :if={@domain.organization} class="font-light">
+                {@domain.organization.name}
+              </span>
+              <span :if={!@domain.organization} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Delivery
+                Project
               </span>
-              <span :if={@domain.delivery_organization} class="font-light">
-                {@domain.delivery_organization}
-              </span>
-              <span :if={!@domain.delivery_organization} class="text-neutral-400 font-light">
-                —
-              </span>
+              <span :if={@domain.project} class="font-light">{@domain.project.name}</span>
+              <span :if={!@domain.project} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">

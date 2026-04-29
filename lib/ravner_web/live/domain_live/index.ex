@@ -5,6 +5,8 @@ defmodule RavnerWeb.DomainLive.Index do
   alias Ravner.Domains.Domain
   alias Ravner.Scans
 
+  alias Ravner.Inventory
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
@@ -21,6 +23,8 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:scanning_ids, MapSet.new())
      |> assign(:ip_filter, "")
      |> assign(:export_include_subs, false)
+     |> assign(:project_filter, nil)
+     |> assign(:projects, Inventory.list_projects())
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -50,16 +54,27 @@ defmodule RavnerWeb.DomainLive.Index do
     search = Map.get(params, "search", "")
     ip = Map.get(params, "ip", "")
     lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
+    project_id = params |> Map.get("project_id", "") |> parse_int()
     page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
 
     # Clear selection when filters change
     prev_search = socket.assigns[:search] || ""
     prev_ip = socket.assigns[:ip_filter] || ""
     prev_lifecycle = socket.assigns[:lifecycle_filter]
-    filters_changed = search != prev_search || ip != prev_ip || lifecycle != prev_lifecycle
+    prev_project = socket.assigns[:project_filter]
+
+    filters_changed =
+      search != prev_search || ip != prev_ip || lifecycle != prev_lifecycle ||
+        project_id != prev_project
 
     result =
-      Domains.list_domains_filtered(search: search, ip: ip, lifecycle: lifecycle, page: page)
+      Domains.list_domains_filtered(
+        search: search,
+        ip: ip,
+        lifecycle: lifecycle,
+        project_id: project_id,
+        page: page
+      )
 
     # Re-apply subdomain metadata preload for any currently expanded domains,
     # since list_domains_filtered/1 only preloads :subdomains (without their
@@ -91,6 +106,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:search, search)
     |> assign(:ip_filter, ip)
     |> assign(:lifecycle_filter, lifecycle)
+    |> assign(:project_filter, project_id)
     |> then(fn s ->
       if filters_changed, do: assign(s, :selected_ids, MapSet.new()), else: s
     end)
@@ -175,6 +191,16 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("filter_ip", %{"ip" => ip}, socket) do
     params = build_params(socket, ip: ip, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("filter_project", %{"project_id" => pid}, socket) do
+    params = build_params(socket, project_id: pid, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("clear_project", _params, socket) do
+    params = build_params(socket, project_id: "", page: 1)
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
@@ -573,6 +599,7 @@ defmodule RavnerWeb.DomainLive.Index do
     search = Keyword.get(overrides, :search, socket.assigns[:search] || "")
     ip = Keyword.get(overrides, :ip, socket.assigns[:ip_filter] || "")
     page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
+    project_id = Keyword.get(overrides, :project_id, socket.assigns[:project_filter] || "")
 
     lifecycle =
       case Keyword.get(overrides, :lifecycle, socket.assigns[:lifecycle_filter]) do
@@ -581,8 +608,18 @@ defmodule RavnerWeb.DomainLive.Index do
         str -> str
       end
 
-    [search: search, ip: ip, lifecycle: lifecycle, page: page]
+    [search: search, ip: ip, lifecycle: lifecycle, project_id: project_id, page: page]
     |> Enum.reject(fn {_, v} -> v == "" or v == 1 end)
+  end
+
+  defp parse_int(""), do: nil
+  defp parse_int(nil), do: nil
+
+  defp parse_int(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, _} -> n
+      :error -> nil
+    end
   end
 
   defp editor?(nil), do: false

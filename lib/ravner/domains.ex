@@ -81,6 +81,7 @@ defmodule Ravner.Domains do
     search = Keyword.get(opts, :search, "")
     ip = Keyword.get(opts, :ip, "")
     lifecycle = Keyword.get(opts, :lifecycle, nil)
+    project_id = Keyword.get(opts, :project_id, nil)
     include_subs = Keyword.get(opts, :include_subdomains, false)
 
     Domain
@@ -115,6 +116,10 @@ defmodule Ravner.Domains do
         q
       end
     end)
+    |> then(fn q ->
+      if project_id, do: where(q, [d], d.project_id == ^project_id), else: q
+    end)
+    |> preload([:project, :brand, :organization])
   end
 
   def suggest_domains(query, limit \\ 5)
@@ -144,7 +149,15 @@ defmodule Ravner.Domains do
 
   def get_domain_with_preloads!(id) do
     Domain
-    |> preload([:parent_domain, :domain_tags, :domain_metadata, subdomains: :domain_metadata])
+    |> preload([
+      :parent_domain,
+      :domain_tags,
+      :domain_metadata,
+      :project,
+      :brand,
+      :organization,
+      subdomains: :domain_metadata
+    ])
     |> Repo.get!(id)
   end
 

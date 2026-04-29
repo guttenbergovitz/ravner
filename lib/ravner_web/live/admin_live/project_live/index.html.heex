@@ -1,0 +1,191 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-2xl font-light tracking-tight">Projects</h1>
+      <.link patch={~p"/admin/projects/new"} class="btn-line text-xs flex items-center gap-1.5">
+        <.icon name="hero-plus" class="w-4 h-4" /> Add project
+      </.link>
+    </div>
+
+    <%= if @live_action in [:new, :edit] do %>
+      <div class="border border-neutral-200 p-6 mb-8">
+        <h2 class="text-lg font-light tracking-tight mb-4">
+          {if @project.id, do: "Edit Project", else: "New Project"}
+        </h2>
+
+        <.form
+          for={to_form(Inventory.change_project(@project), as: :project)}
+          phx-submit="save"
+          id="project-form"
+          class="space-y-4 max-w-md"
+        >
+          <.input field={@form[:name]} type="text" label="Name" />
+          <.input
+            field={@form[:slug]}
+            type="text"
+            label="Slug"
+            placeholder="e.g. website-relaunch"
+          />
+          <.input field={@form[:description]} type="textarea" label="Description" />
+          <.input
+            field={@form[:organization_id]}
+            type="select"
+            label="Organization"
+            options={Enum.map(@orgs, &{&1.name, &1.id})}
+            prompt="Select organization"
+          />
+          <.input field={@form[:notes]} type="textarea" label="Notes" />
+
+          <div class="flex items-center gap-3">
+            <button type="submit" class="btn-line-filled text-xs">Save</button>
+            <.link patch={~p"/admin/projects"} class="btn-line text-xs">Cancel</.link>
+          </div>
+        </.form>
+
+        <%= if @project.id do %>
+          <div class="mt-8 pt-6 border-t border-neutral-200">
+            <h3 class="text-base font-light tracking-tight mb-4">Project roles</h3>
+
+            <%!-- Add role form --%>
+            <.form
+              for={to_form(%{}, as: :project_role)}
+              phx-submit="add_role"
+              id="add-role-form"
+              class="flex items-end gap-3 mb-6"
+            >
+              <div class="flex-1">
+                <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                  Person
+                </label>
+                <select
+                  name="project_role[person_id]"
+                  class="w-full px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light focus:outline-none focus:border-neutral-500 transition-colors"
+                >
+                  <option value="">Select person…</option>
+                  <%= for p <- @people do %>
+                    <option value={p.id}>{p.first_name} {p.last_name}</option>
+                  <% end %>
+                </select>
+              </div>
+              <div class="w-40">
+                <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                  Role
+                </label>
+                <select
+                  name="project_role[role]"
+                  class="w-full px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light focus:outline-none focus:border-neutral-500 transition-colors"
+                >
+                  <option value="">Select role…</option>
+                  <option value="owner">Owner</option>
+                  <option value="manager">Manager</option>
+                  <option value="technician">Technician</option>
+                  <option value="developer">Developer</option>
+                  <option value="security">Security</option>
+                  <option value="devops">DevOps</option>
+                  <option value="qa">QA</option>
+                  <option value="design">Design</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="flex-1">
+                <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  name="project_role[notes]"
+                  placeholder="Optional…"
+                  class="w-full px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+                />
+              </div>
+              <button type="submit" class="btn-line text-xs whitespace-nowrap">Add</button>
+            </.form>
+
+            <%!-- Roles list --%>
+            <%= if @roles == [] do %>
+              <p class="text-sm font-light text-neutral-500">No roles assigned yet.</p>
+            <% else %>
+              <div class="space-y-2">
+                <%= for r <- @roles do %>
+                  <div class="flex items-center gap-3 text-sm border border-neutral-100 px-4 py-3">
+                    <span class="text-xs px-2 py-0.5 border border-neutral-200">{r.role}</span>
+                    <span>{r.person.first_name} {r.person.last_name}</span>
+                    <%= if r.notes do %>
+                      <span class="text-neutral-400">— {r.notes}</span>
+                    <% end %>
+                    <button
+                      phx-click="delete_role"
+                      phx-value-id={r.id}
+                      class="ml-auto text-neutral-400 hover:text-red-600 transition-colors"
+                    >
+                      <.icon name="hero-x-mark" class="w-4 h-4" />
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <div class="border border-neutral-200">
+      <%= if @projects == [] do %>
+        <div class="p-6 text-sm font-light text-neutral-500">No projects yet.</div>
+      <% else %>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-neutral-200 text-left text-xs font-normal text-neutral-500 uppercase tracking-wider">
+              <th class="px-4 py-3">Name</th>
+              <th class="px-4 py-3">Organization</th>
+              <th class="px-4 py-3">Description</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for project <- @projects do %>
+              <tr class="border-b border-neutral-100">
+                <td class="px-4 py-3">
+                  <.link
+                    navigate={~p"/admin/projects/#{project.id}"}
+                    class="hover:text-neutral-500 transition-colors"
+                  >
+                    {project.name}
+                  </.link>
+                </td>
+                <td class="px-4 py-3 text-neutral-500">
+                  {project.organization && project.organization.name}
+                </td>
+                <td class="px-4 py-3 text-neutral-500">{project.description}</td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <.link
+                      navigate={~p"/admin/projects/#{project.id}"}
+                      class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                    >
+                      <.icon name="hero-eye" class="w-4 h-4" />
+                    </.link>
+                    <.link
+                      patch={~p"/admin/projects/#{project.id}/edit"}
+                      class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                    >
+                      <.icon name="hero-pencil" class="w-4 h-4" />
+                    </.link>
+                    <button
+                      phx-click="delete"
+                      phx-value-id={project.id}
+                      data-confirm="Delete this project?"
+                      class="text-neutral-400 hover:text-red-600 transition-colors"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>

@@ -1,0 +1,73 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <div class="flex items-center gap-4 mb-8">
+      <.link
+        patch={~p"/admin/projects"}
+        class="text-neutral-400 hover:text-neutral-600 transition-colors"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <h1 class="text-2xl font-light tracking-tight">{@project.name}</h1>
+      <.link patch={~p"/admin/projects/#{@project.id}/edit"} class="btn-line text-xs ml-auto">
+        <.icon name="hero-pencil" class="w-4 h-4" /> Edit
+      </.link>
+    </div>
+
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-4">Details</h2>
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Organization</dt>
+          <dd class="font-light">
+            {(@project.organization && @project.organization.name) || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Slug</dt>
+          <dd class="font-light">{@project.slug}</dd>
+        </div>
+      </dl>
+      <%= if @project.description do %>
+        <div class="mt-4 pt-4 border-t border-neutral-100">
+          <dt class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Description</dt>
+          <dd class="text-sm font-light">{@project.description}</dd>
+        </div>
+      <% end %>
+      <%= if @project.notes do %>
+        <div class="mt-4 pt-4 border-t border-neutral-100">
+          <dt class="text-xs text-neutral-500 uppercase tracking-wider mb-1">Notes</dt>
+          <dd class="text-sm font-light">{@project.notes}</dd>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="border border-neutral-200 p-6">
+      <h2 class="text-lg font-light tracking-tight mb-4">Team</h2>
+      <%= if @roles == [] do %>
+        <p class="text-sm font-light text-neutral-500">No team members assigned yet.</p>
+      <% else %>
+        <div class="space-y-2">
+          <%= for r <- @roles do %>
+            <div class="flex items-center gap-3 text-sm border border-neutral-100 px-4 py-3">
+              <span class="text-xs px-2 py-0.5 border border-neutral-200">{r.role}</span>
+              <span>
+                <.link
+                  navigate={~p"/admin/people/#{r.person.id}"}
+                  class="hover:text-neutral-500 transition-colors"
+                >
+                  {r.person.first_name} {r.person.last_name}
+                </.link>
+              </span>
+              <%= if r.person.email do %>
+                <span class="text-neutral-400 text-xs">{r.person.email}</span>
+              <% end %>
+              <%= if r.notes do %>
+                <span class="text-neutral-400">— {r.notes}</span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>

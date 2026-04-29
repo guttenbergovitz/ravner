@@ -1,0 +1,136 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-2xl font-light tracking-tight">People</h1>
+      <.link patch={~p"/admin/people/new"} class="btn-line text-xs flex items-center gap-1.5">
+        <.icon name="hero-plus" class="w-4 h-4" /> Add person
+      </.link>
+    </div>
+
+    <%= if @live_action in [:new, :edit] do %>
+      <div class="border border-neutral-200 p-6 mb-8">
+        <h2 class="text-lg font-light tracking-tight mb-4">
+          {if @person.id, do: "Edit Person", else: "New Person"}
+        </h2>
+
+        <.form
+          for={to_form(Inventory.change_person(@person), as: :person)}
+          phx-submit="save"
+          id="person-form"
+          class="space-y-4 max-w-md"
+        >
+          <.input field={@form[:first_name]} type="text" label="First name" />
+          <.input field={@form[:last_name]} type="text" label="Last name" />
+          <.input
+            field={@form[:title]}
+            type="text"
+            label="Title"
+            placeholder="e.g. Senior DevOps Engineer"
+          />
+          <.input field={@form[:email]} type="email" label="Email" />
+          <.input field={@form[:phone]} type="text" label="Phone" />
+          <.input field={@form[:mobile]} type="text" label="Mobile" />
+          <.input
+            field={@form[:default_role]}
+            type="select"
+            label="Default role"
+            options={[
+              {"None", ""},
+              {"Owner", "owner"},
+              {"Manager", "manager"},
+              {"Technician", "technician"},
+              {"Developer", "developer"},
+              {"Security", "security"},
+              {"DevOps", "devops"},
+              {"QA", "qa"},
+              {"Design", "design"},
+              {"Admin", "admin"}
+            ]}
+          />
+          <.input
+            field={@form[:organization_id]}
+            type="select"
+            label="Organization"
+            options={Enum.map(@orgs, &{&1.name, &1.id})}
+            prompt="None"
+          />
+          <.input field={@form[:notes]} type="textarea" label="Notes" />
+
+          <div class="flex items-center gap-3">
+            <button type="submit" class="btn-line-filled text-xs">Save</button>
+            <.link patch={~p"/admin/people"} class="btn-line text-xs">Cancel</.link>
+          </div>
+        </.form>
+      </div>
+    <% end %>
+
+    <div class="border border-neutral-200">
+      <%= if @people == [] do %>
+        <div class="p-6 text-sm font-light text-neutral-500">No people yet.</div>
+      <% else %>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-neutral-200 text-left text-xs font-normal text-neutral-500 uppercase tracking-wider">
+              <th class="px-4 py-3">Name</th>
+              <th class="px-4 py-3">Title</th>
+              <th class="px-4 py-3">Email</th>
+              <th class="px-4 py-3">Default role</th>
+              <th class="px-4 py-3">Organization</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for p <- @people do %>
+              <tr class="border-b border-neutral-100">
+                <td class="px-4 py-3">
+                  <.link
+                    navigate={~p"/admin/people/#{p.id}"}
+                    class="hover:text-neutral-500 transition-colors"
+                  >
+                    {p.first_name} {p.last_name}
+                  </.link>
+                </td>
+                <td class="px-4 py-3 text-neutral-500">{p.title}</td>
+                <td class="px-4 py-3 text-neutral-500">{p.email}</td>
+                <td class="px-4 py-3">
+                  <%= if p.default_role do %>
+                    <span class="text-xs px-2 py-0.5 border border-neutral-200">
+                      {p.default_role}
+                    </span>
+                  <% end %>
+                </td>
+                <td class="px-4 py-3 text-neutral-500">
+                  {p.organization && p.organization.name}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <.link
+                      navigate={~p"/admin/people/#{p.id}"}
+                      class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                    >
+                      <.icon name="hero-eye" class="w-4 h-4" />
+                    </.link>
+                    <.link
+                      patch={~p"/admin/people/#{p.id}/edit"}
+                      class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                    >
+                      <.icon name="hero-pencil" class="w-4 h-4" />
+                    </.link>
+                    <button
+                      phx-click="delete"
+                      phx-value-id={p.id}
+                      data-confirm="Delete this person?"
+                      class="text-neutral-400 hover:text-red-600 transition-colors"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>
