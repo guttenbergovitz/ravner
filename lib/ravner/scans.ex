@@ -5,6 +5,8 @@ defmodule Ravner.Scans do
 
   require Logger
 
+  import Ecto.Query
+
   alias Ravner.ApiKeys
   alias Ravner.Domains
   alias Ravner.Domains.Domain
@@ -59,7 +61,8 @@ defmodule Ravner.Scans do
     {"home.pl", "home.pl"},
     {"aftermarket.pl", "AfterMarket.pl"},
     {"kei.pl", "KEI"},
-    {"nazwa.pl", "nazwa.pl"}
+    {"nazwa.pl", "nazwa.pl"},
+    {"dogado.de", "dogado"}
   ]
 
   @doc """
@@ -250,63 +253,70 @@ defmodule Ravner.Scans do
   defp save_subdomains(subdomains, parent_id) do
     domain = Domains.get_domain!(parent_id)
 
-    {new_count, results} =
-      Enum.reduce(subdomains, {0, []}, fn subdomain_name, {count, acc} ->
-        # Normalize: some sources return full FQDNs, others return just the prefix
-        full_name =
-          if String.ends_with?(subdomain_name, ".#{domain.name}") || subdomain_name == domain.name do
-            subdomain_name
-          else
-            "#{subdomain_name}.#{domain.name}"
-          end
+    names =
+      subdomains
+      |> Enum.map(fn subdomain_name ->
+        if String.ends_with?(subdomain_name, ".#{domain.name}") || subdomain_name == domain.name do
+          subdomain_name
+        else
+          "#{subdomain_name}.#{domain.name}"
+        end
+      end)
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 == domain.name || &1 == ""))
 
-        case find_or_create_subdomain(full_name, parent_id) do
-          {:new, sub} -> {count + 1, [sub | acc]}
-          {:existing, sub} -> {count, [sub | acc]}
-          {:skip, _} -> {count, acc}
+    existing =
+      Domain
+      |> where([d], d.name in ^names)
+      |> select([d], {d.name, d.id, d.parent_domain_id})
+      |> Repo.all()
+      |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
+
+    {inserted_count, new_domains} =
+      names
+      |> Enum.reject(&Map.has_key?(existing, &1))
+      |> Enum.map(fn name ->
+        now = DateTime.utc_now()
+
+        %{
+          name: name,
+          type: "subdomain",
+          lifecycle_state: "under_review",
+          parent_domain_id: parent_id,
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+      |> then(fn entries ->
+        if entries == [] do
+          {0, []}
+        else
+          {count, _} =
+            Repo.insert_all(Domain, entries,
+              conflict: :nothing,
+              returning: [:id, :name, :type, :lifecycle_state, :parent_domain_id]
+            )
+
+          {count, entries |> Enum.map(fn e -> struct(Domain, e) end)}
         end
       end)
 
-    {:ok, %{found: length(subdomains), new: new_count, subdomains: Enum.reverse(results)}}
-  end
+    relinked =
+      existing
+      |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
+      |> Enum.map(fn {_name, {id, _pid}} ->
+        {id, parent_id}
+      end)
 
-  defp find_or_create_subdomain(name, parent_id) do
-    case Repo.get_by(Domain, name: name) do
-      nil ->
-        case Domains.create_domain(%{
-               name: name,
-               type: :subdomain,
-               parent_domain_id: parent_id
-             }) do
-          {:ok, subdomain} ->
-            {:new, subdomain}
-
-          {:error, changeset} ->
-            errors =
-              Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-                Enum.reduce(opts, msg, fn {key, value}, acc ->
-                  String.replace(acc, "%{#{key}}", to_string(value))
-                end)
-              end)
-
-            Logger.warning("Skipping invalid subdomain #{inspect(name)}: #{inspect(errors)}")
-            {:skip, nil}
-        end
-
-      existing ->
-        # Re-link to parent if orphaned (parent was deleted) or pointing to wrong parent
-        subdomain =
-          if existing.parent_domain_id != parent_id do
-            {:ok, updated} =
-              Domains.update_domain(existing, %{parent_domain_id: parent_id})
-
-            updated
-          else
-            existing
-          end
-
-        {:existing, subdomain}
+    if relinked != [] do
+      for {id, new_pid} <- relinked do
+        Domains.update_domain(%Domain{id: id}, %{parent_domain_id: new_pid})
+      end
     end
+
+    all_results = new_domains ++ Enum.map(existing, fn {_name, {id, _pid}} -> %Domain{id: id} end)
+
+    {:ok, %{found: length(names), new: inserted_count, subdomains: all_results}}
   end
 
   # HTTPX scan via Req (fast, non-blocking)

@@ -36,14 +36,20 @@ defmodule Ravner.Admin.Backups do
       args = build_dump_args(hostname, username, database, tmp_path)
       env = if password != "", do: [{"PGPASSWORD", password}], else: []
 
-      case run_with_fallback("pg_dump", args, env) do
+      result = run_with_fallback("pg_dump", args, env)
+
+      case result do
         {_, 0} ->
-          content = File.read!(tmp_path)
-          File.rm(tmp_path)
-          {:ok, content}
+          if File.exists?(tmp_path) do
+            content = File.read!(tmp_path)
+            File.rm(tmp_path)
+            {:ok, content}
+          else
+            {:error, "pg_dump exited successfully but produced no output file"}
+          end
 
         {output, _} ->
-          File.rm(tmp_path)
+          if File.exists?(tmp_path), do: File.rm(tmp_path)
           {:error, normalize_pg_error(output)}
       end
     end
