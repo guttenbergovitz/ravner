@@ -22,6 +22,7 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
     |> assign(:page_title, "Organizations")
     |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, nil)
+    |> assign(:form, nil)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -40,14 +41,6 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
     |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, org)
     |> assign(:form, to_form(Inventory.change_organization(org), as: :organization))
-  end
-
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Organizations")
-    |> assign(:orgs, Inventory.list_organizations())
-    |> assign(:org, nil)
-    |> assign(:form, nil)
   end
 
   @impl true

@@ -21,7 +21,12 @@
         >
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:slug]} type="text" label="Slug" placeholder="e.g. acme-corp" />
-          <.input field={@form[:display_name]} type="text" label="Display name" placeholder="Short name for lists" />
+          <.input
+            field={@form[:display_name]}
+            type="text"
+            label="Display name"
+            placeholder="Short name for lists"
+          />
 
           <.input field={@form[:notes]} type="textarea" label="Notes" />
 

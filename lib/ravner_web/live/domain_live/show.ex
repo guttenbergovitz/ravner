@@ -6,6 +6,7 @@ defmodule RavnerWeb.DomainLive.Show do
   alias Ravner.Domains
   alias Ravner.Scans
   alias Ravner.Inventory
+  alias Ravner.Repo
 
   # Two-part TLDs for root domain extraction (same logic as Balebos)
   @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
@@ -17,7 +18,9 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:scanning, false)
      |> assign(:pending_scans, 0)
      |> assign(:lifecycle_menu_open, false)
-     |> assign(:projects, Inventory.list_projects())}
+     |> assign(:projects, Inventory.list_projects())
+     |> assign(:brands, Inventory.list_brands())
+     |> assign(:orgs, Inventory.list_organizations())}
   end
 
   @impl true
@@ -117,6 +120,86 @@ defmodule RavnerWeb.DomainLive.Show do
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, "Failed to update project")}
+      end
+    end
+  end
+
+  def handle_event("set_brand", %{"brand_id" => bid}, socket) do
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission.")}
+    else
+      domain = socket.assigns.domain
+      bid = if bid == "", do: nil, else: String.to_integer(bid)
+
+      attrs =
+        %{brand_id: bid}
+        |> then(fn a ->
+          if bid do
+            org = domain.organization
+
+            if org && org.brand_id && org.brand_id != bid do
+              Map.merge(a, %{organization_id: nil, project_id: nil})
+            else
+              project = domain.project
+
+              if project do
+                proj_org = Repo.get(Ravner.Inventory.Organization, project.organization_id)
+
+                if proj_org && proj_org.brand_id && proj_org.brand_id != bid do
+                  Map.merge(a, %{project_id: nil})
+                else
+                  a
+                end
+              else
+                a
+              end
+            end
+          else
+            a
+          end
+        end)
+
+      case Domains.update_domain(domain, attrs) do
+        {:ok, _} ->
+          {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update brand")}
+      end
+    end
+  end
+
+  def handle_event("set_organization", %{"organization_id" => oid}, socket) do
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission.")}
+    else
+      domain = socket.assigns.domain
+      oid = if oid == "", do: nil, else: String.to_integer(oid)
+
+      {org, project} =
+        if oid do
+          {Repo.get(Ravner.Inventory.Organization, oid), domain.project}
+        else
+          {nil, nil}
+        end
+
+      attrs =
+        %{organization_id: oid}
+        |> then(fn a ->
+          if org && org.brand_id, do: Map.put(a, :brand_id, org.brand_id), else: a
+        end)
+        |> then(fn a ->
+          if project && project.organization_id != oid,
+            do: Map.put(a, :project_id, nil),
+            else: a
+        end)
+
+      case Domains.update_domain(domain, attrs) do
+        {:ok, _} ->
+          {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update organization")}
       end
     end
   end

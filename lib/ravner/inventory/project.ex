@@ -11,6 +11,7 @@ defmodule Ravner.Inventory.Project do
 
     belongs_to(:organization, Ravner.Inventory.Organization)
     has_many(:project_roles, Ravner.Inventory.ProjectRole)
+    has_many(:project_repositories, Ravner.Inventory.ProjectRepository)
     has_many(:domains, Ravner.Domains.Domain)
 
     timestamps(type: :utc_datetime)

@@ -12,11 +12,13 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Show do
   def handle_params(%{"id" => id}, _url, socket) do
     project = Inventory.get_project!(id)
     roles = Inventory.list_project_roles(project.id)
+    repos = Inventory.list_project_repositories(project.id)
 
     {:noreply,
      socket
      |> assign(:page_title, project.name)
      |> assign(:project, project)
-     |> assign(:roles, roles)}
+     |> assign(:roles, roles)
+     |> assign(:repos, repos)}
   end
 end

@@ -44,6 +44,7 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
     |> assign(:projects, Inventory.list_projects())
     |> assign(:project, project)
     |> assign(:roles, Inventory.list_project_roles(project.id))
+    |> assign(:repos, Inventory.list_project_repositories(project.id))
     |> assign(:form, to_form(Inventory.change_project(project), as: :project))
   end
 
@@ -104,5 +105,30 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
     {:noreply,
      socket
      |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+  end
+
+  @impl true
+  def handle_event("add_repo", %{"project_repository" => attrs}, socket) do
+    attrs = Map.put(attrs, "project_id", socket.assigns.project.id)
+
+    case Inventory.create_project_repository(attrs) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Repository added")
+         |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to add repository")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_repo", %{"id" => id}, socket) do
+    Inventory.delete_project_repository(Inventory.get_project_repository!(id))
+
+    {:noreply,
+     socket
+     |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
   end
 end

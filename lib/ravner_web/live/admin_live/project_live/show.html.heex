@@ -69,5 +69,33 @@
         </div>
       <% end %>
     </div>
+
+    <div class="border border-neutral-200 p-6 mt-8">
+      <h2 class="text-lg font-light tracking-tight mb-4">Repositories</h2>
+      <%= if @repos == [] do %>
+        <p class="text-sm font-light text-neutral-500">No repositories linked yet.</p>
+      <% else %>
+        <div class="space-y-2">
+          <%= for r <- @repos do %>
+            <div class="flex items-center gap-3 text-sm border border-neutral-100 px-4 py-3">
+              <span class="text-xs px-2 py-0.5 border border-neutral-200">{r.kind}</span>
+              <a
+                href={r.url}
+                target="_blank"
+                class="font-mono text-xs hover:text-neutral-500 transition-colors"
+              >
+                {r.url}
+              </a>
+              <%= if r.main_language do %>
+                <span class="text-neutral-400 text-xs">{r.main_language}</span>
+              <% end %>
+              <%= if r.notes do %>
+                <span class="text-neutral-400">— {r.notes}</span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
   </div>
 </Layouts.app>

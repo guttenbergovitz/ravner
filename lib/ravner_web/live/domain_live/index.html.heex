@@ -147,10 +147,15 @@
           >
             <option value="">Brand</option>
             <%= for b <- @brands do %>
-              <option value={b.id} selected={@brand_filter == b.id}>{b.display_name || b.name}</option>
+              <option value={b.id} selected={@brand_filter == b.id}>
+                {b.display_name || b.name}
+              </option>
             <% end %>
           </select>
-          <.icon name="hero-chevron-down" class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none" />
+          <.icon
+            name="hero-chevron-down"
+            class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none"
+          />
         </div>
         <div class="relative">
           <select
@@ -160,10 +165,15 @@
           >
             <option value="">Organization</option>
             <%= for o <- @orgs do %>
-              <option value={o.id} selected={@org_filter == o.id}>{o.display_name || o.name}</option>
+              <option value={o.id} selected={@org_filter == o.id}>
+                {o.display_name || o.name}
+              </option>
             <% end %>
           </select>
-          <.icon name="hero-chevron-down" class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none" />
+          <.icon
+            name="hero-chevron-down"
+            class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none"
+          />
         </div>
         <div class="relative">
           <select
@@ -173,10 +183,15 @@
           >
             <option value="">Project</option>
             <%= for p <- @projects do %>
-              <option value={p.id} selected={@project_filter == p.id}>{p.display_name || p.name}</option>
+              <option value={p.id} selected={@project_filter == p.id}>
+                {p.display_name || p.name}
+              </option>
             <% end %>
           </select>
-          <.icon name="hero-chevron-down" class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none" />
+          <.icon
+            name="hero-chevron-down"
+            class="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none"
+          />
         </div>
       </div>
     </form>
@@ -305,7 +320,9 @@
         <% end %>
         <%= if @project_filter != nil do %>
           <% project_name =
-            Enum.find_value(@projects, "", fn p -> if p.id == @project_filter, do: p.display_name || p.name end) %>
+            Enum.find_value(@projects, "", fn p ->
+              if p.id == @project_filter, do: p.display_name || p.name
+            end) %>
           <span class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 border border-neutral-300 text-xs font-light text-neutral-700">
             <.icon name="hero-folder" class="w-3 h-3 text-neutral-400" />
             {project_name}
@@ -320,7 +337,9 @@
         <% end %>
         <%= if @org_filter != nil do %>
           <% org_name =
-            Enum.find_value(@orgs, "", fn o -> if o.id == @org_filter, do: o.display_name || o.name end) %>
+            Enum.find_value(@orgs, "", fn o ->
+              if o.id == @org_filter, do: o.display_name || o.name
+            end) %>
           <span class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 border border-neutral-300 text-xs font-light text-neutral-700">
             <.icon name="hero-building-office" class="w-3 h-3 text-neutral-400" />
             {org_name}
@@ -335,7 +354,9 @@
         <% end %>
         <%= if @brand_filter != nil do %>
           <% brand_name =
-            Enum.find_value(@brands, "", fn b -> if b.id == @brand_filter, do: b.display_name || b.name end) %>
+            Enum.find_value(@brands, "", fn b ->
+              if b.id == @brand_filter, do: b.display_name || b.name
+            end) %>
           <span class="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 border border-neutral-300 text-xs font-light text-neutral-700">
             <.icon name="hero-tag" class="w-3 h-3 text-neutral-400" />
             {brand_name}
@@ -492,10 +513,14 @@
                       </span>
                     <% end %>
                     <%= if domain.project do %>
-                      <span class="text-xs text-neutral-400 ml-3">{domain.project.display_name || domain.project.name}</span>
+                      <span class="text-xs text-neutral-400 ml-3">
+                        {domain.project.display_name || domain.project.name}
+                      </span>
                     <% end %>
                     <%= if domain.brand do %>
-                      <span class="text-xs text-neutral-400 ml-2">{domain.brand.display_name || domain.brand.name}</span>
+                      <span class="text-xs text-neutral-400 ml-2">
+                        {domain.brand.display_name || domain.brand.name}
+                      </span>
                     <% end %>
                   </div>
                 </div>

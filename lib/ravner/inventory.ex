@@ -215,6 +215,39 @@ defmodule Ravner.Inventory do
     ProjectRole.changeset(pr, %{})
   end
 
+  # ── Project Repositories ─────────────────────────────────────────────────────
+
+  alias Ravner.Inventory.ProjectRepository
+
+  def list_project_repositories(project_id) do
+    ProjectRepository
+    |> where([r], r.project_id == ^project_id)
+    |> order_by([r], asc: r.kind, asc: r.id)
+    |> Repo.all()
+  end
+
+  def get_project_repository!(id), do: Repo.get!(ProjectRepository, id)
+
+  def create_project_repository(attrs \\ %{}) do
+    %ProjectRepository{}
+    |> ProjectRepository.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_project_repository(%ProjectRepository{} = repo, attrs) do
+    repo
+    |> ProjectRepository.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_project_repository(%ProjectRepository{} = repo) do
+    Repo.delete(repo)
+  end
+
+  def change_project_repository(%ProjectRepository{} = repo \\ %ProjectRepository{}) do
+    ProjectRepository.changeset(repo, %{})
+  end
+
   # ── Dashboard / Ownership counts ─────────────────────────────────────────────
 
   def count_domains_without_project do

@@ -37,7 +37,12 @@
               <p class="text-xs text-red-500 mt-1">{elem(err, 0)}</p>
             <% end %>
           </div>
-          <.input field={@form[:display_name]} type="text" label="Display name" placeholder="Short name for lists, falls back to Name" />
+          <.input
+            field={@form[:display_name]}
+            type="text"
+            label="Display name"
+            placeholder="Short name for lists, falls back to Name"
+          />
           <div>
             <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
               Slug
@@ -119,7 +124,9 @@
                   <span class="text-xs px-2 py-0.5 border border-neutral-200">{org.type}</span>
                 </td>
                 <td class="px-4 py-3 text-neutral-500">{org.country}</td>
-                <td class="px-4 py-3 text-neutral-500">{org.brand && (org.brand.display_name || org.brand.name)}</td>
+                <td class="px-4 py-3 text-neutral-500">
+                  {org.brand && (org.brand.display_name || org.brand.name)}
+                </td>
                 <td class="px-4 py-3 text-right">
                   <div class="flex items-center justify-end gap-2">
                     <.link
