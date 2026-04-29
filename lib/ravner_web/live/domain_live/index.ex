@@ -24,7 +24,11 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:ip_filter, "")
      |> assign(:export_include_subs, false)
      |> assign(:project_filter, nil)
+     |> assign(:org_filter, nil)
+     |> assign(:brand_filter, nil)
      |> assign(:projects, Inventory.list_projects())
+     |> assign(:orgs, Inventory.list_organizations())
+     |> assign(:brands, Inventory.list_brands())
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -55,6 +59,8 @@ defmodule RavnerWeb.DomainLive.Index do
     ip = Map.get(params, "ip", "")
     lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
     project_id = params |> Map.get("project_id", "") |> parse_int()
+    org_id = params |> Map.get("organization_id", "") |> parse_int()
+    brand_id = params |> Map.get("brand_id", "") |> parse_int()
     page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
 
     # Clear selection when filters change
@@ -62,10 +68,12 @@ defmodule RavnerWeb.DomainLive.Index do
     prev_ip = socket.assigns[:ip_filter] || ""
     prev_lifecycle = socket.assigns[:lifecycle_filter]
     prev_project = socket.assigns[:project_filter]
+    prev_org = socket.assigns[:org_filter]
+    prev_brand = socket.assigns[:brand_filter]
 
     filters_changed =
       search != prev_search || ip != prev_ip || lifecycle != prev_lifecycle ||
-        project_id != prev_project
+        project_id != prev_project || org_id != prev_org || brand_id != prev_brand
 
     result =
       Domains.list_domains_filtered(
@@ -73,6 +81,8 @@ defmodule RavnerWeb.DomainLive.Index do
         ip: ip,
         lifecycle: lifecycle,
         project_id: project_id,
+        organization_id: org_id,
+        brand_id: brand_id,
         page: page
       )
 
@@ -107,6 +117,8 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:ip_filter, ip)
     |> assign(:lifecycle_filter, lifecycle)
     |> assign(:project_filter, project_id)
+    |> assign(:org_filter, org_id)
+    |> assign(:brand_filter, brand_id)
     |> then(fn s ->
       if filters_changed, do: assign(s, :selected_ids, MapSet.new()), else: s
     end)
@@ -201,6 +213,26 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("clear_project", _params, socket) do
     params = build_params(socket, project_id: "", page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("filter_org", %{"organization_id" => oid}, socket) do
+    params = build_params(socket, organization_id: oid, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("clear_org", _params, socket) do
+    params = build_params(socket, organization_id: "", page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("filter_brand", %{"brand_id" => bid}, socket) do
+    params = build_params(socket, brand_id: bid, page: 1)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("clear_brand", _params, socket) do
+    params = build_params(socket, brand_id: "", page: 1)
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
@@ -600,6 +632,8 @@ defmodule RavnerWeb.DomainLive.Index do
     ip = Keyword.get(overrides, :ip, socket.assigns[:ip_filter] || "")
     page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
     project_id = Keyword.get(overrides, :project_id, socket.assigns[:project_filter] || "")
+    org_id = Keyword.get(overrides, :organization_id, socket.assigns[:org_filter] || "")
+    brand_id = Keyword.get(overrides, :brand_id, socket.assigns[:brand_filter] || "")
 
     lifecycle =
       case Keyword.get(overrides, :lifecycle, socket.assigns[:lifecycle_filter]) do
@@ -608,7 +642,15 @@ defmodule RavnerWeb.DomainLive.Index do
         str -> str
       end
 
-    [search: search, ip: ip, lifecycle: lifecycle, project_id: project_id, page: page]
+    [
+      search: search,
+      ip: ip,
+      lifecycle: lifecycle,
+      project_id: project_id,
+      organization_id: org_id,
+      brand_id: brand_id,
+      page: page
+    ]
     |> Enum.reject(fn {_, v} -> v == "" or v == 1 end)
   end
 

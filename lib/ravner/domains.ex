@@ -82,6 +82,8 @@ defmodule Ravner.Domains do
     ip = Keyword.get(opts, :ip, "")
     lifecycle = Keyword.get(opts, :lifecycle, nil)
     project_id = Keyword.get(opts, :project_id, nil)
+    organization_id = Keyword.get(opts, :organization_id, nil)
+    brand_id = Keyword.get(opts, :brand_id, nil)
     include_subs = Keyword.get(opts, :include_subdomains, false)
 
     Domain
@@ -118,6 +120,38 @@ defmodule Ravner.Domains do
     end)
     |> then(fn q ->
       if project_id, do: where(q, [d], d.project_id == ^project_id), else: q
+    end)
+    |> then(fn q ->
+      org_filter = organization_id || brand_id
+
+      if org_filter do
+        q
+        |> join(:left, [d], p in Ravner.Inventory.Project, on: d.project_id == p.id)
+        |> join(:left, [d, p], o in Ravner.Inventory.Organization,
+          on: d.organization_id == o.id or p.organization_id == o.id
+        )
+        |> then(fn joined_q ->
+          joined_q
+          |> then(fn q2 ->
+            cond do
+              organization_id ->
+                where(
+                  q2,
+                  [d, p, o],
+                  d.organization_id == ^organization_id or p.organization_id == ^organization_id
+                )
+
+              brand_id ->
+                where(q2, [d, p, o], o.brand_id == ^brand_id)
+
+              true ->
+                q2
+            end
+          end)
+        end)
+      else
+        q
+      end
     end)
     |> preload([:project, :brand, :organization])
   end
