@@ -39,3 +39,6 @@ npm-debug.log
 /.env
 
 .superpowers/
+
+# Local heuristics overrides
+/config/heuristics.local.exs
