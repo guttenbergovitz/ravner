@@ -12,7 +12,7 @@ defmodule RavnerWeb.DashboardLive.Index do
 
     {:ok,
      socket
-     |> assign(:page_title, "Dashboard")
+     |> assign(:page_title, "Ravner")
      |> assign(:stats, stats)
      |> assign(:http_chart, http_chart)
      |> assign(:scan_chart, scan_chart)}
