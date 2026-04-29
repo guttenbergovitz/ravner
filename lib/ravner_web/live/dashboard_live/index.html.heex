@@ -29,32 +29,148 @@
     <div class="border-t border-neutral-200">
       <div class="max-w-6xl mx-auto px-6 py-20">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-          <div class="card-line">
+          <div
+            phx-click="show_detail"
+            phx-value-section="domains"
+            class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
+          >
             <.icon name="hero-globe-alt" class="w-6 h-6 text-neutral-400 mb-6" />
             <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Domains</h3>
             <p class="text-sm font-light text-neutral-500 leading-relaxed">
-              Central inventory of all domains, subdomains, and services. Parent-child
-              relationships, tags, and lifecycle tracking.
+              You have domains scattered across registrars and teams. No single view of what exists, what's active, and what should be decommissioned.
             </p>
           </div>
 
-          <div class="card-line">
+          <div
+            phx-click="show_detail"
+            phx-value-section="metadata"
+            class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
+          >
             <.icon name="hero-signal" class="w-6 h-6 text-neutral-400 mb-6" />
             <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Metadata</h3>
             <p class="text-sm font-light text-neutral-500 leading-relaxed">
-              HTTP, DNS, SSL, WHOIS, and infrastructure snapshots. Always current,
-              always visible.
+              You need HTTP status, DNS records, SSL expiry, and WHOIS data — but collecting it across hundreds of domains is manual and never up to date.
             </p>
           </div>
 
-          <div class="card-line">
+          <div
+            phx-click="show_detail"
+            phx-value-section="ownership"
+            class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
+          >
             <.icon name="hero-user-group" class="w-6 h-6 text-neutral-400 mb-6" />
             <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Ownership</h3>
             <p class="text-sm font-light text-neutral-500 leading-relaxed">
-              Clear assignment of PM, PO, and delivery organization. No orphaned assets.
+              When something breaks, you don't know who's responsible. Domains, projects, and people are disconnected — and orphaned assets pile up.
             </p>
           </div>
         </div>
+
+        <%= if @detail_popup do %>
+          <div
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            phx-click="close_detail"
+            phx-target={@myself}
+          >
+            <div class="absolute inset-0 bg-black/10"></div>
+            <div
+              class="relative bg-white border border-neutral-200 max-w-lg w-full mx-4 p-8"
+              phx-click="__stop__"
+            >
+              <button
+                phx-click="close_detail"
+                phx-target={@myself}
+                class="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 transition-colors"
+              >
+                <.icon name="hero-x-mark" class="w-5 h-5" />
+              </button>
+
+              <%= if @detail_popup == "domains" do %>
+                <div class="mb-6">
+                  <.icon name="hero-globe-alt" class="w-8 h-8 text-neutral-400 mb-4" />
+                  <h3 class="text-lg font-light tracking-tight mb-4">Domains</h3>
+                  <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
+                    You manage domains across multiple registrars, teams, and environments. Without a central inventory, you lose track of what exists, what's expired, and what should be cleaned up.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Auto-discover apex domains and their subdomains through scanning
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Tag and classify by lifecycle: priority, active, placeholder, deprecated, decommissioned
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Bulk import from CSV, export anytime — no vendor lock-in
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Track redirect chains and detect orphaned or parked domains
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @detail_popup == "metadata" do %>
+                <div class="mb-6">
+                  <.icon name="hero-signal" class="w-8 h-8 text-neutral-400 mb-4" />
+                  <h3 class="text-lg font-light tracking-tight mb-4">Metadata</h3>
+                  <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
+                    You need to know the technical state of your domains — HTTP status, DNS configuration, SSL health, WHOIS data — but gathering it across hundreds of domains is tedious and the data goes stale fast.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Automated HTTP scans with status, redirects, and response tracking
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      SSL certificate expiry monitoring — know before certificates expire
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Registrar and hosting provider identification via WHOIS and DNS heuristics
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Detect technology stacks: web servers, frameworks, and platforms
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @detail_popup == "ownership" do %>
+                <div class="mb-6">
+                  <.icon name="hero-user-group" class="w-8 h-8 text-neutral-400 mb-4" />
+                  <h3 class="text-lg font-light tracking-tight mb-4">Ownership</h3>
+                  <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
+                    When a domain breaks or a project ends, you need to know who's responsible. Without clear ownership, domains pile up unmanaged, and you waste time asking around.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Model your org: Brand → Organization → Project → Person with clear role assignments
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Assign PM (product manager) and PO (project owner) per project
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Link repositories to projects — know what code maps to what domain
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Filter domains by brand, org, or project — no more orphaned assets
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
       </div>
     </div>
 

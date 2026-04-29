@@ -20,7 +20,17 @@ defmodule RavnerWeb.DashboardLive.Index do
 
   @impl true
   def handle_params(_params, _url, socket) do
-    {:noreply, socket}
+    {:noreply, assign(socket, :detail_popup, nil)}
+  end
+
+  @impl true
+  def handle_event("show_detail", %{"section" => section}, socket) do
+    {:noreply, assign(socket, :detail_popup, section)}
+  end
+
+  @impl true
+  def handle_event("close_detail", _, socket) do
+    {:noreply, assign(socket, :detail_popup, nil)}
   end
 
   defp build_http_chart(http) do
