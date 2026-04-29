@@ -22,12 +22,26 @@
           <%= if @current_scope do %>
             <ul class="flex items-center gap-6 text-sm font-light tracking-wide">
               <li>
-                <.link href={~p"/"} class="hover:text-neutral-500 transition-colors">
+                <.link
+                  href={~p"/dashboard"}
+                  class={[
+                    "hover:text-neutral-500 transition-colors",
+                    (@conn.request_path == "/dashboard" && "text-neutral-900 font-normal") ||
+                      "text-neutral-500"
+                  ]}
+                >
                   Dashboard
                 </.link>
               </li>
               <li>
-                <.link href={~p"/domains"} class="hover:text-neutral-500 transition-colors">
+                <.link
+                  href={~p"/domains"}
+                  class={[
+                    "hover:text-neutral-500 transition-colors",
+                    (String.starts_with?(@conn.request_path, "/domains") &&
+                       "text-neutral-900 font-normal") || "text-neutral-500"
+                  ]}
+                >
                   Domains
                 </.link>
               </li>
