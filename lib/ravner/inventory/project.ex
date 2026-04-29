@@ -5,6 +5,7 @@ defmodule Ravner.Inventory.Project do
   schema "projects" do
     field(:name, :string)
     field(:slug, :string)
+    field(:display_name, :string)
     field(:description, :string)
     field(:notes, :string)
 
@@ -17,7 +18,7 @@ defmodule Ravner.Inventory.Project do
 
   def changeset(project, attrs) do
     project
-    |> cast(attrs, [:name, :slug, :description, :notes, :organization_id])
+    |> cast(attrs, [:name, :slug, :display_name, :description, :notes, :organization_id])
     |> validate_required([:name, :slug, :organization_id])
     |> unique_constraint(:name)
     |> unique_constraint(:slug)

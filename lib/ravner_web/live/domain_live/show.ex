@@ -5,13 +5,19 @@ defmodule RavnerWeb.DomainLive.Show do
 
   alias Ravner.Domains
   alias Ravner.Scans
+  alias Ravner.Inventory
 
   # Two-part TLDs for root domain extraction (same logic as Balebos)
   @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, scanning: false, pending_scans: 0, lifecycle_menu_open: false)}
+    {:ok,
+     socket
+     |> assign(:scanning, false)
+     |> assign(:pending_scans, 0)
+     |> assign(:lifecycle_menu_open, false)
+     |> assign(:projects, Inventory.list_projects())}
   end
 
   @impl true
@@ -90,6 +96,27 @@ defmodule RavnerWeb.DomainLive.Show do
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
+      end
+    end
+  end
+
+  def handle_event("set_project", %{"project_id" => pid}, socket) do
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission.")}
+    else
+      domain = socket.assigns.domain
+      pid = if pid == "", do: nil, else: String.to_integer(pid)
+
+      case Domains.update_domain_with_project(domain, pid) do
+        {:ok, _} ->
+          domain = Domains.get_domain_with_preloads!(domain.id)
+
+          {:noreply,
+           socket
+           |> assign(:domain, domain)}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update project")}
       end
     end
   end

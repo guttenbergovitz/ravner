@@ -1,5 +1,5 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-4xl mx-auto px-6 py-8">
+  <div class="max-w-6xl mx-auto px-6 py-8">
     <div class="flex items-center justify-between mb-8">
       <h1 class="text-2xl font-light tracking-tight">Projects</h1>
       <.link patch={~p"/admin/projects/new"} class="btn-line text-xs flex items-center gap-1.5">
@@ -14,7 +14,7 @@
         </h2>
 
         <.form
-          for={to_form(Inventory.change_project(@project), as: :project)}
+          for={@form}
           phx-submit="save"
           id="project-form"
           class="space-y-4 max-w-md"
@@ -27,6 +27,8 @@
             placeholder="e.g. website-relaunch"
           />
           <.input field={@form[:description]} type="textarea" label="Description" />
+          <.input field={@form[:display_name]} type="text" label="Display name" placeholder="Short name for lists" />
+
           <.input
             field={@form[:organization_id]}
             type="select"

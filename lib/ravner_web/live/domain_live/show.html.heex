@@ -141,7 +141,7 @@
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
                 Brand
               </span>
-              <span :if={@domain.brand} class="font-light">{@domain.brand.name}</span>
+              <span :if={@domain.brand} class="font-light">{@domain.brand.display_name || @domain.brand.name}</span>
               <span :if={!@domain.brand} class="text-neutral-400 font-light">—</span>
             </div>
             <div>
@@ -149,7 +149,7 @@
                 Organization
               </span>
               <span :if={@domain.organization} class="font-light">
-                {@domain.organization.name}
+                {@domain.organization.display_name || @domain.organization.name}
               </span>
               <span :if={!@domain.organization} class="text-neutral-400 font-light">—</span>
             </div>
@@ -157,8 +157,19 @@
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
                 Project
               </span>
-              <span :if={@domain.project} class="font-light">{@domain.project.name}</span>
-              <span :if={!@domain.project} class="text-neutral-400 font-light">—</span>
+              <form phx-change="set_project" id="project-select-form">
+                <select
+                  name="project_id"
+                  class="w-full px-2 py-1.5 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 focus:outline-none focus:border-neutral-500 transition-colors"
+                >
+                  <option value="">—</option>
+                  <%= for p <- @projects do %>
+                    <option value={p.id} selected={@domain.project_id == p.id}>
+                      {p.name}
+                    </option>
+                  <% end %>
+                </select>
+              </form>
             </div>
             <div>
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">

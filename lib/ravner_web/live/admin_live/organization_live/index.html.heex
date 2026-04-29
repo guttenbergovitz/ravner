@@ -1,5 +1,5 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-4xl mx-auto px-6 py-8">
+  <div class="max-w-6xl mx-auto px-6 py-8">
     <div class="flex items-center justify-between mb-8">
       <h1 class="text-2xl font-light tracking-tight">Organizations</h1>
       <.link
@@ -17,13 +17,52 @@
         </h2>
 
         <.form
-          for={to_form(Inventory.change_organization(@org), as: :organization)}
+          for={@form}
           phx-submit="save"
           id="org-form"
           class="space-y-4 max-w-md"
         >
-          <.input field={@form[:name]} type="text" label="Name" />
-          <.input field={@form[:slug]} type="text" label="Slug" placeholder="e.g. acme-de" />
+          <div>
+            <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+              Name
+            </label>
+            <input
+              type="text"
+              name="organization[name]"
+              id="org_name"
+              value={@form[:name].value}
+              class="w-full px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+            />
+            <%= for err <- @form[:name].errors do %>
+              <p class="text-xs text-red-500 mt-1">{elem(err, 0)}</p>
+            <% end %>
+          </div>
+          <.input field={@form[:display_name]} type="text" label="Display name" placeholder="Short name for lists, falls back to Name" />
+          <div>
+            <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+              Slug
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                name="organization[slug]"
+                id="org_slug"
+                value={@form[:slug].value}
+                placeholder="e.g. acme-de"
+                class="flex-1 px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+              />
+              <button
+                type="button"
+                id="auto-slug-btn"
+                phx-hook=".AutoSlug"
+                data-target="org_slug"
+                data-source="org_name"
+                class="btn-line text-xs whitespace-nowrap"
+              >
+                Auto
+              </button>
+            </div>
+          </div>
           <.input
             field={@form[:type]}
             type="select"
@@ -75,12 +114,12 @@
           <tbody>
             <%= for org <- @orgs do %>
               <tr class="border-b border-neutral-100">
-                <td class="px-4 py-3">{org.name}</td>
+                <td class="px-4 py-3">{org.display_name || org.name}</td>
                 <td class="px-4 py-3">
                   <span class="text-xs px-2 py-0.5 border border-neutral-200">{org.type}</span>
                 </td>
                 <td class="px-4 py-3 text-neutral-500">{org.country}</td>
-                <td class="px-4 py-3 text-neutral-500">{org.brand && org.brand.name}</td>
+                <td class="px-4 py-3 text-neutral-500">{org.brand && (org.brand.display_name || org.brand.name)}</td>
                 <td class="px-4 py-3 text-right">
                   <div class="flex items-center justify-end gap-2">
                     <.link
@@ -106,4 +145,24 @@
       <% end %>
     </div>
   </div>
+
+  <script :type={Phoenix.LiveView.ColocatedHook} name=".AutoSlug">
+    export default {
+      mounted() {
+        this.el.addEventListener("click", () => {
+          const targetId = this.el.getAttribute("data-target");
+          const sourceId = this.el.getAttribute("data-source");
+          const source = document.getElementById(sourceId);
+          const target = document.getElementById(targetId);
+          if (source && target) {
+            target.value = source.value
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "");
+            target.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        });
+      }
+    }
+  </script>
 </Layouts.app>

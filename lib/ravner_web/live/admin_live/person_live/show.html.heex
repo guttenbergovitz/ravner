@@ -1,5 +1,5 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-4xl mx-auto px-6 py-8">
+  <div class="max-w-6xl mx-auto px-6 py-8">
     <div class="flex items-center gap-4 mb-8">
       <.link
         patch={~p"/admin/people"}
@@ -55,7 +55,7 @@
           <%= for r <- @roles do %>
             <div class="flex items-center gap-3 text-sm border border-neutral-100 px-4 py-3">
               <span class="text-xs px-2 py-0.5 border border-neutral-200">{r.role}</span>
-              <span>{r.project.name}</span>
+              <span>{r.project.display_name || r.project.name}</span>
               <%= if r.notes do %>
                 <span class="text-neutral-400 text-xs">— {r.notes}</span>
               <% end %>

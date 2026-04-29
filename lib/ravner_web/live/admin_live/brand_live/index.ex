@@ -19,26 +19,34 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
     |> assign(:page_title, "Brands")
     |> assign(:brands, Inventory.list_brands())
     |> assign(:brand, nil)
+    |> assign(:form, nil)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Brand")
+    |> assign(:brands, Inventory.list_brands())
     |> assign(:brand, %Brand{})
+    |> assign(:form, to_form(Inventory.change_brand(%Brand{}), as: :brand))
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    brand = Inventory.get_brand!(id)
+
     socket
     |> assign(:page_title, "Edit Brand")
-    |> assign(:brand, Inventory.get_brand!(id))
+    |> assign(:brands, Inventory.list_brands())
+    |> assign(:brand, brand)
+    |> assign(:form, to_form(Inventory.change_brand(brand), as: :brand))
   end
 
   @impl true
   def handle_event("save", %{"brand" => attrs}, socket) do
     brand = socket.assigns.brand
+    brand_id = brand && brand.id
 
     result =
-      if brand.id do
+      if brand_id do
         Inventory.update_brand(brand, attrs)
       else
         Inventory.create_brand(attrs)
@@ -52,7 +60,7 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
          |> push_patch(to: ~p"/admin/brands")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :brand, changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset, as: :brand))}
     end
   end
 

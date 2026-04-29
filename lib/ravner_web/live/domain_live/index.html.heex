@@ -431,6 +431,12 @@
                         {length(domain.subdomains)} subdomains
                       </span>
                     <% end %>
+                    <%= if domain.project do %>
+                      <span class="text-xs text-neutral-400 ml-3">{domain.project.display_name || domain.project.name}</span>
+                    <% end %>
+                    <%= if domain.brand do %>
+                      <span class="text-xs text-neutral-400 ml-2">{domain.brand.display_name || domain.brand.name}</span>
+                    <% end %>
                   </div>
                 </div>
 

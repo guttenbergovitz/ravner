@@ -1,5 +1,5 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-4xl mx-auto px-6 py-8">
+  <div class="max-w-6xl mx-auto px-6 py-8">
     <div class="flex items-center justify-between mb-8">
       <h1 class="text-2xl font-light tracking-tight">Brands</h1>
       <.link patch={~p"/admin/brands/new"} class="btn-line text-xs flex items-center gap-1.5">
@@ -14,13 +14,15 @@
         </h2>
 
         <.form
-          for={to_form(Inventory.change_brand(@brand), as: :brand)}
+          for={@form}
           phx-submit="save"
           id="brand-form"
           class="space-y-4 max-w-md"
         >
           <.input field={@form[:name]} type="text" label="Name" />
           <.input field={@form[:slug]} type="text" label="Slug" placeholder="e.g. acme-corp" />
+          <.input field={@form[:display_name]} type="text" label="Display name" placeholder="Short name for lists" />
+
           <.input field={@form[:notes]} type="textarea" label="Notes" />
 
           <div class="flex items-center gap-3">

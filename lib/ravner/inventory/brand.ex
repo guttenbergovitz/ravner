@@ -5,6 +5,7 @@ defmodule Ravner.Inventory.Brand do
   schema "brands" do
     field(:name, :string)
     field(:slug, :string)
+    field(:display_name, :string)
     field(:notes, :string)
 
     has_many(:organizations, Ravner.Inventory.Organization)
@@ -15,7 +16,7 @@ defmodule Ravner.Inventory.Brand do
 
   def changeset(brand, attrs) do
     brand
-    |> cast(attrs, [:name, :slug, :notes])
+    |> cast(attrs, [:name, :slug, :display_name, :notes])
     |> validate_required([:name, :slug])
     |> unique_constraint(:name)
     |> unique_constraint(:slug)

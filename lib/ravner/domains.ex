@@ -183,6 +183,30 @@ defmodule Ravner.Domains do
     |> Repo.update()
   end
 
+  def update_domain_with_project(%Domain{} = domain, project_id) do
+    attrs = %{project_id: project_id}
+
+    attrs =
+      if project_id do
+        project = Repo.get!(Ravner.Inventory.Project, project_id)
+        org_id = project.organization_id
+
+        org =
+          if org_id, do: Repo.get!(Ravner.Inventory.Organization, org_id), else: nil
+
+        Map.merge(attrs, %{
+          brand_id: org && org.brand_id,
+          organization_id: org_id
+        })
+      else
+        attrs
+      end
+
+    domain
+    |> Domain.changeset(attrs)
+    |> Repo.update()
+  end
+
   def delete_domain(%Domain{} = domain) do
     Repo.delete(domain)
   end

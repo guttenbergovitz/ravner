@@ -24,13 +24,16 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
     |> assign(:projects, Inventory.list_projects())
     |> assign(:project, nil)
     |> assign(:roles, [])
+    |> assign(:form, nil)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Project")
+    |> assign(:projects, Inventory.list_projects())
     |> assign(:project, %Project{})
     |> assign(:roles, [])
+    |> assign(:form, to_form(Inventory.change_project(%Project{}), as: :project))
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -38,16 +41,19 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
     socket
     |> assign(:page_title, "Edit Project")
+    |> assign(:projects, Inventory.list_projects())
     |> assign(:project, project)
     |> assign(:roles, Inventory.list_project_roles(project.id))
+    |> assign(:form, to_form(Inventory.change_project(project), as: :project))
   end
 
   @impl true
   def handle_event("save", %{"project" => attrs}, socket) do
     project = socket.assigns.project
+    project_id = project && project.id
 
     result =
-      if project.id do
+      if project_id do
         Inventory.update_project(project, attrs)
       else
         Inventory.create_project(attrs)
@@ -61,7 +67,7 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
          |> push_patch(to: ~p"/admin/projects")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :project, changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset, as: :project))}
     end
   end
 

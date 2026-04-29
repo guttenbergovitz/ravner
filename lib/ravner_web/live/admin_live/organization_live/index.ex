@@ -27,21 +27,36 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Organization")
+    |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, %Organization{})
+    |> assign(:form, to_form(Inventory.change_organization(%Organization{}), as: :organization))
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    org = Inventory.get_organization!(id)
+
     socket
     |> assign(:page_title, "Edit Organization")
-    |> assign(:org, Inventory.get_organization!(id))
+    |> assign(:orgs, Inventory.list_organizations())
+    |> assign(:org, org)
+    |> assign(:form, to_form(Inventory.change_organization(org), as: :organization))
+  end
+
+  defp apply_action(socket, :index, _params) do
+    socket
+    |> assign(:page_title, "Organizations")
+    |> assign(:orgs, Inventory.list_organizations())
+    |> assign(:org, nil)
+    |> assign(:form, nil)
   end
 
   @impl true
   def handle_event("save", %{"organization" => attrs}, socket) do
     org = socket.assigns.org
+    org_id = org && org.id
 
     result =
-      if org.id do
+      if org_id do
         Inventory.update_organization(org, attrs)
       else
         Inventory.create_organization(attrs)
@@ -55,7 +70,7 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
          |> push_patch(to: ~p"/admin/organizations")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :org, changeset)}
+        {:noreply, assign(socket, :form, to_form(changeset, as: :organization))}
     end
   end
 
