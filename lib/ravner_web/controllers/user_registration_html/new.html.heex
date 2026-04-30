@@ -29,6 +29,7 @@
             required
             phx-mounted={JS.focus()}
           />
+          <RavnerWeb.CoreComponents.error :for={msg <- f[:email].errors}>{translate_error(msg)}</RavnerWeb.CoreComponents.error>
         </div>
         <button
           type="submit"

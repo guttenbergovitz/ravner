@@ -248,7 +248,7 @@ defmodule RavnerWeb.CoreComponents do
     """
   end
 
-  defp error(assigns) do
+  def error(assigns) do
     ~H"""
     <p class="mt-2 flex gap-2 items-center text-sm text-red-600 font-light">
       <.icon name="hero-exclamation-circle" class="w-4 h-4 shrink-0" />

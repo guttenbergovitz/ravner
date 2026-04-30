@@ -3,6 +3,10 @@ defmodule RavnerWeb.UserRegistrationControllerTest do
 
   import Ravner.AccountsFixtures
 
+  setup do
+    %{user: user_fixture()}
+  end
+
   describe "GET /users/register" do
     test "renders registration page", %{conn: conn} do
       conn = get(conn, ~p"/users/register")

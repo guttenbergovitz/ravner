@@ -96,7 +96,7 @@
               href={~p"/users/log-out"}
               method="delete"
               class="flex items-center gap-2 text-neutral-400 hover:text-neutral-700 transition-colors"
-              title="Log out {@current_scope.user.email}"
+              title={"Log out #{@current_scope.user.email}"}
             >
               <.icon name="hero-arrow-right-on-rectangle" class="w-4 h-4" />
             </.link>

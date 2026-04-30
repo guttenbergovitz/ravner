@@ -78,82 +78,74 @@ defmodule Ravner.Domains do
   end
 
   defp filtered_query(opts) do
-    search = Keyword.get(opts, :search, "")
-    ip = Keyword.get(opts, :ip, "")
-    lifecycle = Keyword.get(opts, :lifecycle, nil)
-    project_id = Keyword.get(opts, :project_id, nil)
-    organization_id = Keyword.get(opts, :organization_id, nil)
-    brand_id = Keyword.get(opts, :brand_id, nil)
-    include_subs = Keyword.get(opts, :include_subdomains, false)
-
     Domain
-    |> then(fn q ->
-      if include_subs, do: q, else: where(q, type: :domain)
-    end)
-    |> then(fn q ->
-      if search && search != "" do
-        pattern = "%#{search}%"
-        where(q, [d], ilike(d.name, ^pattern))
-      else
-        q
-      end
-    end)
-    |> then(fn q ->
-      if lifecycle && lifecycle != "" && lifecycle != :all do
-        where(q, [d], d.lifecycle_state == ^lifecycle)
-      else
-        q
-      end
-    end)
-    |> then(fn q ->
-      if ip && ip != "" do
-        pattern = "%#{ip}%"
-
-        join(q, :inner, [d], m in assoc(d, :domain_metadata))
-        |> where(
-          [_d, m],
-          fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
-        )
-      else
-        q
-      end
-    end)
-    |> then(fn q ->
-      if project_id, do: where(q, [d], d.project_id == ^project_id), else: q
-    end)
-    |> then(fn q ->
-      org_filter = organization_id || brand_id
-
-      if org_filter do
-        q
-        |> join(:left, [d], p in Ravner.Inventory.Project, on: d.project_id == p.id)
-        |> join(:left, [d, p], o in Ravner.Inventory.Organization,
-          on: d.organization_id == o.id or p.organization_id == o.id
-        )
-        |> then(fn joined_q ->
-          joined_q
-          |> then(fn q2 ->
-            cond do
-              organization_id ->
-                where(
-                  q2,
-                  [d, p, o],
-                  d.organization_id == ^organization_id or p.organization_id == ^organization_id
-                )
-
-              brand_id ->
-                where(q2, [d, p, o], o.brand_id == ^brand_id)
-
-              true ->
-                q2
-            end
-          end)
-        end)
-      else
-        q
-      end
-    end)
+    |> filter_by_type(Keyword.get(opts, :include_subdomains, false))
+    |> filter_by_search(Keyword.get(opts, :search, ""))
+    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle, nil))
+    |> filter_by_ip(Keyword.get(opts, :ip, ""))
+    |> filter_by_project(Keyword.get(opts, :project_id, nil))
+    |> filter_by_organization_or_brand(
+      Keyword.get(opts, :organization_id, nil),
+      Keyword.get(opts, :brand_id, nil)
+    )
     |> preload([:project, :brand, :organization])
+  end
+
+  defp filter_by_type(query, true), do: query
+  defp filter_by_type(query, _), do: where(query, type: :domain)
+
+  defp filter_by_search(query, search) when search in [nil, ""], do: query
+
+  defp filter_by_search(query, search) do
+    pattern = "%#{search}%"
+    where(query, [d], ilike(d.name, ^pattern))
+  end
+
+  defp filter_by_lifecycle(query, lifecycle) when lifecycle in [nil, "", :all], do: query
+
+  defp filter_by_lifecycle(query, lifecycle),
+    do: where(query, [d], d.lifecycle_state == ^lifecycle)
+
+  defp filter_by_ip(query, ip) when ip in [nil, ""], do: query
+
+  defp filter_by_ip(query, ip) do
+    pattern = "%#{ip}%"
+
+    query
+    |> join(:inner, [d], m in assoc(d, :domain_metadata))
+    |> where(
+      [_d, m],
+      fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
+    )
+  end
+
+  defp filter_by_project(query, nil), do: query
+  defp filter_by_project(query, project_id), do: where(query, [d], d.project_id == ^project_id)
+
+  defp filter_by_organization_or_brand(query, nil, nil), do: query
+
+  defp filter_by_organization_or_brand(query, organization_id, brand_id) do
+    joined_query =
+      query
+      |> join(:left, [d], p in Ravner.Inventory.Project, on: d.project_id == p.id)
+      |> join(:left, [d, p], o in Ravner.Inventory.Organization,
+        on: d.organization_id == o.id or p.organization_id == o.id
+      )
+
+    cond do
+      organization_id ->
+        where(
+          joined_query,
+          [d, p, o],
+          d.organization_id == ^organization_id or p.organization_id == ^organization_id
+        )
+
+      brand_id ->
+        where(joined_query, [d, p, o], o.brand_id == ^brand_id)
+
+      true ->
+        joined_query
+    end
   end
 
   def suggest_domains(query, limit \\ 5)
