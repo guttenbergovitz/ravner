@@ -9,7 +9,7 @@ config :ravner, Ravner.Repo,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: String.to_integer(System.get_env("DB_POOL_SIZE", "10")),
-  ssl: [verify: :verify_none]
+  ssl: true
 
 # For development, we disable any cache and enable
 # debugging and code reloading.

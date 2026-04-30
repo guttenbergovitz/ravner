@@ -237,12 +237,12 @@ defmodule Ravner.Scans do
       names
       |> Enum.reject(&Map.has_key?(existing, &1))
       |> Enum.map(fn name ->
-        now = DateTime.utc_now()
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
 
         %{
           name: name,
-          type: "subdomain",
-          lifecycle_state: "under_review",
+          type: :subdomain,
+          lifecycle_state: :under_review,
           parent_domain_id: parent_id,
           inserted_at: now,
           updated_at: now
