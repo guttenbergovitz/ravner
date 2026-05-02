@@ -401,11 +401,20 @@ defmodule RavnerWeb.DomainLive.Show do
      |> put_flash(:info, "No subdomains found")}
   end
 
-  def handle_info({:scan_done, _kind, {:error, reason}}, socket) do
+  def handle_info({:scan_done, _kind, {:error, reason}}, socket) when is_binary(reason) do
     {:noreply,
      socket
      |> finish_scan()
      |> put_flash(:error, reason)}
+  end
+
+  def handle_info({:scan_done, kind, result}, socket) do
+    Logger.warning("Unhandled scan_done message for #{kind}: #{inspect(result)}")
+
+    {:noreply,
+     socket
+     |> finish_scan()
+     |> put_flash(:error, "Scan #{kind} failed or returned unexpected data.")}
   end
 
   # ---------------------------------------------------------------------------

@@ -314,6 +314,7 @@ defmodule Ravner.Scans do
 
         Domains.upsert_domain_metadata(domain_id, meta)
         maybe_update_lifecycle_from_http(domain, data)
+        {:ok, data}
 
       {:error, {:transport, _kind}} ->
         Domains.upsert_domain_metadata(domain_id, %{
