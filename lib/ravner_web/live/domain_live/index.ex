@@ -147,6 +147,34 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
+  def handle_event("toggle_expand", %{"id" => id}, socket) do
+    expanded = socket.assigns.expanded_domains
+    new_expanded = toggle_mapset(expanded, id)
+
+    socket =
+      if MapSet.member?(new_expanded, id) do
+        domain_id = String.to_integer(id)
+        domain = Enum.find(socket.assigns.domains, &(&1.id == domain_id))
+
+        if domain && domain.subdomains != [] do
+          updated_domain = Domains.preload_subdomain_metadata(domain)
+
+          updated_domains =
+            Enum.map(socket.assigns.domains, fn d ->
+              if d.id == domain_id, do: updated_domain, else: d
+            end)
+
+          assign(socket, :domains, updated_domains)
+        else
+          socket
+        end
+      else
+        socket
+      end
+
+    {:noreply, assign(socket, :expanded_domains, new_expanded)}
+  end
+
   def handle_event("toggle_export_subs", _params, socket) do
     {:noreply, assign(socket, :export_include_subs, !socket.assigns.export_include_subs)}
   end

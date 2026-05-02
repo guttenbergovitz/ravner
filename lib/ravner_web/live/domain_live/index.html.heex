@@ -351,68 +351,48 @@
         <%!-- Selection Mode Action Bar (Nordic Zen Design) --%>
         <%= if @selection_mode do %>
           <div class="flex items-center justify-between p-4 bg-white border border-neutral-900 mb-8 animate-in slide-in-from-top-4 duration-300">
-            <div class="flex items-center gap-8">
-              <%!-- Selection Controls --%>
+            <div class="flex items-center gap-6">
+              <%!-- Selection Group --%>
               <div class="flex items-center border border-neutral-200 divide-x divide-neutral-200">
                 <button
                   phx-click="select_all_matching"
-                  class="flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors"
-                  title="Select all domains matching current filters"
+                  class="flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors min-w-[140px]"
                 >
-                  <.icon name="hero-rectangle-stack" class="w-4 h-4" /> All Matching ({@total})
+                  <.icon name="hero-square-3-stack-3d" class="w-4 h-4" /> All ({@total})
                 </button>
                 <button
                   phx-click="select_visible"
-                  class="flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors"
-                  title="Select domains visible on this page"
+                  class="flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors min-w-[140px]"
                 >
                   <.icon name="hero-eye" class="w-4 h-4" /> Visible ({length(@domains)})
                 </button>
                 <button
                   phx-click="clear_selection"
                   disabled={MapSet.size(@selected_ids) == 0}
-                  class="flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-red-600"
-                  title="Clear current selection"
+                  class="flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-red-600 min-w-[140px]"
                 >
                   <.icon name="hero-x-circle" class="w-4 h-4" /> Clear
                 </button>
               </div>
 
-              <div class="h-4 w-px bg-neutral-200"></div>
-
-              <span class="text-xs font-light tracking-tight text-neutral-500">
-                <strong class="font-normal text-neutral-900">{MapSet.size(@selected_ids)}</strong>
-                domains selected
-              </span>
+              <div class="flex flex-col leading-none gap-1 border-l border-neutral-100 pl-6">
+                <span class="text-xl font-light text-neutral-900 leading-none">
+                  {MapSet.size(@selected_ids)}
+                </span>
+                <span class="text-[9px] font-normal uppercase tracking-widest text-neutral-400">
+                  Selected
+                </span>
+              </div>
             </div>
 
             <div class="flex items-center gap-4">
-              <%!-- Subdomains Toggle --%>
-              <button
-                phx-click="toggle_include_subdomains"
-                class={[
-                  "flex items-center gap-2 px-3 py-2 border text-[10px] font-normal uppercase tracking-widest transition-colors",
-                  if(@include_subdomains,
-                    do: "border-neutral-900 bg-neutral-900 text-white",
-                    else: "border-neutral-200 text-neutral-400 hover:border-neutral-400"
-                  )
-                ]}
-              >
-                <.icon
-                  name={
-                    if @include_subdomains, do: "hero-check-circle", else: "hero-circle-stack"
-                  }
-                  class="w-4 h-4"
-                /> Incl. subdomains
-              </button>
-
-              <%!-- Unified Actions Dropdown --%>
+              <%!-- Actions Dropdown --%>
               <div class="relative" id="bulk-actions-wrapper">
                 <button
                   phx-click="toggle_bulk_actions_menu"
                   disabled={MapSet.size(@selected_ids) == 0}
                   class={[
-                    "flex items-center gap-2 px-6 py-2 border border-neutral-900 text-[10px] font-normal uppercase tracking-widest transition-all",
+                    "flex items-center gap-3 px-8 py-2.5 border border-neutral-900 text-[10px] font-normal uppercase tracking-[0.2em] transition-all",
                     if(@bulk_actions_menu_open,
                       do: "bg-neutral-900 text-white",
                       else:

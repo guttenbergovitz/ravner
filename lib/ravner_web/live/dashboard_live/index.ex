@@ -86,5 +86,4 @@ defmodule RavnerWeb.DashboardLive.Index do
 
     bars
   end
-
 end
