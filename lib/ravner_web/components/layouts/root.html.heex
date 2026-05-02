@@ -71,9 +71,15 @@
                     </.link>
                     <.link
                       href={~p"/admin/brands"}
-                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100"
                     >
                       Brands
+                    </.link>
+                    <.link
+                      href={~p"/admin/certificates"}
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors"
+                    >
+                      SSL Certificates
                     </.link>
                   </div>
                 </li>
@@ -96,7 +102,7 @@
               href={~p"/users/log-out"}
               method="delete"
               class="flex items-center gap-2 text-neutral-400 hover:text-neutral-700 transition-colors"
-              title="Log out {@current_scope.user.email}"
+              title={"Log out #{@current_scope.user.email}"}
             >
               <.icon name="hero-arrow-right-on-rectangle" class="w-4 h-4" />
             </.link>

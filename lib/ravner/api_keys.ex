@@ -9,8 +9,8 @@ defmodule Ravner.ApiKeys do
   """
 
   import Ecto.Query, warn: false
-  alias Ravner.Repo
   alias Ravner.ApiKeys.ApiKey
+  alias Ravner.Repo
 
   require Logger
 
@@ -150,5 +150,4 @@ defmodule Ravner.ApiKeys do
 
   defp trunc(s, n) when is_binary(s) and byte_size(s) > n, do: String.slice(s, 0, n) <> "..."
   defp trunc(s, _) when is_binary(s), do: s
-  defp trunc(_, _), do: nil
 end

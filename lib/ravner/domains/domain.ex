@@ -2,6 +2,8 @@ defmodule Ravner.Domains.Domain do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   schema "domains" do
     field(:name, :string)
     field(:type, Ecto.Enum, values: [:domain, :subdomain], default: :domain)
@@ -14,6 +16,7 @@ defmodule Ravner.Domains.Domain do
         :under_review,
         :placeholder,
         :redirect,
+        :insecure,
         :deprecated,
         :decommissioned,
         :error,

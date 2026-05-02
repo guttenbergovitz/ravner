@@ -1,34 +1,20 @@
 defmodule RavnerWeb.DomainLive.Index do
+  @moduledoc """
+  LiveView for the domain listing page.
+  Supports filtering, pagination, selection mode, and bulk operations.
+  """
   use RavnerWeb, :live_view
 
   alias Ravner.Domains
   alias Ravner.Domains.Domain
-  alias Ravner.Scans
-
   alias Ravner.Inventory
+  alias Ravner.Scans
 
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(:expanded_domains, MapSet.new())
-     |> assign(:lifecycle_menu_open, nil)
-     |> assign(:importing, false)
-     |> assign(:suggestions, [])
-     |> assign(:selection_mode, false)
-     |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
-     |> assign(:bulk_action, nil)
-     |> assign(:bulk_lifecycle_menu_open, false)
-     |> assign(:scanning_ids, MapSet.new())
-     |> assign(:ip_filter, "")
-     |> assign(:export_include_subs, false)
-     |> assign(:project_filter, nil)
-     |> assign(:org_filter, nil)
-     |> assign(:brand_filter, nil)
-     |> assign(:projects, Inventory.list_projects())
-     |> assign(:orgs, Inventory.list_organizations())
-     |> assign(:brands, Inventory.list_brands())
+     |> assign_initial_state()
      |> allow_upload(:domains_file,
        accept: ~w(.txt),
        max_entries: 1,
@@ -41,127 +27,18 @@ defmodule RavnerWeb.DomainLive.Index do
   def handle_params(params, _url, socket) do
     socket = apply_action(socket, socket.assigns.live_action, params)
 
-    socket =
-      if socket.assigns.live_action in [:new, :edit, :import] &&
-           !editor?(socket.assigns.current_scope) do
-        socket
-        |> put_flash(:error, "You don't have permission to perform this action.")
-        |> push_patch(to: ~p"/domains")
-      else
-        socket
-      end
-
-    {:noreply, socket}
+    if socket.assigns.live_action in [:new, :edit, :import] and
+         not editor?(socket.assigns.current_scope) do
+      {:noreply,
+       socket
+       |> put_flash(:error, "You don't have permission to perform this action.")
+       |> push_patch(to: ~p"/domains")}
+    else
+      {:noreply, socket}
+    end
   end
 
-  defp apply_action(socket, :index, params) do
-    search = Map.get(params, "search", "")
-    ip = Map.get(params, "ip", "")
-    lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
-    project_id = params |> Map.get("project_id", "") |> parse_int()
-    org_id = params |> Map.get("organization_id", "") |> parse_int()
-    brand_id = params |> Map.get("brand_id", "") |> parse_int()
-    page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
-
-    # Clear selection when filters change
-    prev_search = socket.assigns[:search] || ""
-    prev_ip = socket.assigns[:ip_filter] || ""
-    prev_lifecycle = socket.assigns[:lifecycle_filter]
-    prev_project = socket.assigns[:project_filter]
-    prev_org = socket.assigns[:org_filter]
-    prev_brand = socket.assigns[:brand_filter]
-
-    filters_changed =
-      search != prev_search || ip != prev_ip || lifecycle != prev_lifecycle ||
-        project_id != prev_project || org_id != prev_org || brand_id != prev_brand
-
-    result =
-      Domains.list_domains_filtered(
-        search: search,
-        ip: ip,
-        lifecycle: lifecycle,
-        project_id: project_id,
-        organization_id: org_id,
-        brand_id: brand_id,
-        page: page
-      )
-
-    # Re-apply subdomain metadata preload for any currently expanded domains,
-    # since list_domains_filtered/1 only preloads :subdomains (without their
-    # :domain_metadata). Without this, a push_patch after e.g. set_lifecycle
-    # would leave subdomain.domain_metadata as %Ecto.Association.NotLoaded{},
-    # crashing the template when the accordion is open.
-    expanded = socket.assigns[:expanded_domains] || MapSet.new()
-
-    domains =
-      if MapSet.size(expanded) > 0 do
-        Enum.map(result.domains, fn d ->
-          if MapSet.member?(expanded, "#{d.id}") do
-            Domains.preload_subdomain_metadata(d)
-          else
-            d
-          end
-        end)
-      else
-        result.domains
-      end
-
-    socket
-    |> assign(:page_title, "Domains")
-    |> assign(:domain, nil)
-    |> assign(:domains, domains)
-    |> assign(:total, result.total)
-    |> assign(:page, result.page)
-    |> assign(:total_pages, result.total_pages)
-    |> assign(:search, search)
-    |> assign(:ip_filter, ip)
-    |> assign(:lifecycle_filter, lifecycle)
-    |> assign(:project_filter, project_id)
-    |> assign(:org_filter, org_id)
-    |> assign(:brand_filter, brand_id)
-    |> then(fn s ->
-      if filters_changed, do: assign(s, :selected_ids, MapSet.new()), else: s
-    end)
-  end
-
-  defp apply_action(socket, :new, _params) do
-    changeset = Domains.change_domain(%Domain{})
-
-    socket
-    |> assign(:page_title, "New Domain")
-    |> assign(:domain, %Domain{})
-    |> assign(:form, to_form(changeset))
-  end
-
-  defp apply_action(socket, :import, _params) do
-    socket
-    |> assign(:page_title, "Import Domains")
-    |> assign(:domain, nil)
-    |> assign(:import_results, nil)
-    |> assign(:importing, false)
-  end
-
-  defp parse_lifecycle(""), do: nil
-  defp parse_lifecycle(nil), do: nil
-
-  defp parse_lifecycle(s) do
-    valid = [
-      :priority,
-      :active,
-      :placeholder,
-      :under_review,
-      :deprecated,
-      :decommissioned,
-      :abandoned
-    ]
-
-    atom = String.to_existing_atom(s)
-    if atom in valid, do: atom, else: nil
-  rescue
-    _ -> nil
-  end
-
-  # ── Search & suggestions ────────────────────────────────────────────────────
+  # ── Event handlers (handle_event/3) ─────────────────────────────────────────
 
   @impl true
   def handle_event("search", %{"search" => query}, socket) do
@@ -251,8 +128,6 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, assign(socket, :export_include_subs, !socket.assigns.export_include_subs)}
   end
 
-  # ── Selection mode ──────────────────────────────────────────────────────────
-
   def handle_event("enter_selection_mode", _params, socket) do
     {:noreply, assign(socket, :selection_mode, true)}
   end
@@ -272,14 +147,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("toggle_select", %{"id" => id}, socket) do
     selected = socket.assigns.selected_ids
-
-    new_selected =
-      if MapSet.member?(selected, id) do
-        MapSet.delete(selected, id)
-      else
-        MapSet.put(selected, id)
-      end
-
+    new_selected = toggle_mapset(selected, id)
     {:noreply, assign(socket, :selected_ids, new_selected)}
   end
 
@@ -302,6 +170,13 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("toggle_include_subdomains", _params, socket) do
     {:noreply, assign(socket, :include_subdomains, !socket.assigns.include_subdomains)}
+  end
+
+  def handle_event("scan_visible", _, socket) do
+    ids = socket.assigns.domains |> Enum.map(& &1.id)
+    include_subdomains = socket.assigns.include_subdomains
+
+    execute_scan_on_ids(socket, ids, include_subdomains)
   end
 
   def handle_event("bulk_action_confirm", %{"action" => action}, socket) do
@@ -340,8 +215,6 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
-  # ── Quick scan ──────────────────────────────────────────────────────────────
-
   def handle_event("quick_scan", %{"id" => id}, socket) do
     domain_id = String.to_integer(id)
     liveview_pid = self()
@@ -359,8 +232,6 @@ defmodule RavnerWeb.DomainLive.Index do
      |> put_flash(:info, "Scan started")
      |> assign(:scanning_ids, MapSet.put(socket.assigns.scanning_ids, id))}
   end
-
-  # ── Domain CRUD ─────────────────────────────────────────────────────────────
 
   def handle_event("validate", %{"domain" => domain_params}, socket) do
     changeset =
@@ -392,79 +263,51 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, assign(socket, :lifecycle_menu_open, nil)}
   end
 
+  def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
   def handle_event("set_lifecycle", %{"id" => id, "state" => state}, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain = Domains.get_domain!(id)
+    domain = Domains.get_domain!(id)
 
-      case Domains.update_domain(domain, %{lifecycle_state: state}) do
-        {:ok, _} ->
-          params = build_params(socket)
+    case Domains.update_domain(domain, %{lifecycle_state: state}) do
+      {:ok, _} ->
+        params = build_params(socket)
 
-          {:noreply,
-           socket
-           |> assign(:lifecycle_menu_open, nil)
-           |> push_patch(to: ~p"/domains?#{params}")}
+        {:noreply,
+         socket
+         |> assign(:lifecycle_menu_open, nil)
+         |> push_patch(to: ~p"/domains?#{params}")}
 
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
-      end
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
     end
   end
 
   def handle_event("toggle_expand", %{"id" => id}, socket) do
-    # Ignore expand clicks when in selection mode — treat as toggle_select
     if socket.assigns.selection_mode do
       handle_event("toggle_select", %{"id" => id}, socket)
     else
       expanded = socket.assigns.expanded_domains
-      is_expanding = !MapSet.member?(expanded, id)
-
-      new_expanded =
-        if MapSet.member?(expanded, id) do
-          MapSet.delete(expanded, id)
-        else
-          MapSet.put(expanded, id)
-        end
-
+      new_expanded = toggle_mapset(expanded, id)
       socket = assign(socket, :expanded_domains, new_expanded)
 
       # Lazy-load subdomain metadata when expanding
-      socket =
-        if is_expanding do
-          domain_id = String.to_integer(id)
-          domain = socket.assigns.domains |> Enum.find(&(&1.id == domain_id))
-
-          if domain && domain.subdomains != [] do
-            updated_domain = Domains.preload_subdomain_metadata(domain)
-
-            updated_domains =
-              Enum.map(socket.assigns.domains, fn d ->
-                if d.id == domain_id, do: updated_domain, else: d
-              end)
-
-            assign(socket, :domains, updated_domains)
-          else
-            socket
-          end
-        else
-          socket
-        end
-
-      {:noreply, socket}
+      {:noreply, maybe_load_metadata_on_expand(socket, id, new_expanded)}
     end
   end
 
+  def handle_event("delete", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain = Domains.get_domain!(id)
-      {:ok, _} = Domains.delete_domain(domain)
-      params = build_params(socket)
-      {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
-    end
+    domain = Domains.get_domain!(id)
+    {:ok, _} = Domains.delete_domain(domain)
+    params = build_params(socket)
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
   def handle_event("close_modal", _params, socket) do
@@ -480,8 +323,6 @@ defmodule RavnerWeb.DomainLive.Index do
 
     {:noreply, put_flash(socket, :info, msg)}
   end
-
-  # ── Import ──────────────────────────────────────────────────────────────────
 
   def handle_event("validate_upload", _params, socket) do
     {:noreply, socket}
@@ -511,7 +352,7 @@ defmodule RavnerWeb.DomainLive.Index do
     end
   end
 
-  # ── Info handlers ───────────────────────────────────────────────────────────
+  # ── Info handlers (handle_info/2) ───────────────────────────────────────────
 
   @impl true
   def handle_info({:quick_scan_done, domain_id}, socket) do
@@ -525,57 +366,147 @@ defmodule RavnerWeb.DomainLive.Index do
 
   # ── Private helpers ─────────────────────────────────────────────────────────
 
-  defp execute_bulk_delete(socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  defp assign_initial_state(socket) do
+    socket
+    |> assign(:expanded_domains, MapSet.new())
+    |> assign(:lifecycle_menu_open, nil)
+    |> assign(:importing, false)
+    |> assign(:suggestions, [])
+    |> assign(:selection_mode, false)
+    |> assign(:selected_ids, MapSet.new())
+    |> assign(:include_subdomains, false)
+    |> assign(:bulk_action, nil)
+    |> assign(:bulk_lifecycle_menu_open, false)
+    |> assign(:scanning_ids, MapSet.new())
+    |> assign(:ip_filter, "")
+    |> assign(:export_include_subs, false)
+    |> assign(:project_filter, nil)
+    |> assign(:org_filter, nil)
+    |> assign(:brand_filter, nil)
+    |> assign(:projects, Inventory.list_projects())
+    |> assign(:orgs, Inventory.list_organizations())
+    |> assign(:brands, Inventory.list_brands())
+  end
+
+  defp apply_action(socket, :index, params) do
+    filters = parse_filters(params)
+    result = Domains.list_domains_filtered(Map.to_list(filters))
+
+    # Re-apply subdomain metadata preload for any currently expanded domains
+    expanded = socket.assigns[:expanded_domains] || MapSet.new()
+    domains = apply_metadata_preload(result.domains, expanded)
+
+    socket
+    |> assign_index_state(result, domains, filters)
+    |> maybe_clear_selection(filters)
+  end
+
+  defp apply_action(socket, :new, _params) do
+    changeset = Domains.change_domain(%Domain{})
+
+    socket
+    |> assign(:page_title, "New Domain")
+    |> assign(:domain, %Domain{})
+    |> assign(:form, to_form(changeset))
+  end
+
+  defp apply_action(socket, :import, _params) do
+    socket
+    |> assign(:page_title, "Import Domains")
+    |> assign(:domain, nil)
+    |> assign(:import_results, nil)
+    |> assign(:importing, false)
+  end
+
+  defp assign_index_state(socket, result, domains, filters) do
+    socket
+    |> assign(:page_title, "Domains")
+    |> assign(:domain, nil)
+    |> assign(:domains, domains)
+    |> assign(:total, result.total)
+    |> assign(:page, result.page)
+    |> assign(:total_pages, result.total_pages)
+    |> assign(:search, filters.search)
+    |> assign(:ip_filter, filters.ip)
+    |> assign(:lifecycle_filter, filters.lifecycle)
+    |> assign(:project_filter, filters.project_id)
+    |> assign(:org_filter, filters.org_id)
+    |> assign(:brand_filter, filters.brand_id)
+  end
+
+  defp maybe_clear_selection(socket, filters) do
+    if filters_changed?(socket, filters) do
+      assign(socket, :selected_ids, MapSet.new())
     else
-      ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
-      {:ok, count} = Domains.bulk_delete(ids)
-
-      params = build_params(socket)
-
-      {:noreply,
-       socket
-       |> assign(:selection_mode, false)
-       |> assign(:selected_ids, MapSet.new())
-       |> assign(:include_subdomains, false)
-       |> assign(:bulk_action, nil)
-       |> assign(:bulk_lifecycle_menu_open, false)
-       |> assign(:scanning_ids, MapSet.new())
-       |> assign(:ip_filter, "")
-       |> assign(:export_include_subs, false)
-       |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
-       |> push_patch(to: ~p"/domains?#{params}")}
+      socket
     end
   end
 
-  defp execute_bulk_scan(socket) do
+  defp filters_changed?(socket, filters) do
+    filters.search != (socket.assigns[:search] || "") or
+      filters.ip != (socket.assigns[:ip_filter] || "") or
+      filters.lifecycle != socket.assigns[:lifecycle_filter] or
+      filters.project_id != socket.assigns[:project_filter] or
+      filters.org_id != socket.assigns[:org_filter] or
+      filters.brand_id != socket.assigns[:brand_filter]
+  end
+
+  defp parse_filters(params) do
+    %{
+      search: Map.get(params, "search", ""),
+      ip: Map.get(params, "ip", ""),
+      lifecycle: params |> Map.get("lifecycle", "") |> parse_lifecycle(),
+      project_id: params |> Map.get("project_id", "") |> parse_int(),
+      org_id: params |> Map.get("organization_id", "") |> parse_int(),
+      brand_id: params |> Map.get("brand_id", "") |> parse_int(),
+      page: params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
+    }
+  end
+
+  defp apply_metadata_preload(domains, expanded) do
+    if MapSet.size(expanded) > 0 do
+      Enum.map(domains, fn d ->
+        if MapSet.member?(expanded, "#{d.id}") do
+          Domains.preload_subdomain_metadata(d)
+        else
+          d
+        end
+      end)
+    else
+      domains
+    end
+  end
+
+  defp parse_lifecycle(""), do: nil
+  defp parse_lifecycle(nil), do: nil
+
+  defp parse_lifecycle(s) do
+    valid = [
+      :priority,
+      :active,
+      :placeholder,
+      :under_review,
+      :insecure,
+      :deprecated,
+      :decommissioned,
+      :abandoned
+    ]
+
+    atom = String.to_existing_atom(s)
+    if atom in valid, do: atom, else: nil
+  rescue
+    _ -> nil
+  end
+
+  defp execute_bulk_delete(%{assigns: %{current_scope: scope}} = socket)
+       when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  defp execute_bulk_delete(socket) do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
-    include_subdomains = socket.assigns.include_subdomains
+    {:ok, count} = Domains.bulk_delete(ids)
 
-    domains = Enum.map(ids, &Domains.get_domain_with_preloads!/1)
-
-    scan_targets =
-      if include_subdomains do
-        domains ++ Enum.flat_map(domains, & &1.subdomains)
-      else
-        domains
-      end
-
-    Task.async_stream(
-      scan_targets,
-      fn domain ->
-        Scans.run_dnsx_scan(domain.id)
-        Scans.run_httpx_scan(domain.id)
-        Scans.run_rdap_scan(domain.id)
-        Scans.run_subdomain_scan(domain.id)
-      end,
-      ordered: false,
-      timeout: :infinity
-    )
-    |> Stream.run()
-
-    count = length(scan_targets)
     params = build_params(socket)
 
     {:noreply,
@@ -588,8 +519,64 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:scanning_ids, MapSet.new())
      |> assign(:ip_filter, "")
      |> assign(:export_include_subs, false)
-     |> put_flash(:info, "Scanned #{count} domain#{if count != 1, do: "s", else: ""}")
+     |> put_flash(:info, "Deleted #{count} domain#{if count != 1, do: "s", else: ""}")
      |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  defp execute_bulk_scan(socket) do
+    ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
+    include_subdomains = socket.assigns.include_subdomains
+
+    execute_scan_on_ids(socket, ids, include_subdomains)
+  end
+
+  defp execute_scan_on_ids(socket, ids, include_subdomains) do
+    scan_targets = get_scan_targets(ids, include_subdomains)
+    liveview_pid = self()
+
+    # IDs to show as "scanning" in UI
+    target_ids = Enum.map(scan_targets, &to_string(&1.id))
+    new_scanning = MapSet.union(socket.assigns.scanning_ids, MapSet.new(target_ids))
+
+    Task.start(fn ->
+      Task.async_stream(
+        scan_targets,
+        fn domain ->
+          Scans.run_dnsx_scan(domain.id)
+          Scans.run_httpx_scan(domain.id)
+          Scans.run_rdap_scan(domain.id)
+          Scans.run_subdomain_scan(domain.id)
+          send(liveview_pid, {:quick_scan_done, domain.id})
+        end,
+        max_concurrency: 10,
+        ordered: false,
+        timeout: :infinity
+      )
+      |> Stream.run()
+    end)
+
+    count = length(scan_targets)
+    params = build_params(socket)
+
+    {:noreply,
+     socket
+     |> assign(:selection_mode, false)
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:include_subdomains, false)
+     |> assign(:bulk_action, nil)
+     |> assign(:bulk_lifecycle_menu_open, false)
+     |> assign(:scanning_ids, new_scanning)
+     |> put_flash(:info, "Scan started for #{count} domain#{if count != 1, do: "s", else: ""}")
+     |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  defp get_scan_targets(ids, true) do
+    domains = Enum.map(ids, &Domains.get_domain_with_preloads!/1)
+    domains ++ Enum.flat_map(domains, & &1.subdomains)
+  end
+
+  defp get_scan_targets(ids, false) do
+    Enum.map(ids, &Domains.get_domain!/1)
   end
 
   defp execute_bulk_lifecycle(socket, state) do
@@ -677,6 +664,7 @@ defmodule RavnerWeb.DomainLive.Index do
   defp lifecycle_color(:placeholder), do: "bg-violet-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
   defp lifecycle_color(:redirect), do: "bg-cyan-500"
+  defp lifecycle_color(:insecure), do: "bg-amber-600"
   defp lifecycle_color(:error), do: "bg-red-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
@@ -689,6 +677,7 @@ defmodule RavnerWeb.DomainLive.Index do
       {:active, "Active", "bg-green-500"},
       {:under_review, "Under review", "bg-yellow-500"},
       {:placeholder, "Placeholder", "bg-violet-500"},
+      {:insecure, "Insecure HTTP", "bg-amber-600"},
       {:redirect, "Redirect", "bg-cyan-500"},
       {:deprecated, "Deprecated", "bg-orange-400"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
@@ -726,6 +715,32 @@ defmodule RavnerWeb.DomainLive.Index do
 
       true ->
         [1, :ellipsis] ++ Enum.to_list((current - 1)..(current + 1)) ++ [:ellipsis, total]
+    end
+  end
+
+  defp toggle_mapset(set, member) do
+    if MapSet.member?(set, member), do: MapSet.delete(set, member), else: MapSet.put(set, member)
+  end
+
+  defp maybe_load_metadata_on_expand(socket, id, expanded) do
+    if MapSet.member?(expanded, id) do
+      domain_id = String.to_integer(id)
+      domain = Enum.find(socket.assigns.domains, &(&1.id == domain_id))
+
+      if domain && domain.subdomains != [] do
+        updated_domain = Domains.preload_subdomain_metadata(domain)
+
+        updated_domains =
+          Enum.map(socket.assigns.domains, fn d ->
+            if d.id == domain_id, do: updated_domain, else: d
+          end)
+
+        assign(socket, :domains, updated_domains)
+      else
+        socket
+      end
+    else
+      socket
     end
   end
 end

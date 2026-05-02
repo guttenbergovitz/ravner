@@ -69,7 +69,7 @@ defmodule RavnerWeb.DashboardLive.Index do
     max_bar_width = chart_width - margin_left - margin_right
 
     bars =
-      Enum.map(data, fn %{value: value, label: label, color: color} ->
+      Enum.map_join(data, "\n", fn %{value: value, label: label, color: color} ->
         pct = if total > 0, do: value / total, else: 0
         bar_w = max(ceil(pct * max_bar_width), 1)
 
@@ -83,7 +83,6 @@ defmodule RavnerWeb.DashboardLive.Index do
         </div>
         """
       end)
-      |> Enum.join("\n")
 
     bars
   end

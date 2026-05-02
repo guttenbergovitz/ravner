@@ -136,7 +136,67 @@
       <% end %>
     </div>
 
-    <%!-- Toolbar row 1: ownership facets --%>
+    <%!-- Toolbar row 1: Quick Actions & Filter Info --%>
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-4">
+        <button
+          phx-click="scan_visible"
+          class="btn-line text-xs flex items-center gap-1.5"
+          data-confirm={
+            if @include_subdomains,
+              do: "Scan all visible domains AND their subdomains?",
+              else: "Scan all visible domains?"
+          }
+        >
+          <.icon name="hero-bolt" class="w-4 h-4" /> Scan visible
+          <%= if @include_subdomains do %>
+            <span class="text-[10px] bg-neutral-100 px-1 rounded text-neutral-500">+ subs</span>
+          <% end %>
+        </button>
+
+        <button
+          phx-click="toggle_include_subdomains"
+          class={[
+            "flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-light transition-colors",
+            if(@include_subdomains,
+              do: "border-neutral-900 text-neutral-900 bg-neutral-50",
+              else: "border-neutral-200 text-neutral-500 hover:border-neutral-400"
+            )
+          ]}
+        >
+          <span class={[
+            "w-3.5 h-3.5 border flex items-center justify-center shrink-0",
+            if(@include_subdomains,
+              do: "border-neutral-900 bg-neutral-900",
+              else: "border-neutral-400"
+            )
+          ]}>
+            <%= if @include_subdomains do %>
+              <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
+            <% end %>
+          </span>
+          Incl. subdomains
+        </button>
+      </div>
+
+      <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
+        Filtered by:
+        <span class="text-neutral-600 ml-1">
+          <%= cond do %>
+            <% @search != "" -> %>
+              Name "{@search}"
+            <% @ip_filter != "" -> %>
+              IP "{@ip_filter}"
+            <% @lifecycle_filter -> %>
+              Status "{to_string(@lifecycle_filter)}"
+            <% true -> %>
+              All domains
+          <% end %>
+        </span>
+      </div>
+    </div>
+
+    <%!-- Toolbar row 2: ownership facets --%>
     <form id="ownership-filters" class="mb-3">
       <div class="flex items-center border border-neutral-200 divide-x divide-neutral-200 text-xs font-light w-full">
         <div class="relative">
@@ -610,10 +670,48 @@
                       </span>
                     <% end %>
 
+                    <%!-- SSL Status --%>
+                    <%= if meta.ssl_valid_until do %>
+                      <% expiring_soon =
+                        meta.ssl_days_remaining != nil && meta.ssl_days_remaining <= 14 %>
+                      <% expired = meta.ssl_days_remaining != nil && meta.ssl_days_remaining < 0 %>
+                      <% issuer_short =
+                        (meta.ssl_issuer || "")
+                        |> String.split("O=")
+                        |> List.last()
+                        |> String.split(",")
+                        |> List.first()
+                        |> String.slice(0, 15) %>
+                      <span
+                        class={[
+                          "hidden lg:flex items-center gap-1.5 shrink-0",
+                          expired && "text-red-600 font-medium",
+                          expiring_soon && !expired && "text-amber-600 font-medium",
+                          !expiring_soon && "text-neutral-400"
+                        ]}
+                        title={"SSL by #{meta.ssl_issuer} expires on #{Calendar.strftime(meta.ssl_valid_until, "%Y-%m-%d")}"}
+                      >
+                        <.icon
+                          name={
+                            if expired or expiring_soon,
+                              do: "hero-shield-exclamation",
+                              else: "hero-shield-check"
+                          }
+                          class="w-3.5 h-3.5"
+                        />
+                        <span class="flex flex-col items-start leading-none gap-0.5">
+                          <span>{Calendar.strftime(meta.ssl_valid_until, "%y-%m-%d")}</span>
+                          <span class="text-[9px] opacity-70 uppercase tracking-tighter">
+                            {issuer_short}
+                          </span>
+                        </span>
+                      </span>
+                    <% end %>
+
                     <%!-- Last scanned --%>
                     <%= if meta.scanned_at do %>
                       <span
-                        class="hidden xl:inline text-neutral-300"
+                        class="hidden xl:inline text-neutral-300 text-[10px]"
                         title={to_string(meta.scanned_at)}
                       >
                         {Ravner.Formatting.time_ago(meta.scanned_at)}

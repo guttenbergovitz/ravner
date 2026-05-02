@@ -1,8 +1,11 @@
 defmodule Ravner.Accounts.UserNotifier do
+  @moduledoc """
+  Sends emails to users for account-related actions.
+  """
   import Swoosh.Email
 
-  alias Ravner.Mailer
   alias Ravner.Accounts.User
+  alias Ravner.Mailer
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do

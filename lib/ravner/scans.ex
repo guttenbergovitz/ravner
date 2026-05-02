@@ -31,6 +31,7 @@ defmodule Ravner.Scans do
 
   Tries Chaos API first, falls back to HackerTarget if Chaos fails or no key.
   """
+  @spec run_subdomain_scan(integer()) :: {:ok, map()} | {:error, String.t()}
   def run_subdomain_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
 
@@ -74,48 +75,47 @@ defmodule Ravner.Scans do
   end
 
   defp run_chaos(domain_name) do
-    # Settings have precedence over ENV (as per design)
-    api_key =
-      case ApiKeys.get_effective_key("chaos") do
-        {:settings, _, _} ->
-          # Key is stored as hash in settings, we need to check if there's an ENV fallback
-          # or this is an error condition
-          System.get_env("CHAOS_API_KEY")
+    case get_chaos_api_key() do
+      nil ->
+        {:error,
+         "No Chaos API key configured (add in Settings > API Keys or set CHAOS_API_KEY env var)"}
 
-        {:env, key, _} ->
-          key
+      api_key ->
+        execute_chaos_request(domain_name, api_key)
+    end
+  end
 
-        {:none, _, _} ->
-          nil
-      end
+  defp get_chaos_api_key do
+    case ApiKeys.get_effective_key("chaos") do
+      {:settings, _, _} -> System.get_env("CHAOS_API_KEY")
+      {:env, key, _} -> key
+      {:none, _, _} -> nil
+    end
+  end
 
-    if is_nil(api_key) || api_key == "" do
-      {:error,
-       "No Chaos API key configured (add in Settings > API Keys or set CHAOS_API_KEY env var)"}
-    else
-      case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
-             headers: %{"authorization" => api_key},
-             retry: false,
-             receive_timeout: 30_000
-           ) do
-        {:ok, %{status: 200, body: %{"subdomains" => subdomains}}} when is_list(subdomains) ->
-          {:ok, subdomains}
+  defp execute_chaos_request(domain_name, api_key) do
+    case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
+           headers: %{"authorization" => api_key},
+           retry: false,
+           receive_timeout: 30_000
+         ) do
+      {:ok, %{status: 200, body: %{"subdomains" => subdomains}}} when is_list(subdomains) ->
+        {:ok, subdomains}
 
-        {:ok, %{status: 200, body: body}} ->
-          Logger.warning("Chaos API unexpected body for #{domain_name}: #{inspect(body)}")
-          {:error, "Chaos API returned unexpected response format"}
+      {:ok, %{status: 200, body: body}} ->
+        Logger.warning("Chaos API unexpected body for #{domain_name}: #{inspect(body)}")
+        {:error, "Chaos API returned unexpected response format"}
 
-        {:ok, %{status: 404}} ->
-          {:error, "Chaos has no data for #{domain_name}"}
+      {:ok, %{status: 404}} ->
+        {:error, "Chaos has no data for #{domain_name}"}
 
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Chaos API error #{status} for #{domain_name}: #{inspect(body)}")
-          {:error, "Chaos API returned #{status}"}
+      {:ok, %{status: status, body: body}} ->
+        Logger.warning("Chaos API error #{status} for #{domain_name}: #{inspect(body)}")
+        {:error, "Chaos API returned #{status}"}
 
-        {:error, exception} ->
-          Logger.warning("Chaos request failed for #{domain_name}: #{inspect(exception)}")
-          {:error, "Chaos request failed: #{inspect(exception)}"}
-      end
+      {:error, exception} ->
+        Logger.warning("Chaos request failed for #{domain_name}: #{inspect(exception)}")
+        {:error, "Chaos request failed: #{inspect(exception)}"}
     end
   end
 
@@ -125,47 +125,46 @@ defmodule Ravner.Scans do
            receive_timeout: 30_000
          ) do
       {:ok, %{status: 200, body: body}} ->
-        if is_binary(body) and
-             (body =~ "API count exceeded" or body =~ "error check your" or
-                body =~ "invalid host") do
-          Logger.warning(
-            "HackerTarget quota/error for #{domain_name}: #{String.slice(body, 0, 100)}"
-          )
-
-          {:error, "HackerTarget: #{String.trim(body)}"}
-        else
-          lines =
-            body
-            |> String.split("\n")
-            |> Enum.map(&String.trim/1)
-            |> Enum.reject(&(&1 == ""))
-
-          subdomains =
-            lines
-            |> Enum.map(fn line ->
-              case String.split(line, ",") do
-                [subdomain, _ip] -> subdomain
-                _ -> line
-              end
-            end)
-            |> Enum.map(fn full ->
-              if String.ends_with?(full, ".#{domain_name}") do
-                String.replace_suffix(full, ".#{domain_name}", "")
-              else
-                full
-              end
-            end)
-            |> Enum.reject(&(&1 == ""))
-            |> Enum.uniq()
-
-          {:ok, subdomains}
-        end
+        parse_hackertarget_response(body, domain_name)
 
       {:ok, %{status: status}} ->
         {:error, "HackerTarget returned #{status}"}
 
       {:error, exception} ->
         {:error, "HackerTarget request failed: #{inspect(exception)}"}
+    end
+  end
+
+  defp parse_hackertarget_response(body, domain_name) do
+    if is_binary(body) and
+         (body =~ "API count exceeded" or body =~ "error check your" or
+            body =~ "invalid host") do
+      Logger.warning("HackerTarget quota/error for #{domain_name}: #{String.slice(body, 0, 100)}")
+
+      {:error, "HackerTarget: #{String.trim(body)}"}
+    else
+      subdomains =
+        body
+        |> String.split("\n")
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.map(fn line ->
+          case String.split(line, ",") do
+            [subdomain, _ip] -> subdomain
+            _ -> line
+          end
+        end)
+        |> Enum.map(fn full ->
+          if String.ends_with?(full, ".#{domain_name}") do
+            String.replace_suffix(full, ".#{domain_name}", "")
+          else
+            full
+          end
+        end)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.uniq()
+
+      {:ok, subdomains}
     end
   end
 
@@ -213,32 +212,49 @@ defmodule Ravner.Scans do
 
   defp save_subdomains(subdomains, parent_id) do
     domain = Domains.get_domain!(parent_id)
-
-    names =
-      subdomains
-      |> Enum.map(fn subdomain_name ->
-        if String.ends_with?(subdomain_name, ".#{domain.name}") || subdomain_name == domain.name do
-          subdomain_name
-        else
-          "#{subdomain_name}.#{domain.name}"
-        end
-      end)
-      |> Enum.uniq()
-      |> Enum.reject(&(&1 == domain.name || &1 == ""))
-
-    existing =
-      Domain
-      |> where([d], d.name in ^names)
-      |> select([d], {d.name, d.id, d.parent_domain_id})
-      |> Repo.all()
-      |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
+    names = filter_subdomain_names(subdomains, domain.name)
+    existing = get_existing_domains(names)
 
     {inserted_count, new_domains} =
       names
       |> Enum.reject(&Map.has_key?(existing, &1))
-      |> Enum.map(fn name ->
-        now = DateTime.utc_now() |> DateTime.truncate(:second)
+      |> insert_new_subdomains(parent_id)
 
+    relink_existing_subdomains(existing, parent_id)
+
+    all_results = new_domains ++ Enum.map(existing, fn {_name, {id, _pid}} -> %Domain{id: id} end)
+
+    {:ok, %{found: length(names), new: inserted_count, subdomains: all_results}}
+  end
+
+  defp filter_subdomain_names(names, domain_name) do
+    names
+    |> Enum.map(fn subdomain_name ->
+      if String.ends_with?(subdomain_name, ".#{domain_name}") || subdomain_name == domain_name do
+        subdomain_name
+      else
+        "#{subdomain_name}.#{domain_name}"
+      end
+    end)
+    |> Enum.uniq()
+    |> Enum.reject(&(&1 == domain_name or &1 == ""))
+  end
+
+  defp get_existing_domains(names) do
+    Domain
+    |> where([d], d.name in ^names)
+    |> select([d], {d.name, d.id, d.parent_domain_id})
+    |> Repo.all()
+    |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
+  end
+
+  defp insert_new_subdomains([], _parent_id), do: {0, []}
+
+  defp insert_new_subdomains(names, parent_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    entries =
+      Enum.map(names, fn name ->
         %{
           name: name,
           type: :subdomain,
@@ -248,36 +264,22 @@ defmodule Ravner.Scans do
           updated_at: now
         }
       end)
-      |> then(fn entries ->
-        if entries == [] do
-          {0, []}
-        else
-          {count, _} =
-            Repo.insert_all(Domain, entries,
-              conflict: :nothing,
-              returning: [:id, :name, :type, :lifecycle_state, :parent_domain_id]
-            )
 
-          {count, entries |> Enum.map(fn e -> struct(Domain, e) end)}
-        end
-      end)
+    {count, _} =
+      Repo.insert_all(Domain, entries,
+        conflict: :nothing,
+        returning: [:id, :name, :type, :lifecycle_state, :parent_domain_id]
+      )
 
-    relinked =
-      existing
-      |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
-      |> Enum.map(fn {_name, {id, _pid}} ->
-        {id, parent_id}
-      end)
+    {count, Enum.map(entries, &struct(Domain, &1))}
+  end
 
-    if relinked != [] do
-      for {id, new_pid} <- relinked do
-        Domains.update_domain(%Domain{id: id}, %{parent_domain_id: new_pid})
-      end
-    end
-
-    all_results = new_domains ++ Enum.map(existing, fn {_name, {id, _pid}} -> %Domain{id: id} end)
-
-    {:ok, %{found: length(names), new: inserted_count, subdomains: all_results}}
+  defp relink_existing_subdomains(existing, parent_id) do
+    existing
+    |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
+    |> Enum.each(fn {_name, {id, _pid}} ->
+      Domains.update_domain(%Domain{id: id}, %{parent_domain_id: parent_id})
+    end)
   end
 
   # HTTPX scan via Req (fast, non-blocking)
@@ -300,39 +302,214 @@ defmodule Ravner.Scans do
         }
 
         # Enrich with ASN if we have stored IPs from a previous DNS scan
-        meta =
-          case get_stored_ipv4(domain_id) do
-            [ip | _] ->
-              case lookup_asn(ip) do
-                {:ok, asn_data} -> Map.merge(meta, asn_data)
-                _ -> meta
-              end
-
-            _ ->
-              meta
-          end
+        meta = maybe_enrich_with_asn(meta, domain_id)
+        # Enrich with SSL if it is an HTTPS site
+        meta = maybe_enrich_with_ssl(meta, domain.name, data.final_url)
 
         Domains.upsert_domain_metadata(domain_id, meta)
         maybe_update_lifecycle_from_http(domain, data)
+        {:ok, data}
 
-      {:error, {:transport, _kind}} ->
+      {:error, reason} ->
         Domains.upsert_domain_metadata(domain_id, %{
           http_status: 0,
           http_scanned_at: DateTime.utc_now()
         })
 
         maybe_set_error_lifecycle(domain)
-        {:ok, %{error: :connection_error}}
 
-      {:error, reason} ->
-        {:error, reason}
+        if match?({:transport, _}, reason) do
+          {:ok, %{error: :connection_error}}
+        else
+          {:error, reason}
+        end
+    end
+  end
+
+  defp maybe_enrich_with_ssl(meta, domain_name, _final_url) do
+    # Always attempt an SSL scan to catch expired certs or non-HTTPS sites that still have a cert
+    case do_ssl_scan(domain_name) do
+      {:ok, ssl_data} -> Map.merge(meta, ssl_data)
+      _ -> meta
+    end
+  end
+
+  @doc """
+  Connects to port 443 and extracts SSL certificate details.
+  """
+  @spec run_ssl_scan(integer()) :: {:ok, map()} | {:error, term()}
+  def run_ssl_scan(domain_id) do
+    domain = Domains.get_domain!(domain_id)
+
+    case do_ssl_scan(domain.name) do
+      {:ok, data} ->
+        Domains.upsert_domain_metadata(domain_id, data)
+        {:ok, data}
+
+      error ->
+        error
+    end
+  end
+
+  defp do_ssl_scan(domain_name) do
+    host = to_charlist(domain_name)
+
+    # Low timeout, non-blocking
+    opts = [
+      active: false,
+      verify: :verify_none,
+      packet: :raw,
+      mode: :binary,
+      server_name_indication: host
+    ]
+
+    case :ssl.connect(host, 443, opts, 5000) do
+      {:ok, socket} ->
+        case :ssl.peercert(socket) do
+          {:ok, cert} ->
+            :ssl.close(socket)
+            parse_cert(cert)
+
+          error ->
+            :ssl.close(socket)
+            error
+        end
+
+      error ->
+        error
+    end
+  end
+
+  defp parse_cert(cert) do
+    # Decode the certificate using OTP records
+    decoded = :public_key.pkix_decode_cert(cert, :otp)
+    tbs = elem(decoded, 1)
+
+    # OTPTBSCertificate record structure (0-indexed):
+    # 0: :OTPTBSCertificate
+    # 1: version
+    # 2: serialNumber
+    # 3: signature
+    # 4: issuer
+    # 5: validity
+    # 6: subject
+
+    # Extract validity
+    validity = elem(tbs, 5)
+    {_tag_before, not_before} = elem(validity, 1)
+    {_tag_after, not_after} = elem(validity, 2)
+
+    valid_from = parse_asn1_time(not_before)
+    valid_until = parse_asn1_time(not_after)
+
+    # Extract issuer and subject
+    issuer = decode_rdn_sequence(elem(tbs, 4))
+    subject = decode_rdn_sequence(elem(tbs, 6))
+
+    days_remaining =
+      if valid_until do
+        DateTime.diff(valid_until, DateTime.utc_now(), :day)
+      else
+        nil
+      end
+
+    {:ok,
+     %{
+       ssl_issuer: issuer,
+       ssl_subject: subject,
+       ssl_valid_from: valid_from,
+       ssl_valid_until: valid_until,
+       ssl_days_remaining: days_remaining
+     }}
+  rescue
+    e ->
+      Logger.warning("Failed to parse SSL certificate: #{inspect(e)}")
+      {:error, :parse_failed}
+  end
+
+  # Helper to parse ASN1 times (UTCTime or GeneralizedTime)
+  defp parse_asn1_time(time_str) do
+    str = to_string(time_str)
+
+    case String.length(str) do
+      13 ->
+        year_short = String.slice(str, 0, 2) |> String.to_integer()
+        year = if year_short >= 50, do: 1900 + year_short, else: 2000 + year_short
+        rest = String.slice(str, 2, 10)
+        parse_iso("#{year}#{rest}")
+
+      15 ->
+        parse_iso(String.slice(str, 0, 14))
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_iso(str) do
+    case ~r/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/ |> Regex.run(str) do
+      [_, y, m, d, hh, mm, ss] ->
+        "#{y}-#{m}-#{d}T#{hh}:#{mm}:#{ss}Z" |> DateTime.from_iso8601() |> elem(1)
+
+      _ ->
+        nil
+    end
+  end
+
+  # Helper to decode RDN sequence into a readable string
+  defp decode_rdn_sequence({:rdnSequence, list}), do: decode_rdn_list(list)
+  defp decode_rdn_sequence(list) when is_list(list), do: decode_rdn_list(list)
+  defp decode_rdn_sequence(_), do: "unknown"
+
+  defp decode_rdn_list(list) do
+    list
+    |> Enum.map_join(", ", fn
+      rdn_set when is_list(rdn_set) ->
+        Enum.map_join(rdn_set, "+", fn rdn ->
+          # AttributeTypeAndValue record
+          type_oid = elem(rdn, 1)
+          value = decode_asn1_string(elem(rdn, 2))
+          type_label = decode_oid(type_oid)
+          "#{type_label}=#{value}"
+        end)
+
+      _ ->
+        "unknown"
+    end)
+  end
+
+  defp decode_asn1_string({:utf8String, s}), do: to_string(s)
+  defp decode_asn1_string({:printableString, s}), do: to_string(s)
+  defp decode_asn1_string({:teletexString, s}), do: to_string(s)
+  defp decode_asn1_string({:ia5String, s}), do: to_string(s)
+  defp decode_asn1_string(s) when is_binary(s), do: s
+  defp decode_asn1_string(s), do: inspect(s)
+
+  defp decode_oid({2, 5, 4, 3}), do: "CN"
+  defp decode_oid({2, 5, 4, 10}), do: "O"
+  defp decode_oid({2, 5, 4, 11}), do: "OU"
+  defp decode_oid({2, 5, 4, 6}), do: "C"
+  defp decode_oid({2, 5, 4, 7}), do: "L"
+  defp decode_oid({2, 5, 4, 8}), do: "ST"
+  defp decode_oid(oid), do: inspect(oid)
+
+  defp maybe_enrich_with_asn(meta, domain_id) do
+    case get_stored_ipv4(domain_id) do
+      [ip | _] ->
+        case lookup_asn(ip) do
+          {:ok, asn_data} -> Map.merge(meta, asn_data)
+          _ -> meta
+        end
+
+      _ ->
+        meta
     end
   end
 
   # Auto-updates lifecycle based on HTTP scan result.
   # Only sets redirect/error if the domain is in a "neutral" state —
   # never overwrites intentional states like priority, deprecated, etc.
-  @auto_eligible_states [:active, :under_review, :redirect, :error, nil]
+  @auto_eligible_states [:active, :under_review, :redirect, :insecure, :error, nil]
 
   defp maybe_update_lifecycle_from_http(domain, data) do
     if domain.lifecycle_state in @auto_eligible_states do
@@ -343,9 +520,13 @@ defmodule Ravner.Scans do
         data.http_status >= 400 ->
           Domains.update_domain(domain, %{lifecycle_state: :error})
 
+        String.starts_with?(data.final_url, "http://") ->
+          # No valid HTTPS certificate or not enforced
+          Domains.update_domain(domain, %{lifecycle_state: :insecure})
+
         data.http_status == 200 ->
           # Healthy — if it was previously auto-set to error/redirect, restore to active
-          if domain.lifecycle_state in [:error, :redirect] do
+          if domain.lifecycle_state in [:error, :redirect, :insecure] do
             Domains.update_domain(domain, %{lifecycle_state: :active})
           end
 
@@ -372,8 +553,6 @@ defmodule Ravner.Scans do
     own_host = String.replace_leading(domain_name, "www.", "")
     final_host != "" && final_host != own_host
   end
-
-  defp external_redirect?(_domain_name, _final_url), do: false
 
   defp do_httpx_scan(domain_name) do
     https_url = "https://#{domain_name}"
@@ -512,8 +691,7 @@ defmodule Ravner.Scans do
     from_body = detect_tech_from_body(body_str)
 
     (from_powered_by ++ from_generator ++ from_server ++ from_body)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.reject(&(&1 == ""))
+    |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.uniq()
   end
 
@@ -632,27 +810,12 @@ defmodule Ravner.Scans do
   Falls back through: RDAP → WHOIS → NS heuristics.
   Saves whatever it finds and records the source.
   """
+  @spec run_rdap_scan(integer()) :: {:ok, map()} | {:error, term()}
   def run_rdap_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
     ns_records = get_stored_ns_records(domain_id)
 
-    {data, source} =
-      case do_rdap_scan(domain.name) do
-        {:ok, result} ->
-          {result, "rdap"}
-
-        {:error, _} ->
-          case do_whois_scan(domain.name) do
-            {:ok, result} ->
-              {result, "whois"}
-
-            {:error, _} ->
-              case do_ns_heuristics(ns_records) do
-                {:ok, result} -> {result, "ns_heuristics"}
-                {:error, _} -> {%{}, "none"}
-              end
-          end
-      end
+    {data, source} = fetch_registration_data(domain.name, ns_records)
 
     meta =
       Map.merge(data, %{
@@ -664,6 +827,21 @@ defmodule Ravner.Scans do
       {:ok, _} -> {:ok, %{source: source, data: data}}
       error -> error
     end
+  end
+
+  defp fetch_registration_data(domain_name, ns_records) do
+    sources = [
+      {fn -> do_rdap_scan(domain_name) end, "rdap"},
+      {fn -> do_whois_scan(domain_name) end, "whois"},
+      {fn -> do_ns_heuristics(ns_records) end, "ns_heuristics"}
+    ]
+
+    Enum.find_value(sources, {%{}, "none"}, fn {scan_fn, source_name} ->
+      case scan_fn.() do
+        {:ok, result} -> {result, source_name}
+        {:error, _} -> nil
+      end
+    end)
   end
 
   # Step 1: RDAP via HTTP (rdap.org proxy → correct registry RDAP server)

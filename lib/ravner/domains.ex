@@ -4,11 +4,10 @@ defmodule Ravner.Domains do
   """
 
   import Ecto.Query, warn: false
-  alias Ravner.Repo
-
   alias Ravner.Domains.Domain
-  alias Ravner.Domains.DomainTag
   alias Ravner.Domains.DomainMetadata
+  alias Ravner.Domains.DomainTag
+  alias Ravner.Repo
 
   # Domains
 
@@ -32,6 +31,10 @@ defmodule Ravner.Domains do
     |> Repo.all()
   end
 
+  @doc """
+  Deletes domains by their IDs in bulk.
+  """
+  @spec bulk_delete([integer()]) :: {:ok, integer()}
   def bulk_delete(ids) when is_list(ids) do
     {count, _} =
       Domain
@@ -41,6 +44,16 @@ defmodule Ravner.Domains do
     {:ok, count}
   end
 
+  @doc """
+  Returns a paginated list of domains matching the given filters.
+  """
+  @spec list_domains_filtered(keyword()) :: %{
+          domains: [Domain.t()],
+          page: integer(),
+          total_pages: integer(),
+          total: integer(),
+          page_size: integer()
+        }
   def list_domains_filtered(opts \\ []) do
     base = filtered_query(opts)
     page = max(Keyword.get(opts, :page, 1), 1)
@@ -78,82 +91,74 @@ defmodule Ravner.Domains do
   end
 
   defp filtered_query(opts) do
-    search = Keyword.get(opts, :search, "")
-    ip = Keyword.get(opts, :ip, "")
-    lifecycle = Keyword.get(opts, :lifecycle, nil)
-    project_id = Keyword.get(opts, :project_id, nil)
-    organization_id = Keyword.get(opts, :organization_id, nil)
-    brand_id = Keyword.get(opts, :brand_id, nil)
-    include_subs = Keyword.get(opts, :include_subdomains, false)
-
     Domain
-    |> then(fn q ->
-      if include_subs, do: q, else: where(q, type: :domain)
-    end)
-    |> then(fn q ->
-      if search && search != "" do
-        pattern = "%#{search}%"
-        where(q, [d], ilike(d.name, ^pattern))
-      else
-        q
-      end
-    end)
-    |> then(fn q ->
-      if lifecycle && lifecycle != "" && lifecycle != :all do
-        where(q, [d], d.lifecycle_state == ^lifecycle)
-      else
-        q
-      end
-    end)
-    |> then(fn q ->
-      if ip && ip != "" do
-        pattern = "%#{ip}%"
-
-        join(q, :inner, [d], m in assoc(d, :domain_metadata))
-        |> where(
-          [_d, m],
-          fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
-        )
-      else
-        q
-      end
-    end)
-    |> then(fn q ->
-      if project_id, do: where(q, [d], d.project_id == ^project_id), else: q
-    end)
-    |> then(fn q ->
-      org_filter = organization_id || brand_id
-
-      if org_filter do
-        q
-        |> join(:left, [d], p in Ravner.Inventory.Project, on: d.project_id == p.id)
-        |> join(:left, [d, p], o in Ravner.Inventory.Organization,
-          on: d.organization_id == o.id or p.organization_id == o.id
-        )
-        |> then(fn joined_q ->
-          joined_q
-          |> then(fn q2 ->
-            cond do
-              organization_id ->
-                where(
-                  q2,
-                  [d, p, o],
-                  d.organization_id == ^organization_id or p.organization_id == ^organization_id
-                )
-
-              brand_id ->
-                where(q2, [d, p, o], o.brand_id == ^brand_id)
-
-              true ->
-                q2
-            end
-          end)
-        end)
-      else
-        q
-      end
-    end)
+    |> filter_by_type(Keyword.get(opts, :include_subdomains, false))
+    |> filter_by_search(Keyword.get(opts, :search, ""))
+    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle, nil))
+    |> filter_by_ip(Keyword.get(opts, :ip, ""))
+    |> filter_by_project(Keyword.get(opts, :project_id, nil))
+    |> filter_by_organization_or_brand(
+      Keyword.get(opts, :organization_id, nil),
+      Keyword.get(opts, :brand_id, nil)
+    )
     |> preload([:project, :brand, :organization])
+  end
+
+  defp filter_by_type(query, true), do: query
+  defp filter_by_type(query, _), do: where(query, type: :domain)
+
+  defp filter_by_search(query, search) when search in [nil, ""], do: query
+
+  defp filter_by_search(query, search) do
+    pattern = "%#{search}%"
+    where(query, [d], ilike(d.name, ^pattern))
+  end
+
+  defp filter_by_lifecycle(query, lifecycle) when lifecycle in [nil, "", :all], do: query
+
+  defp filter_by_lifecycle(query, lifecycle),
+    do: where(query, [d], d.lifecycle_state == ^lifecycle)
+
+  defp filter_by_ip(query, ip) when ip in [nil, ""], do: query
+
+  defp filter_by_ip(query, ip) do
+    pattern = "%#{ip}%"
+
+    query
+    |> join(:inner, [d], m in assoc(d, :domain_metadata))
+    |> where(
+      [_d, m],
+      fragment("EXISTS (SELECT 1 FROM unnest(?) AS ip WHERE ip ILIKE ?)", m.ip_v4, ^pattern)
+    )
+  end
+
+  defp filter_by_project(query, nil), do: query
+  defp filter_by_project(query, project_id), do: where(query, [d], d.project_id == ^project_id)
+
+  defp filter_by_organization_or_brand(query, nil, nil), do: query
+
+  defp filter_by_organization_or_brand(query, organization_id, brand_id) do
+    joined_query =
+      query
+      |> join(:left, [d], p in Ravner.Inventory.Project, on: d.project_id == p.id)
+      |> join(:left, [d, p], o in Ravner.Inventory.Organization,
+        on: d.organization_id == o.id or p.organization_id == o.id
+      )
+
+    cond do
+      organization_id ->
+        where(
+          joined_query,
+          [d, p, o],
+          d.organization_id == ^organization_id or p.organization_id == ^organization_id
+        )
+
+      brand_id ->
+        where(joined_query, [d, p, o], o.brand_id == ^brand_id)
+
+      true ->
+        joined_query
+    end
   end
 
   def suggest_domains(query, limit \\ 5)
@@ -333,27 +338,7 @@ defmodule Ravner.Domains do
       |> then(fn {uniq, _seen, dupes} -> {Enum.reverse(uniq), dupes} end)
 
     {added, skipped, ignored} =
-      Enum.reduce(unique_lines, {[], [], []}, fn name, {added_acc, skipped_acc, ignored_acc} ->
-        case classify_import_line(name) do
-          {:ok, normalized} ->
-            case find_domain_by_name(normalized) do
-              nil ->
-                case create_domain(%{name: normalized, type: :domain}) do
-                  {:ok, domain} ->
-                    {[domain.name | added_acc], skipped_acc, ignored_acc}
-
-                  {:error, cs} ->
-                    {added_acc, skipped_acc, [{name, format_errors(cs)} | ignored_acc]}
-                end
-
-              _existing ->
-                {added_acc, [normalized | skipped_acc], ignored_acc}
-            end
-
-          {:error, reason} ->
-            {added_acc, skipped_acc, [{name, reason} | ignored_acc]}
-        end
-      end)
+      Enum.reduce(unique_lines, {[], [], []}, &process_import_line/2)
 
     %{
       added: Enum.reverse(added),
@@ -361,6 +346,28 @@ defmodule Ravner.Domains do
       ignored: Enum.reverse(ignored),
       file_dupes: Enum.reverse(dupes)
     }
+  end
+
+  defp process_import_line(name, {added, skipped, ignored}) do
+    case classify_import_line(name) do
+      {:ok, normalized} ->
+        case find_domain_by_name(normalized) do
+          nil ->
+            case create_domain(%{name: normalized, type: :domain}) do
+              {:ok, domain} ->
+                {[domain.name | added], skipped, ignored}
+
+              {:error, cs} ->
+                {added, skipped, [{name, format_errors(cs)} | ignored]}
+            end
+
+          _existing ->
+            {added, [normalized | skipped], ignored}
+        end
+
+      {:error, reason} ->
+        {added, skipped, [{name, reason} | ignored]}
+    end
   end
 
   defp strip_scheme_and_path(name) do
@@ -422,8 +429,7 @@ defmodule Ravner.Domains do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
-    |> Enum.map(fn {field, msgs} -> "#{field}: #{Enum.join(msgs, ", ")}" end)
-    |> Enum.join("; ")
+    |> Enum.map_join("; ", fn {field, msgs} -> "#{field}: #{Enum.join(msgs, ", ")}" end)
   end
 
   # Domain Metadata
@@ -449,175 +455,7 @@ defmodule Ravner.Domains do
   @doc """
   Returns aggregate dashboard statistics.
   """
-  def dashboard_stats do
-    total = Repo.aggregate(Domain, :count, :id)
-    total_apex = Repo.aggregate(from(d in Domain, where: d.type == :domain), :count, :id)
-    total_subdomains = Repo.aggregate(from(d in Domain, where: d.type == :subdomain), :count, :id)
-
-    lifecycle_apex =
-      Domain
-      |> where(type: :domain)
-      |> group_by([d], d.lifecycle_state)
-      |> select([d], {d.lifecycle_state, count(d.id)})
-      |> Repo.all()
-      |> Map.new()
-
-    lifecycle_sub =
-      Domain
-      |> where(type: :subdomain)
-      |> group_by([d], d.lifecycle_state)
-      |> select([d], {d.lifecycle_state, count(d.id)})
-      |> Repo.all()
-      |> Map.new()
-
-    now = DateTime.utc_now()
-    week_ago = DateTime.add(now, -7 * 24 * 60 * 60, :second)
-    month_ago = DateTime.add(now, -30 * 24 * 60 * 60, :second)
-
-    # Fetch all apex metadata to compute proper counts
-    # (redirects are detected by comparing final_url to domain name,
-    #  since httpx follows redirects and stores the final status)
-    metadata_with_name =
-      Repo.all(
-        from(m in DomainMetadata,
-          join: d in Domain,
-          on: m.domain_id == d.id and d.type == :domain,
-          select: %{name: d.name, http_status: m.http_status, final_url: m.final_url}
-        )
-      )
-
-    {http_200, http_3xx, http_4xx_5xx} =
-      metadata_with_name
-      |> Enum.map(fn row ->
-        cond do
-          row.http_status >= 200 and row.http_status < 400 and
-              external_redirect_dashboard?(row.name, row.final_url) ->
-            {:redirect, 1}
-
-          row.http_status >= 200 and row.http_status < 300 ->
-            {:ok, 1}
-
-          row.http_status == 0 or row.http_status >= 400 ->
-            {:error, 1}
-
-          true ->
-            {:ok, 0}
-        end
-      end)
-      |> Enum.reduce({0, 0, 0}, fn
-        {:ok, _}, {ok, redir, err} -> {ok + 1, redir, err}
-        {:redirect, _}, {ok, redir, err} -> {ok, redir + 1, err}
-        {:error, _}, {ok, redir, err} -> {ok, redir, err + 1}
-      end)
-
-    http_unscanned = max(0, total_apex - Enum.count(metadata_with_name))
-
-    scan_this_week =
-      from(m in DomainMetadata,
-        where: m.scanned_at >= ^week_ago
-      )
-      |> Repo.aggregate(:count, :id)
-
-    scan_this_month =
-      from(m in DomainMetadata,
-        where: m.scanned_at >= ^month_ago and m.scanned_at < ^week_ago
-      )
-      |> Repo.aggregate(:count, :id)
-
-    scan_older =
-      from(m in DomainMetadata,
-        where: m.scanned_at < ^month_ago
-      )
-      |> Repo.aggregate(:count, :id)
-
-    scan_never = max(0, total - scan_this_week - scan_this_month - scan_older)
-
-    lifecycle_order = [
-      :priority,
-      :active,
-      :placeholder,
-      :under_review,
-      :redirect,
-      :deprecated,
-      :decommissioned,
-      :error,
-      :abandoned
-    ]
-
-    lifecycle_labels = %{
-      priority: "Priority",
-      active: "Active",
-      placeholder: "Placeholder",
-      under_review: "Under review",
-      redirect: "Redirect",
-      deprecated: "Deprecated",
-      decommissioned: "Decommissioned",
-      error: "Error",
-      abandoned: "Abandoned"
-    }
-
-    lifecycle_list =
-      lifecycle_order
-      |> Enum.map(fn state ->
-        apex = Map.get(lifecycle_apex, state, 0)
-        sub = Map.get(lifecycle_sub, state, 0)
-
-        %{
-          state: state,
-          label: Map.get(lifecycle_labels, state, Atom.to_string(state)),
-          apex: apex,
-          sub: sub,
-          total: apex + sub
-        }
-      end)
-      |> Enum.filter(&(&1.total > 0))
-
-    top_by_subs =
-      Domain
-      |> where(type: :domain)
-      |> join(:left, [d], s in Domain, on: s.parent_domain_id == d.id)
-      |> group_by([d], d.id)
-      |> select([d, s], %{name: d.name, count: count(s.id)})
-      |> order_by([_d, s], desc: count(s.id))
-      |> limit(20)
-      |> Repo.all()
-      |> Enum.map(&{&1.name, &1.count})
-      |> Enum.filter(fn {_, c} -> c > 0 end)
-
-    %{
-      total: total,
-      total_apex: total_apex,
-      total_subdomains: total_subdomains,
-      lifecycle_list: lifecycle_list,
-      top_by_subs: top_by_subs,
-      http: %{
-        http_200: http_200,
-        http_3xx: http_3xx,
-        http_4xx_5xx: http_4xx_5xx,
-        http_unscanned: http_unscanned
-      },
-      scan: %{
-        this_week: scan_this_week,
-        this_month: scan_this_month,
-        older: scan_older,
-        never: scan_never
-      }
-    }
-  end
-
-  defp external_redirect_dashboard?(domain_name, final_url) when is_binary(final_url) do
-    final_host =
-      final_url
-      |> URI.parse()
-      |> Map.get(:host)
-      |> Kernel.||("")
-      |> String.replace_leading("www.", "")
-
-    own_host = String.replace_leading(domain_name, "www.", "")
-    final_host != "" && final_host != own_host
-  end
-
-  defp external_redirect_dashboard?(_name, _url), do: false
+  defdelegate dashboard_stats(), to: Ravner.Domains.DashboardStats, as: :get
 
   @doc """
   Converts a list of domains to CSV binary.
@@ -626,47 +464,46 @@ defmodule Ravner.Domains do
     header =
       "Name,Type,Lifecycle,HTTP Status,Final URL,IP v4,Tech Stack,Registrar,Expires,Scanned,Subdomains\n"
 
-    rows =
-      Enum.map(domains, fn d ->
-        m = d.domain_metadata
-
-        ip = if m && m.ip_v4, do: Enum.join(m.ip_v4, "; "), else: ""
-        tech = if m && m.tech_stack, do: Enum.join(m.tech_stack, "; "), else: ""
-        registrar = if m && m.registrar, do: m.registrar, else: ""
-
-        expires =
-          if m && m.expiration_date,
-            do: Calendar.strftime(m.expiration_date, "%Y-%m-%d"),
-            else: ""
-
-        scanned =
-          if m && m.scanned_at,
-            do: Calendar.strftime(m.scanned_at, "%Y-%m-%d %H:%M"),
-            else: ""
-
-        http = if m && m.http_status, do: to_string(m.http_status), else: ""
-        final = if m && m.final_url, do: m.final_url, else: ""
-        subs = length(d.subdomains || [])
-
-        [
-          d.name,
-          to_string(d.type),
-          to_string(d.lifecycle_state),
-          http,
-          final,
-          ip,
-          tech,
-          registrar,
-          expires,
-          scanned,
-          to_string(subs)
-        ]
-        |> Enum.map(&csv_escape/1)
-        |> Enum.join(",")
-      end)
-      |> Enum.join("\n")
+    rows = Enum.map_join(domains, "\n", &domain_to_csv_row/1)
 
     header <> rows <> "\n"
+  end
+
+  defp domain_to_csv_row(domain) do
+    m = domain.domain_metadata || %Ravner.Domains.DomainMetadata{}
+
+    ip = if m.ip_v4, do: Enum.join(m.ip_v4, "; "), else: ""
+    tech = if m.tech_stack, do: Enum.join(m.tech_stack, "; "), else: ""
+    registrar = m.registrar || ""
+
+    expires =
+      if m.expiration_date,
+        do: Calendar.strftime(m.expiration_date, "%Y-%m-%d"),
+        else: ""
+
+    scanned =
+      if m.scanned_at,
+        do: Calendar.strftime(m.scanned_at, "%Y-%m-%d %H:%M"),
+        else: ""
+
+    http = if m.http_status, do: to_string(m.http_status), else: ""
+    final = m.final_url || ""
+    subs = length(domain.subdomains || [])
+
+    [
+      domain.name,
+      to_string(domain.type),
+      to_string(domain.lifecycle_state),
+      http,
+      final,
+      ip,
+      tech,
+      registrar,
+      expires,
+      scanned,
+      to_string(subs)
+    ]
+    |> Enum.map_join(",", &csv_escape/1)
   end
 
   defp csv_escape(nil), do: ""

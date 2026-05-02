@@ -81,20 +81,18 @@ defmodule Ravner.ApiKeys.ApiKey do
   end
 
   defp decrypt_key_value(encrypted_base64) do
-    try do
-      secret_key_base = Application.get_env(:ravner, RavnerWeb.Endpoint)[:secret_key_base]
+    secret_key_base = Application.get_env(:ravner, RavnerWeb.Endpoint)[:secret_key_base]
 
-      key =
-        :crypto.hash(:sha256, secret_key_base)
-        |> Base.encode16(case: :lower)
-        |> String.slice(0, 32)
+    key =
+      :crypto.hash(:sha256, secret_key_base)
+      |> Base.encode16(case: :lower)
+      |> String.slice(0, 32)
 
-      combined = Base.decode64!(encrypted_base64)
-      <<iv::binary-16, tag::binary-16, ciphertext::binary>> = combined
+    combined = Base.decode64!(encrypted_base64)
+    <<iv::binary-16, tag::binary-16, ciphertext::binary>> = combined
 
-      :crypto.crypto_one_time_aead(:aes_256_gcm, key, iv, ciphertext, "", tag, false)
-    rescue
-      _ -> nil
-    end
+    :crypto.crypto_one_time_aead(:aes_256_gcm, key, iv, ciphertext, "", tag, false)
+  rescue
+    _ -> nil
   end
 end

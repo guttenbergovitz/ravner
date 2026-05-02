@@ -29,29 +29,28 @@ defmodule Ravner.Admin.Backups do
     password = Keyword.get(config, :password, "")
     hostname = Keyword.get(config, :hostname, "localhost")
 
-    if is_nil(database) do
-      {:error, "Database name not configured"}
+    with {:ok, db} <- check_database(database),
+         tmp_path = Path.join(System.tmp_dir!(), "ravner_backup_#{timestamp()}.dump"),
+         args = build_dump_args(hostname, username, db, tmp_path),
+         env = if(password != "", do: [{"PGPASSWORD", password}], else: []),
+         {_, 0} <- run_with_fallback("pg_dump", args, env) do
+      read_and_clean_tmp(tmp_path)
     else
-      tmp_path = Path.join(System.tmp_dir!(), "ravner_backup_#{timestamp()}.dump")
-      args = build_dump_args(hostname, username, database, tmp_path)
-      env = if password != "", do: [{"PGPASSWORD", password}], else: []
+      {:error, reason} -> {:error, reason}
+      {output, _code} -> {:error, normalize_pg_error(output)}
+    end
+  end
 
-      result = run_with_fallback("pg_dump", args, env)
+  defp check_database(nil), do: {:error, "Database name not configured"}
+  defp check_database(db), do: {:ok, db}
 
-      case result do
-        {_, 0} ->
-          if File.exists?(tmp_path) do
-            content = File.read!(tmp_path)
-            File.rm(tmp_path)
-            {:ok, content}
-          else
-            {:error, "pg_dump exited successfully but produced no output file"}
-          end
-
-        {output, _} ->
-          if File.exists?(tmp_path), do: File.rm(tmp_path)
-          {:error, normalize_pg_error(output)}
-      end
+  defp read_and_clean_tmp(tmp_path) do
+    if File.exists?(tmp_path) do
+      content = File.read!(tmp_path)
+      File.rm(tmp_path)
+      {:ok, content}
+    else
+      {:error, "pg_dump exited successfully but produced no output file"}
     end
   end
 
