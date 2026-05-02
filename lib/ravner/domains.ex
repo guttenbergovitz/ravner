@@ -217,7 +217,10 @@ defmodule Ravner.Domains do
     where(query, [d], ilike(d.name, ^pattern))
   end
 
-  defp filter_by_lifecycle(query, lifecycle) when lifecycle in [nil, "", :all], do: query
+  defp filter_by_lifecycle(query, lifecycle) when lifecycle in [nil, "", :all, []], do: query
+
+  defp filter_by_lifecycle(query, lifecycle) when is_list(lifecycle),
+    do: where(query, [d], d.lifecycle_state in ^lifecycle)
 
   defp filter_by_lifecycle(query, lifecycle),
     do: where(query, [d], d.lifecycle_state == ^lifecycle)
@@ -236,9 +239,15 @@ defmodule Ravner.Domains do
   end
 
   defp filter_by_project(query, nil), do: query
+  defp filter_by_project(query, []), do: query
+
+  defp filter_by_project(query, project_id) when is_list(project_id),
+    do: where(query, [d], d.project_id in ^project_id)
+
   defp filter_by_project(query, project_id), do: where(query, [d], d.project_id == ^project_id)
 
   defp filter_by_organization_or_brand(query, nil, nil), do: query
+  defp filter_by_organization_or_brand(query, [], []), do: query
 
   defp filter_by_organization_or_brand(query, organization_id, brand_id) do
     joined_query =
@@ -249,15 +258,13 @@ defmodule Ravner.Domains do
       )
 
     cond do
-      organization_id ->
-        where(
-          joined_query,
-          [d, p, o],
-          d.organization_id == ^organization_id or p.organization_id == ^organization_id
-        )
+      organization_id && organization_id != [] ->
+        ids = List.wrap(organization_id)
+        where(joined_query, [d, p, o], d.organization_id in ^ids or p.organization_id in ^ids)
 
-      brand_id ->
-        where(joined_query, [d, p, o], o.brand_id == ^brand_id)
+      brand_id && brand_id != [] ->
+        ids = List.wrap(brand_id)
+        where(joined_query, [d], d.brand_id in ^ids)
 
       true ->
         joined_query
