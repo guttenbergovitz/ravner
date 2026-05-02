@@ -28,7 +28,9 @@
           spellcheck="false"
           required
         />
-        <RavnerWeb.CoreComponents.error :for={msg <- f[:email].errors}>{translate_error(msg)}</RavnerWeb.CoreComponents.error>
+        <RavnerWeb.CoreComponents.error :for={msg <- f[:email].errors}>
+          {translate_error(msg)}
+        </RavnerWeb.CoreComponents.error>
       </div>
 
       <button
@@ -68,7 +70,9 @@
           spellcheck="false"
           required
         />
-        <RavnerWeb.CoreComponents.error :for={msg <- f[:password].errors}>{translate_error(msg)}</RavnerWeb.CoreComponents.error>
+        <RavnerWeb.CoreComponents.error :for={msg <- f[:password].errors}>
+          {translate_error(msg)}
+        </RavnerWeb.CoreComponents.error>
       </div>
 
       <div>
@@ -84,7 +88,9 @@
           spellcheck="false"
           required
         />
-        <RavnerWeb.CoreComponents.error :for={msg <- f[:password_confirmation].errors}>{translate_error(msg)}</RavnerWeb.CoreComponents.error>
+        <RavnerWeb.CoreComponents.error :for={msg <- f[:password_confirmation].errors}>
+          {translate_error(msg)}
+        </RavnerWeb.CoreComponents.error>
       </div>
 
       <button

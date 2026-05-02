@@ -636,23 +636,7 @@ defmodule Ravner.Scans do
     domain = Domains.get_domain!(domain_id)
     ns_records = get_stored_ns_records(domain_id)
 
-    {data, source} =
-      case do_rdap_scan(domain.name) do
-        {:ok, result} ->
-          {result, "rdap"}
-
-        {:error, _} ->
-          case do_whois_scan(domain.name) do
-            {:ok, result} ->
-              {result, "whois"}
-
-            {:error, _} ->
-              case do_ns_heuristics(ns_records) do
-                {:ok, result} -> {result, "ns_heuristics"}
-                {:error, _} -> {%{}, "none"}
-              end
-          end
-      end
+    {data, source} = fetch_registration_data(domain.name, ns_records)
 
     meta =
       Map.merge(data, %{
@@ -664,6 +648,21 @@ defmodule Ravner.Scans do
       {:ok, _} -> {:ok, %{source: source, data: data}}
       error -> error
     end
+  end
+
+  defp fetch_registration_data(domain_name, ns_records) do
+    sources = [
+      {fn -> do_rdap_scan(domain_name) end, "rdap"},
+      {fn -> do_whois_scan(domain_name) end, "whois"},
+      {fn -> do_ns_heuristics(ns_records) end, "ns_heuristics"}
+    ]
+
+    Enum.find_value(sources, {%{}, "none"}, fn {scan_fn, source_name} ->
+      case scan_fn.() do
+        {:ok, result} -> {result, source_name}
+        {:error, _} -> nil
+      end
+    end)
   end
 
   # Step 1: RDAP via HTTP (rdap.org proxy → correct registry RDAP server)
