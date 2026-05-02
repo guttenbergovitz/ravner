@@ -440,7 +440,7 @@
         <% end %>
 
         <%!-- Active Filter Chips --%>
-        <%= if @search != "" || @ip_filter != "" || not is_nil(@lifecycle_filter) || @project_filter != nil || @org_filter != nil || @brand_filter != nil do %>
+        <%= if @search != "" || @ip_filter != "" || @lifecycle_filter != [] || @project_filter != [] || @org_filter != [] || @brand_filter != [] do %>
           <div class="flex items-center gap-2 mb-6 flex-wrap animate-in fade-in duration-500">
             <span class="text-[10px] font-normal text-neutral-400 uppercase tracking-widest mr-1">
               Active:
@@ -470,15 +470,16 @@
               </span>
             <% end %>
 
-            <%= if not is_nil(@lifecycle_filter) do %>
-              <% {_state, label, color} =
-                Enum.find(lifecycle_options(), fn {s, _, _} -> s == @lifecycle_filter end) %>
+            <%= for state <- @lifecycle_filter do %>
+              <% {_, label, color} =
+                Enum.find(lifecycle_options(), fn {s, _, _} -> s == state end) %>
               <span class="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-neutral-50 border border-neutral-200 text-[10px] font-normal text-neutral-600 uppercase tracking-wide">
                 <span class={["w-1.5 h-1.5 rounded-full", color]}></span>
                 {label}
                 <button
-                  phx-click="clear_filter"
+                  phx-click="toggle_facet"
                   phx-value-type="lifecycle"
+                  phx-value-id={state}
                   class="text-neutral-400 hover:text-neutral-900 transition-colors"
                 >
                   <.icon name="hero-x-mark" class="w-3 h-3" />
@@ -486,15 +487,15 @@
               </span>
             <% end %>
 
-            <%= if @brand_filter do %>
+            <%= for id <- @brand_filter do %>
               <% {_, name, _} =
-                Enum.find(@facets.brands, fn {id, _, _} -> id == @brand_filter end) ||
-                  {0, "Brand", 0} %>
+                Enum.find(@facets.brands, fn {bid, _, _} -> bid == id end) || {0, "Brand", 0} %>
               <span class="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-neutral-50 border border-neutral-200 text-[10px] font-normal text-neutral-600 uppercase tracking-wide">
                 Brand: {name}
                 <button
-                  phx-click="clear_filter"
+                  phx-click="toggle_facet"
                   phx-value-type="brand"
+                  phx-value-id={id}
                   class="text-neutral-400 hover:text-neutral-900 transition-colors"
                 >
                   <.icon name="hero-x-mark" class="w-3 h-3" />
@@ -502,15 +503,15 @@
               </span>
             <% end %>
 
-            <%= if @org_filter do %>
+            <%= for id <- @org_filter do %>
               <% {_, name, _} =
-                Enum.find(@facets.organizations, fn {id, _, _} -> id == @org_filter end) ||
-                  {0, "Org", 0} %>
+                Enum.find(@facets.organizations, fn {oid, _, _} -> oid == id end) || {0, "Org", 0} %>
               <span class="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-neutral-50 border border-neutral-200 text-[10px] font-normal text-neutral-600 uppercase tracking-wide">
                 Org: {name}
                 <button
-                  phx-click="clear_filter"
+                  phx-click="toggle_facet"
                   phx-value-type="org"
+                  phx-value-id={id}
                   class="text-neutral-400 hover:text-neutral-900 transition-colors"
                 >
                   <.icon name="hero-x-mark" class="w-3 h-3" />
@@ -518,15 +519,15 @@
               </span>
             <% end %>
 
-            <%= if @project_filter do %>
+            <%= for id <- @project_filter do %>
               <% {_, name, _} =
-                Enum.find(@facets.projects, fn {id, _, _} -> id == @project_filter end) ||
-                  {0, "Project", 0} %>
+                Enum.find(@facets.projects, fn {pid, _, _} -> pid == id end) || {0, "Project", 0} %>
               <span class="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-neutral-50 border border-neutral-200 text-[10px] font-normal text-neutral-600 uppercase tracking-wide">
                 Project: {name}
                 <button
-                  phx-click="clear_filter"
+                  phx-click="toggle_facet"
                   phx-value-type="project"
+                  phx-value-id={id}
                   class="text-neutral-400 hover:text-neutral-900 transition-colors"
                 >
                   <.icon name="hero-x-mark" class="w-3 h-3" />
