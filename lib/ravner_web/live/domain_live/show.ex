@@ -1,4 +1,8 @@
 defmodule RavnerWeb.DomainLive.Show do
+  @moduledoc """
+  LiveView for the domain details page.
+  Displays metadata, scan results, and allows triggering individual or bulk scans.
+  """
   use RavnerWeb, :live_view
 
   require Logger
@@ -38,7 +42,7 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   # ---------------------------------------------------------------------------
-  # Scan events
+  # Scan & Update events (handle_event/3)
   # ---------------------------------------------------------------------------
 
   @impl true
@@ -59,13 +63,6 @@ defmodule RavnerWeb.DomainLive.Show do
     start_scan_tasks(liveview_pid, domain_id)
 
     {:noreply, socket}
-  end
-
-  defp start_scan_tasks(pid, id) do
-    Task.start(fn -> send(pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(id)}) end)
-    Task.start(fn -> send(pid, {:scan_done, :httpx, Scans.run_httpx_scan(id)}) end)
-    Task.start(fn -> send(pid, {:scan_done, :rdap, Scans.run_rdap_scan(id)}) end)
-    Task.start(fn -> send(pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(id)}) end)
   end
 
   def handle_event("scan_all_subdomains", _, %{assigns: %{current_scope: scope}} = socket)
@@ -95,12 +92,76 @@ defmodule RavnerWeb.DomainLive.Show do
     end
   end
 
-  def handle_event("toggle_lifecycle_menu", _, socket) do
-    {:noreply, assign(socket, :lifecycle_menu_open, !socket.assigns.lifecycle_menu_open)}
+  def handle_event("scan_subdomains", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
   end
 
-  def handle_event("close_lifecycle_menu", _, socket) do
-    {:noreply, assign(socket, :lifecycle_menu_open, false)}
+  def handle_event("scan_subdomains", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+    socket = assign(socket, :scanning, true)
+
+    Task.start(fn ->
+      result = Scans.run_subdomain_scan(domain_id)
+      send(liveview_pid, {:scan_done, :subdomains, result})
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("scan_httpx", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_httpx", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+    socket = assign(socket, :scanning, true)
+
+    Task.start(fn ->
+      result = Scans.run_httpx_scan(domain_id)
+      send(liveview_pid, {:scan_done, :httpx, result})
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("scan_dnsx", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_dnsx", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+    socket = assign(socket, :scanning, true)
+
+    Task.start(fn ->
+      result = Scans.run_dnsx_scan(domain_id)
+      send(liveview_pid, {:scan_done, :dnsx, result})
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("scan_rdap", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_rdap", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+    socket = assign(socket, :scanning, true)
+
+    Task.start(fn ->
+      result = Scans.run_rdap_scan(domain_id)
+      send(liveview_pid, {:scan_done, :rdap, result})
+    end)
+
+    {:noreply, socket}
   end
 
   def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
@@ -167,34 +228,6 @@ defmodule RavnerWeb.DomainLive.Show do
     end
   end
 
-  defp build_brand_update_attrs(domain, bid) do
-    attrs = %{brand_id: bid}
-
-    if bid do
-      org = domain.organization
-
-      if org && org.brand_id && org.brand_id != bid do
-        Map.merge(attrs, %{organization_id: nil, project_id: nil})
-      else
-        project = domain.project
-
-        if project do
-          proj_org = Repo.get(Ravner.Inventory.Organization, project.organization_id)
-
-          if proj_org && proj_org.brand_id && proj_org.brand_id != bid do
-            Map.merge(attrs, %{project_id: nil})
-          else
-            attrs
-          end
-        else
-          attrs
-        end
-      end
-    else
-      attrs
-    end
-  end
-
   def handle_event("set_organization", _, %{assigns: %{current_scope: scope}} = socket)
       when is_nil(scope) or scope.user.role not in [:admin, :editor] do
     {:noreply, put_flash(socket, :error, "You don't have permission.")}
@@ -215,94 +248,16 @@ defmodule RavnerWeb.DomainLive.Show do
     end
   end
 
-  defp build_org_update_attrs(domain, oid) do
-    attrs = %{organization_id: oid}
-
-    attrs =
-      if oid do
-        org = Repo.get(Ravner.Inventory.Organization, oid)
-        if org && org.brand_id, do: Map.put(attrs, :brand_id, org.brand_id), else: attrs
-      else
-        attrs
-      end
-
-    if domain.project && domain.project.organization_id != oid do
-      Map.put(attrs, :project_id, nil)
-    else
-      attrs
-    end
+  def handle_event("toggle_lifecycle_menu", _, socket) do
+    {:noreply, assign(socket, :lifecycle_menu_open, !socket.assigns.lifecycle_menu_open)}
   end
 
-  def handle_event("scan_subdomains", _, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain_id = socket.assigns.domain.id
-      liveview_pid = self()
-      socket = assign(socket, :scanning, true)
-
-      Task.start(fn ->
-        result = Scans.run_subdomain_scan(domain_id)
-        send(liveview_pid, {:scan_done, :subdomains, result})
-      end)
-
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("scan_httpx", _, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain_id = socket.assigns.domain.id
-      liveview_pid = self()
-      socket = assign(socket, :scanning, true)
-
-      Task.start(fn ->
-        result = Scans.run_httpx_scan(domain_id)
-        send(liveview_pid, {:scan_done, :httpx, result})
-      end)
-
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("scan_dnsx", _, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain_id = socket.assigns.domain.id
-      liveview_pid = self()
-      socket = assign(socket, :scanning, true)
-
-      Task.start(fn ->
-        result = Scans.run_dnsx_scan(domain_id)
-        send(liveview_pid, {:scan_done, :dnsx, result})
-      end)
-
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("scan_rdap", _, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain_id = socket.assigns.domain.id
-      liveview_pid = self()
-      socket = assign(socket, :scanning, true)
-
-      Task.start(fn ->
-        result = Scans.run_rdap_scan(domain_id)
-        send(liveview_pid, {:scan_done, :rdap, result})
-      end)
-
-      {:noreply, socket}
-    end
+  def handle_event("close_lifecycle_menu", _, socket) do
+    {:noreply, assign(socket, :lifecycle_menu_open, false)}
   end
 
   # ---------------------------------------------------------------------------
-  # Scan completions
+  # Info handlers (handle_info/2)
   # ---------------------------------------------------------------------------
 
   @impl true
@@ -410,6 +365,13 @@ defmodule RavnerWeb.DomainLive.Show do
   # Private helpers
   # ---------------------------------------------------------------------------
 
+  defp start_scan_tasks(pid, id) do
+    Task.start(fn -> send(pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(id)}) end)
+    Task.start(fn -> send(pid, {:scan_done, :httpx, Scans.run_httpx_scan(id)}) end)
+    Task.start(fn -> send(pid, {:scan_done, :rdap, Scans.run_rdap_scan(id)}) end)
+    Task.start(fn -> send(pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(id)}) end)
+  end
+
   # Decrements the pending scan counter; sets scanning: false when all done
   defp finish_scan(socket) do
     pending = max(0, socket.assigns.pending_scans - 1)
@@ -455,6 +417,52 @@ defmodule RavnerWeb.DomainLive.Show do
     {:other, status}
   end
 
+  defp build_brand_update_attrs(domain, bid) do
+    attrs = %{brand_id: bid}
+
+    if bid do
+      org = domain.organization
+
+      if org && org.brand_id && org.brand_id != bid do
+        Map.merge(attrs, %{organization_id: nil, project_id: nil})
+      else
+        project = domain.project
+
+        if project do
+          proj_org = Repo.get(Ravner.Inventory.Organization, project.organization_id)
+
+          if proj_org && proj_org.brand_id && proj_org.brand_id != bid do
+            Map.merge(attrs, %{project_id: nil})
+          else
+            attrs
+          end
+        else
+          attrs
+        end
+      end
+    else
+      attrs
+    end
+  end
+
+  defp build_org_update_attrs(domain, oid) do
+    attrs = %{organization_id: oid}
+
+    attrs =
+      if oid do
+        org = Repo.get(Ravner.Inventory.Organization, oid)
+        if org && org.brand_id, do: Map.put(attrs, :brand_id, org.brand_id), else: attrs
+      else
+        attrs
+      end
+
+    if domain.project && domain.project.organization_id != oid do
+      Map.put(attrs, :project_id, nil)
+    else
+      attrs
+    end
+  end
+
   # Returns the external redirect target domain if final_url points outside the current root domain
   defp external_redirect_target(_domain_name, nil), do: nil
 
@@ -497,14 +505,6 @@ defmodule RavnerWeb.DomainLive.Show do
   defp extract_root_domain(_), do: ""
 
   defp two_part_tld?(tld), do: tld in @two_part_tlds
-
-  defp editor?(nil), do: false
-
-  defp editor?(scope) do
-    role_rank = %{viewer: 0, editor: 1, admin: 2}
-    user = scope.user
-    user && Map.get(role_rank, user.role, 0) >= 1
-  end
 
   defp lifecycle_color(:active), do: "bg-green-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
