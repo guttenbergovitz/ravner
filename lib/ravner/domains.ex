@@ -32,7 +32,21 @@ defmodule Ravner.Domains do
   end
 
   @doc """
+  Updates multiple domains by their IDs.
+  """
+  @spec bulk_update([integer()], map()) :: {:ok, integer()}
+  def bulk_update(ids, attrs) when is_list(ids) and is_map(attrs) do
+    {count, _} =
+      Domain
+      |> where([d], d.id in ^ids)
+      |> Repo.update_all(set: Map.to_list(attrs))
+
+    {:ok, count}
+  end
+
+  @doc """
   Deletes domains by their IDs in bulk.
+  ...
   """
   @spec bulk_delete([integer()]) :: {:ok, integer()}
   def bulk_delete(ids) when is_list(ids) do
@@ -171,7 +185,15 @@ defmodule Ravner.Domains do
       |> order_by([d], asc: d.name)
       |> limit(@page_size)
       |> offset(^offset)
-      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains, :project, :brand, :organization])
+      |> preload([
+        :parent_domain,
+        :domain_tags,
+        :domain_metadata,
+        :subdomains,
+        :project,
+        :brand,
+        :organization
+      ])
       |> Repo.all()
 
     %{
@@ -189,7 +211,15 @@ defmodule Ravner.Domains do
   def list_domains_filtered_all(opts \\ []) do
     filtered_query(opts)
     |> order_by([d], asc: d.name)
-    |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains, :project, :brand, :organization])
+    |> preload([
+      :parent_domain,
+      :domain_tags,
+      :domain_metadata,
+      :subdomains,
+      :project,
+      :brand,
+      :organization
+    ])
     |> Repo.all()
   end
 

@@ -7,9 +7,10 @@
           <h1 class="text-2xl font-light tracking-tight mb-1">Domains</h1>
           <div class="flex items-center justify-between">
             <p class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
-              {if @total == 0 && @search == "" && @lifecycle_filter == [],
-                do: "No domains yet",
-                else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
+              {if @total == 0 && @search == "" && @lifecycle_filter == [] && @brand_filter == [] &&
+                    @org_filter == [] && @project_filter == [],
+                  do: "No domains yet",
+                  else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
             </p>
             <button
               phx-click="toggle_empty_facets"
@@ -28,63 +29,99 @@
         </div>
 
         <%!-- Facets --%>
-        <nav class="space-y-8 pt-4">
+        <nav class="space-y-4 pt-4">
           <%!-- Lifecycle Facet --%>
           <div>
-            <h3 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-4 border-b border-neutral-100 pb-2">
-              Status
-            </h3>
-            <div class="space-y-1">
-              <%= for {state, label, color} <- lifecycle_options() do %>
-                <% count =
-                  Enum.find_value(@facets.lifecycle, 0, fn {s, c} -> if s == state, do: c end) %>
-                <% active = state in @lifecycle_filter %>
-                <%= if @show_empty_facets || count > 0 || active do %>
-                  <button
-                    phx-click="toggle_facet"
-                    phx-value-type="lifecycle"
-                    phx-value-id={state}
-                    class={[
-                      "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group",
-                      if(active,
-                        do: "bg-neutral-100 text-neutral-900 font-normal",
-                        else: "text-neutral-500 hover:bg-neutral-50 font-light"
-                      ),
-                      count == 0 && !active && "opacity-30"
-                    ]}
-                  >
-                    <div class="flex items-center gap-2">
-                      <div class={[
-                        "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
+            <button
+              phx-click="toggle_facet_group"
+              phx-value-group="lifecycle"
+              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group"
+            >
+              <span>Status</span>
+              <.icon
+                name={
+                  if MapSet.member?(@expanded_facets, "lifecycle"),
+                    do: "hero-chevron-up",
+                    else: "hero-chevron-down"
+                }
+                class="w-3 h-3 opacity-50 group-hover:opacity-100"
+              />
+            </button>
+
+            <%= if MapSet.member?(@expanded_facets, "lifecycle") do %>
+              <div class="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                <%= for {state, label, color} <- lifecycle_options() do %>
+                  <% count =
+                    Enum.find_value(@facets.lifecycle, 0, fn {s, c} -> if s == state, do: c end) %>
+                  <% active = state in @lifecycle_filter %>
+                  <%= if @show_empty_facets || count > 0 || active do %>
+                    <button
+                      phx-click="toggle_facet"
+                      phx-value-type="lifecycle"
+                      phx-value-id={state}
+                      class={[
+                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group",
                         if(active,
-                          do: "bg-neutral-900 border-neutral-900",
-                          else: "border-neutral-300 group-hover:border-neutral-400"
-                        )
-                      ]}>
-                        <%= if active do %>
-                          <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                        <% end %>
+                          do: "bg-neutral-100 text-neutral-900 font-normal",
+                          else: "text-neutral-500 hover:bg-neutral-50 font-light"
+                        ),
+                        count == 0 && !active && "opacity-30"
+                      ]}
+                    >
+                      <div class="flex items-center gap-2">
+                        <div class={[
+                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
+                          if(active,
+                            do: "bg-neutral-900 border-neutral-900",
+                            else: "border-neutral-300 group-hover:border-neutral-400"
+                          )
+                        ]}>
+                          <%= if active do %>
+                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
+                          <% end %>
+                        </div>
+                        <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                        <span>{label}</span>
                       </div>
-                      <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
-                      <span>{label}</span>
-                    </div>
-                    <span class="text-[10px] opacity-60">{count}</span>
-                  </button>
+                      <span class="text-[10px] opacity-60">{count}</span>
+                    </button>
+                  <% end %>
                 <% end %>
-              <% end %>
-            </div>
+              </div>
+            <% end %>
           </div>
 
           <%!-- Brands Facet --%>
-          <%= if @facets.brands != [] do %>
-            <div>
-              <h3 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-4 border-b border-neutral-100 pb-2">
-                Brands
-              </h3>
-              <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
-                <%= for {id, name, count} <- @facets.brands do %>
-                  <% active = id in @brand_filter %>
-                  <%= if @show_empty_facets || count > 0 || active do %>
+          <div>
+            <button
+              phx-click="toggle_facet_group"
+              phx-value-group="brand"
+              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group"
+            >
+              <span>Brands</span>
+              <.icon
+                name={
+                  if MapSet.member?(@expanded_facets, "brand"),
+                    do: "hero-chevron-up",
+                    else: "hero-chevron-down"
+                }
+                class="w-3 h-3 opacity-50 group-hover:opacity-100"
+              />
+            </button>
+
+            <%= if MapSet.member?(@expanded_facets, "brand") do %>
+              <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin animate-in fade-in slide-in-from-top-1 duration-200">
+                <% visible_brands =
+                  Enum.filter(@facets.brands, fn {id, _, count} ->
+                    @show_empty_facets || count > 0 || id in @brand_filter
+                  end) %>
+                <%= if visible_brands == [] do %>
+                  <div class="px-2 py-3 text-[10px] font-light text-neutral-400 italic">
+                    None available
+                  </div>
+                <% else %>
+                  <%= for {id, name, count} <- visible_brands do %>
+                    <% active = id in @brand_filter %>
                     <button
                       phx-click="toggle_facet"
                       phx-value-type="brand"
@@ -117,19 +154,40 @@
                   <% end %>
                 <% end %>
               </div>
-            </div>
-          <% end %>
+            <% end %>
+          </div>
 
           <%!-- Organizations Facet --%>
-          <%= if @facets.organizations != [] do %>
-            <div>
-              <h3 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-4 border-b border-neutral-100 pb-2">
-                Organizations
-              </h3>
-              <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
-                <%= for {id, name, count} <- @facets.organizations do %>
-                  <% active = id in @org_filter %>
-                  <%= if @show_empty_facets || count > 0 || active do %>
+          <div>
+            <button
+              phx-click="toggle_facet_group"
+              phx-value-group="org"
+              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group"
+            >
+              <span>Organizations</span>
+              <.icon
+                name={
+                  if MapSet.member?(@expanded_facets, "org"),
+                    do: "hero-chevron-up",
+                    else: "hero-chevron-down"
+                }
+                class="w-3 h-3 opacity-50 group-hover:opacity-100"
+              />
+            </button>
+
+            <%= if MapSet.member?(@expanded_facets, "org") do %>
+              <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin animate-in fade-in slide-in-from-top-1 duration-200">
+                <% visible_orgs =
+                  Enum.filter(@facets.organizations, fn {id, _, count} ->
+                    @show_empty_facets || count > 0 || id in @org_filter
+                  end) %>
+                <%= if visible_orgs == [] do %>
+                  <div class="px-2 py-3 text-[10px] font-light text-neutral-400 italic">
+                    None available
+                  </div>
+                <% else %>
+                  <%= for {id, name, count} <- visible_orgs do %>
+                    <% active = id in @org_filter %>
                     <button
                       phx-click="toggle_facet"
                       phx-value-type="org"
@@ -162,19 +220,40 @@
                   <% end %>
                 <% end %>
               </div>
-            </div>
-          <% end %>
+            <% end %>
+          </div>
 
           <%!-- Projects Facet --%>
-          <%= if @facets.projects != [] do %>
-            <div>
-              <h3 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-4 border-b border-neutral-100 pb-2">
-                Projects
-              </h3>
-              <div class="space-y-1 max-h-64 overflow-y-auto pr-2 scrollbar-thin">
-                <%= for {id, name, count} <- @facets.projects do %>
-                  <% active = id in @project_filter %>
-                  <%= if @show_empty_facets || count > 0 || active do %>
+          <div>
+            <button
+              phx-click="toggle_facet_group"
+              phx-value-group="project"
+              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group"
+            >
+              <span>Projects</span>
+              <.icon
+                name={
+                  if MapSet.member?(@expanded_facets, "project"),
+                    do: "hero-chevron-up",
+                    else: "hero-chevron-down"
+                }
+                class="w-3 h-3 opacity-50 group-hover:opacity-100"
+              />
+            </button>
+
+            <%= if MapSet.member?(@expanded_facets, "project") do %>
+              <div class="space-y-1 max-h-64 overflow-y-auto pr-2 scrollbar-thin animate-in fade-in slide-in-from-top-1 duration-200">
+                <% visible_projects =
+                  Enum.filter(@facets.projects, fn {id, _, count} ->
+                    @show_empty_facets || count > 0 || id in @project_filter
+                  end) %>
+                <%= if visible_projects == [] do %>
+                  <div class="px-2 py-3 text-[10px] font-light text-neutral-400 italic">
+                    None available
+                  </div>
+                <% else %>
+                  <%= for {id, name, count} <- visible_projects do %>
+                    <% active = id in @project_filter %>
                     <button
                       phx-click="toggle_facet"
                       phx-value-type="project"
@@ -207,8 +286,8 @@
                   <% end %>
                 <% end %>
               </div>
-            </div>
-          <% end %>
+            <% end %>
+          </div>
         </nav>
       </aside>
 
@@ -320,7 +399,7 @@
                   disabled={MapSet.size(@selected_ids) == 0}
                   class="btn-line text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
-                  <.icon name="hero-tag" class="w-4 h-4" /> Set status
+                  <.icon name="hero-tag" class="w-4 h-4" /> Status
                 </button>
                 <%= if @bulk_lifecycle_menu_open do %>
                   <div
@@ -335,6 +414,84 @@
                       >
                         <span class={["w-2 h-2 rounded-full shrink-0", color]}></span>
                         {label}
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <div class="relative" id="bulk-brand-menu">
+                <button
+                  phx-click="toggle_bulk_brand_menu"
+                  disabled={MapSet.size(@selected_ids) == 0}
+                  class="btn-line text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <.icon name="hero-bookmark" class="w-4 h-4" /> Brand
+                </button>
+                <%= if @bulk_brand_menu_open do %>
+                  <div
+                    class="absolute right-0 top-full mt-1 z-30 bg-white border border-neutral-200 py-1 min-w-[200px] max-h-[300px] overflow-y-auto shadow-xl"
+                    phx-click-away="toggle_bulk_brand_menu"
+                  >
+                    <%= for brand <- @brands do %>
+                      <button
+                        phx-click="bulk_action_confirm"
+                        phx-value-brand_id={brand.id}
+                        class="w-full text-left px-4 py-2.5 text-xs font-light hover:bg-neutral-50 transition-colors truncate"
+                      >
+                        {brand.display_name || brand.name}
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <div class="relative" id="bulk-org-menu">
+                <button
+                  phx-click="toggle_bulk_org_menu"
+                  disabled={MapSet.size(@selected_ids) == 0}
+                  class="btn-line text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <.icon name="hero-building-office" class="w-4 h-4" /> Organization
+                </button>
+                <%= if @bulk_org_menu_open do %>
+                  <div
+                    class="absolute right-0 top-full mt-1 z-30 bg-white border border-neutral-200 py-1 min-w-[200px] max-h-[300px] overflow-y-auto shadow-xl"
+                    phx-click-away="toggle_bulk_org_menu"
+                  >
+                    <%= for org <- @orgs do %>
+                      <button
+                        phx-click="bulk_action_confirm"
+                        phx-value-org_id={org.id}
+                        class="w-full text-left px-4 py-2.5 text-xs font-light hover:bg-neutral-50 transition-colors truncate"
+                      >
+                        {org.display_name || org.name}
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <div class="relative" id="bulk-project-menu">
+                <button
+                  phx-click="toggle_bulk_project_menu"
+                  disabled={MapSet.size(@selected_ids) == 0}
+                  class="btn-line text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <.icon name="hero-rocket-launch" class="w-4 h-4" /> Project
+                </button>
+                <%= if @bulk_project_menu_open do %>
+                  <div
+                    class="absolute right-0 top-full mt-1 z-30 bg-white border border-neutral-200 py-1 min-w-[220px] max-h-[300px] overflow-y-auto shadow-xl"
+                    phx-click-away="toggle_bulk_project_menu"
+                  >
+                    <%= for project <- @projects do %>
+                      <button
+                        phx-click="bulk_action_confirm"
+                        phx-value-project_id={project.id}
+                        class="w-full text-left px-4 py-2.5 text-xs font-light hover:bg-neutral-50 transition-colors truncate"
+                      >
+                        {project.display_name || project.name}
                       </button>
                     <% end %>
                   </div>
@@ -370,62 +527,13 @@
             </div>
           </div>
         <% else %>
-          <%!-- Regular Toolbar --%>
+          <%!-- Regular Toolbar (Minimal) --%>
           <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center gap-4">
-              <button
-                phx-click="scan_visible"
-                class="btn-line text-xs flex items-center gap-1.5"
-                data-confirm={
-                  if @include_subdomains,
-                    do: "Scan all visible domains AND their subdomains?",
-                    else: "Scan all visible domains?"
-                }
-              >
-                <.icon name="hero-bolt" class="w-4 h-4" /> Scan visible
-                <%= if @include_subdomains do %>
-                  <span class="text-[10px] bg-neutral-100 px-1 rounded text-neutral-500">
-                    + subs
-                  </span>
-                <% end %>
-              </button>
-
-              <button
-                phx-click="toggle_include_subdomains"
-                class={[
-                  "flex items-center gap-1.5 px-2.5 py-1.5 border text-xs font-light transition-colors",
-                  if(@include_subdomains,
-                    do: "border-neutral-900 text-neutral-900 bg-neutral-50",
-                    else: "border-neutral-200 text-neutral-400 hover:border-neutral-400"
-                  )
-                ]}
-              >
-                <span class={[
-                  "w-3.5 h-3.5 border flex items-center justify-center shrink-0",
-                  if(@include_subdomains,
-                    do: "border-neutral-900 bg-neutral-900",
-                    else: "border-neutral-300"
-                  )
-                ]}>
-                  <%= if @include_subdomains do %>
-                    <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                  <% end %>
-                </span>
-                Incl. subdomains
-              </button>
-
-              <button
-                phx-click="enter_selection_mode"
-                class="btn-line text-xs flex items-center gap-1.5"
-              >
-                <.icon name="hero-square-2-stack" class="w-4 h-4" /> Select
-              </button>
-            </div>
-
-            <%!-- Results Info --%>
             <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
               Page {@page} of {@total_pages}
-              <span class="text-neutral-200 mx-2">|</span>
+            </div>
+
+            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
               {@total} results
             </div>
           </div>
@@ -681,7 +789,7 @@
                         <% expired = meta.ssl_days_remaining != nil && meta.ssl_days_remaining < 0 %>
                         <span
                           class={[
-                            "hidden md:flex items-center gap-1.5 shrink-0",
+                            "flex items-center gap-1.5 shrink-0",
                             expired && "text-red-600 font-medium",
                             expiring_soon && !expired && "text-amber-600 font-medium",
                             !expiring_soon && "text-neutral-400"
@@ -696,7 +804,9 @@
                             }
                             class="w-3.5 h-3.5"
                           />
-                          <span>{Calendar.strftime(meta.ssl_valid_until, "%d-%m-%Y")}</span>
+                          <span class="text-[10px] whitespace-nowrap">
+                            {Calendar.strftime(meta.ssl_valid_until, "%d-%m-%Y")}
+                          </span>
                         </span>
                       <% end %>
 
@@ -752,8 +862,12 @@
                           <div class={[
                             "w-1.5 h-1.5 rounded-full",
                             lifecycle_color(sub.lifecycle_state)
-                          ]}></div>
-                          <.link navigate={~p"/domains/#{sub.id}"} class="text-sm font-light hover:underline">
+                          ]}>
+                          </div>
+                          <.link
+                            navigate={~p"/domains/#{sub.id}"}
+                            class="text-sm font-light hover:underline"
+                          >
                             {sub.name}
                           </.link>
                         </div>
@@ -831,16 +945,77 @@
         <% end %>
 
         <%!-- Bottom Actions & Export --%>
-        <div class="flex items-center justify-between mt-12 pt-8 border-t border-neutral-100">
+        <div class="flex flex-col lg:flex-row items-center justify-between mt-12 pt-8 border-t border-neutral-100 gap-8">
+          <%!-- Primary Actions --%>
           <div class="flex items-center gap-3">
-            <.link patch={~p"/domains/new"} class="btn-line text-xs flex items-center gap-1.5 py-2">
+            <.link
+              patch={~p"/domains/new"}
+              class="btn-line text-xs flex items-center gap-1.5 py-2"
+            >
               <.icon name="hero-plus" class="w-4 h-4" /> Add domain
             </.link>
-            <.link patch={~p"/domains/import"} class="btn-line text-xs flex items-center gap-1.5 py-2">
+            <.link
+              patch={~p"/domains/import"}
+              class="btn-line text-xs flex items-center gap-1.5 py-2"
+            >
               <.icon name="hero-arrow-up-tray" class="w-4 h-4" /> Import CSV
             </.link>
           </div>
 
+          <%!-- Bulk Discovery Tools (Moved to bottom) --%>
+          <div class="flex items-center gap-4 border-l border-r border-neutral-100 px-6">
+            <button
+              phx-click="scan_visible"
+              class="btn-line text-xs flex items-center gap-1.5 py-2"
+              data-confirm={
+                if @include_subdomains,
+                  do: "Scan all visible domains AND their subdomains?",
+                  else: "Scan all visible domains?"
+              }
+            >
+              <.icon name="hero-bolt" class="w-4 h-4" /> Scan visible
+              <%= if @include_subdomains do %>
+                <span class="text-[9px] bg-neutral-100 px-1 rounded text-neutral-500 font-normal">
+                  + subdomains
+                </span>
+              <% end %>
+            </button>
+
+            <button
+              phx-click="toggle_include_subdomains"
+              class={[
+                "flex items-center gap-1.5 px-2.5 py-2 border text-[10px] font-light transition-colors uppercase tracking-tight",
+                if(@include_subdomains,
+                  do: "border-neutral-900 text-neutral-900 bg-neutral-50",
+                  else: "border-neutral-200 text-neutral-400 hover:border-neutral-400"
+                )
+              ]}
+            >
+              <span class={[
+                "w-3 h-3 border flex items-center justify-center shrink-0",
+                if(@include_subdomains,
+                  do: "border-neutral-900 bg-neutral-900",
+                  else: "border-neutral-300"
+                )
+              ]}>
+                <%= if @include_subdomains do %>
+                  <.icon name="hero-check" class="w-2 h-2 text-white" />
+                <% end %>
+              </span>
+              Include subdomains
+            </button>
+
+            <div class="h-4 w-px bg-neutral-100 mx-1"></div>
+
+            <button
+              phx-click="enter_selection_mode"
+              class="btn-line text-xs flex items-center gap-1.5 py-2"
+            >
+              <.icon name="hero-square-2-stack" class="w-4 h-4" /> Select mode
+            </button>
+          </div>
+
+          <%!-- Export --%>
           <div class="flex items-center gap-3">
             <% export_q =
               [
@@ -894,17 +1069,41 @@
   <%!-- Modals --%>
   <%= if @bulk_action != nil do %>
     <% selected_count = MapSet.size(@selected_ids) %>
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" phx-click="bulk_action_cancel"></div>
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" phx-click="bulk_action_cancel">
+    </div>
     <div class="fixed inset-x-0 top-24 mx-auto max-w-md bg-white border border-neutral-200 z-50 p-8 shadow-2xl animate-in zoom-in-95 duration-200">
       <h2 class="text-xl font-light tracking-tight mb-4">
-        {if @bulk_action == :delete, do: "Delete", else: "Scan"} {selected_count} domains?
+        <%= case @bulk_action do %>
+          <% :delete -> %>
+            Delete {selected_count} domains?
+          <% :scan -> %>
+            Scan {selected_count} domains?
+          <% {:lifecycle, state} -> %>
+            Set {selected_count} domains to {state}?
+          <% {:brand, id} -> %>
+            <% {_, name, _} =
+              Enum.find(@facets.brands, fn {bid, _, _} -> bid == id end) || {0, "Brand", 0} %> Assign {selected_count} domains to {name}?
+          <% {:org, id} -> %>
+            <% {_, name, _} =
+              Enum.find(@facets.organizations, fn {oid, _, _} -> oid == id end) || {0, "Org", 0} %> Assign {selected_count} domains to {name}?
+          <% {:project, id} -> %>
+            <% {_, name, _} =
+              Enum.find(@facets.projects, fn {pid, _, _} -> pid == id end) || {0, "Project", 0} %> Assign {selected_count} domains to {name}?
+        <% end %>
       </h2>
       <p class="text-sm font-light text-neutral-500 mb-8">
-        {if @bulk_action == :delete,
-          do: "This action cannot be undone.",
-          else: "All scans will run in parallel background tasks."}
-        <%= if @include_subdomains do %>
-          <br /><span class="text-neutral-900 font-normal">This will also include all their subdomains.</span>
+        <%= case @bulk_action do %>
+          <% :delete -> %>
+            This action cannot be undone.
+          <% :scan -> %>
+            All scans will run in parallel background tasks.
+          <% _ -> %>
+            This will update the selected metadata for all target domains.
+        <% end %>
+        <%= if @include_subdomains && @bulk_action in [:delete, :scan] do %>
+          <br /><span class="text-neutral-900 font-normal">
+            This will also include all their subdomains.
+          </span>
         <% end %>
       </p>
       <div class="flex items-center gap-3">
@@ -915,9 +1114,12 @@
             @bulk_action == :delete && "!bg-red-600 !border-red-600"
           ]}
         >
-          Confirm {if @bulk_action == :delete, do: "Deletion", else: "Scanning"}
+          Confirm
         </button>
-        <button phx-click="bulk_action_cancel" class="btn-line flex-1 justify-center text-xs py-2.5">
+        <button
+          phx-click="bulk_action_cancel"
+          class="btn-line flex-1 justify-center text-xs py-2.5"
+        >
           Cancel
         </button>
       </div>
@@ -930,7 +1132,13 @@
       <%= case @live_action do %>
         <% :new -> %>
           <h2 class="text-2xl font-light tracking-tight mb-8">Add Domain</h2>
-          <.form for={@form} phx-change="validate" phx-submit="save" id="domain-form" class="space-y-6">
+          <.form
+            for={@form}
+            phx-change="validate"
+            phx-submit="save"
+            id="domain-form"
+            class="space-y-6"
+          >
             <.input field={@form[:type]} type="hidden" value="domain" />
             <.input
               field={@form[:name]}
@@ -965,12 +1173,18 @@
               Done
             </button>
           <% else %>
-            <.form for={%{}} as={:import} phx-submit="import" id="import-paste-form" class="space-y-6">
+            <.form
+              for={%{}}
+              as={:import}
+              phx-submit="import"
+              id="import-paste-form"
+              class="space-y-6"
+            >
               <textarea
                 name="import[domains]"
                 rows="10"
                 class="w-full p-4 border border-neutral-200 bg-transparent text-sm font-light font-mono resize-none focus:outline-none focus:border-neutral-900"
-                placeholder={"example.com\nexample.co.uk"}
+                placeholder="example.com\nexample.co.uk"
                 required
               ></textarea>
               <button type="submit" class="btn-line-filled w-full justify-center py-2.5 text-xs">
