@@ -348,6 +348,68 @@
               </span>
             </div>
           </div>
+
+          <div :if={@domain.domain_metadata.ssl_valid_until} class="card-line">
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6 flex items-center justify-between">
+              SSL Certificate <% expiring_soon =
+                @domain.domain_metadata.ssl_days_remaining != nil &&
+                  @domain.domain_metadata.ssl_days_remaining <= 14 %>
+              <% expired =
+                @domain.domain_metadata.ssl_days_remaining != nil &&
+                  @domain.domain_metadata.ssl_days_remaining < 0 %>
+              <span class={[
+                "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider",
+                expired && "text-red-700 bg-red-50 border-red-200",
+                expiring_soon && !expired && "text-amber-700 bg-amber-50 border-amber-200",
+                !expiring_soon && "text-green-700 bg-green-50 border-green-200"
+              ]}>
+                <%= if expired do %>
+                  Expired
+                <% else %>
+                  {@domain.domain_metadata.ssl_days_remaining} days left
+                <% end %>
+              </span>
+            </h2>
+
+            <div class="space-y-4 text-sm font-light">
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Subject
+                </span>
+                <span class="break-all font-mono text-xs">
+                  {@domain.domain_metadata.ssl_subject}
+                </span>
+              </div>
+
+              <div>
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                  Issuer
+                </span>
+                <span class="break-all">
+                  {@domain.domain_metadata.ssl_issuer}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-6">
+                <div>
+                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                    Valid From
+                  </span>
+                  <span :if={@domain.domain_metadata.ssl_valid_from}>
+                    {Calendar.strftime(@domain.domain_metadata.ssl_valid_from, "%Y-%m-%d")}
+                  </span>
+                </div>
+                <div>
+                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                    Valid Until
+                  </span>
+                  <span :if={@domain.domain_metadata.ssl_valid_until}>
+                    {Calendar.strftime(@domain.domain_metadata.ssl_valid_until, "%Y-%m-%d")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         <% end %>
 
         <%= if @domain.domain_metadata && (@domain.domain_metadata.ip_v4 != [] || @domain.domain_metadata.ip_v6 != [] || @domain.domain_metadata.dns_records != []) do %>

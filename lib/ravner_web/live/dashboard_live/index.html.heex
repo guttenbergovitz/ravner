@@ -109,44 +109,96 @@
     </div>
 
     <%!-- Needs attention --%>
-    <div class="border border-neutral-200">
-      <div class="px-6 py-4 border-b border-neutral-100">
-        <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
-          Needs Attention
-        </span>
+    <div class="grid grid-cols-2 gap-8 mb-8">
+      <div class="border border-neutral-200">
+        <div class="px-6 py-4 border-b border-neutral-100 flex justify-between items-center">
+          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
+            SSL Alerts
+          </span>
+          <%= if length(@stats.ssl_alerts) > 0 do %>
+            <span class="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 border border-red-100 uppercase tracking-tighter">
+              {length(@stats.ssl_alerts)} issue{if length(@stats.ssl_alerts) != 1, do: "s"}
+            </span>
+          <% end %>
+        </div>
+        <%= if @stats.ssl_alerts == [] do %>
+          <div class="px-6 py-8 text-center text-sm text-neutral-400 font-light">
+            No certificate issues detected
+          </div>
+        <% else %>
+          <div class="divide-y divide-neutral-100 max-h-[300px] overflow-y-auto">
+            <%= for alert <- @stats.ssl_alerts do %>
+              <.link
+                navigate={~p"/domains/#{alert.id}"}
+                class="block hover:bg-neutral-50 transition-colors px-6 py-3"
+              >
+                <div class="flex items-center justify-between gap-4">
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-light text-neutral-700 truncate">{alert.name}</div>
+                    <div class="text-[10px] text-neutral-400 mt-0.5 uppercase tracking-wide">
+                      Expires {Calendar.strftime(alert.valid_until, "%Y-%m-%d")}
+                    </div>
+                  </div>
+                  <div class={[
+                    "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider shrink-0",
+                    if(alert.status == :expired,
+                      do: "text-red-700 bg-red-50 border-red-100",
+                      else: "text-amber-700 bg-amber-50 border-amber-100"
+                    )
+                  ]}>
+                    <%= if alert.status == :expired do %>
+                      Expired
+                    <% else %>
+                      {alert.days_remaining}d left
+                    <% end %>
+                  </div>
+                </div>
+              </.link>
+            <% end %>
+          </div>
+        <% end %>
       </div>
-      <div class="grid grid-cols-4 divide-x divide-neutral-100">
-        <div class="px-6 py-5">
-          <.icon name="hero-exclamation-circle" class="w-4 h-4 text-red-500 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-            HTTP errors
-          </div>
-          <div class="text-xl font-light">{@stats.http.http_4xx_5xx}</div>
-          <div class="text-xs text-neutral-400 mt-0.5">domains</div>
+
+      <div class="border border-neutral-200 h-fit">
+        <div class="px-6 py-4 border-b border-neutral-100">
+          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
+            Needs Attention
+          </span>
         </div>
-        <div class="px-6 py-5">
-          <.icon name="hero-shield-exclamation" class="w-4 h-4 text-amber-600 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-            Unscanned
+        <div class="grid grid-cols-2 divide-x divide-y divide-neutral-100">
+          <div class="px-6 py-5">
+            <.icon name="hero-exclamation-circle" class="w-4 h-4 text-red-500 mb-2" />
+            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+              HTTP errors
+            </div>
+            <div class="text-xl font-light">{@stats.http.http_4xx_5xx}</div>
+            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
           </div>
-          <div class="text-xl font-light">{@stats.scan.never}</div>
-          <div class="text-xs text-neutral-400 mt-0.5">domains</div>
-        </div>
-        <div class="px-6 py-5">
-          <.icon name="hero-arrow-path" class="w-4 h-4 text-neutral-500 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-            No HTTP scan
+          <div class="px-6 py-5">
+            <% ssl_error_count = Enum.count(@stats.ssl_alerts, &(&1.status == :expired)) %>
+            <.icon name="hero-lock-closed" class="w-4 h-4 text-red-500 mb-2" />
+            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+              SSL expired
+            </div>
+            <div class="text-xl font-light">{ssl_error_count}</div>
+            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
           </div>
-          <div class="text-xl font-light">{@stats.http.http_unscanned}</div>
-          <div class="text-xs text-neutral-400 mt-0.5">no HTTP data</div>
-        </div>
-        <div class="px-6 py-5">
-          <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500 mb-2" />
-          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-            Redirecting
+          <div class="px-6 py-5">
+            <.icon name="hero-shield-exclamation" class="w-4 h-4 text-amber-600 mb-2" />
+            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+              Unscanned
+            </div>
+            <div class="text-xl font-light">{@stats.scan.never}</div>
+            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
           </div>
-          <div class="text-xl font-light">{@stats.http.http_3xx}</div>
-          <div class="text-xs text-neutral-400 mt-0.5">domains</div>
+          <div class="px-6 py-5">
+            <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500 mb-2" />
+            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
+              Redirecting
+            </div>
+            <div class="text-xl font-light">{@stats.http.http_3xx}</div>
+            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
+          </div>
         </div>
       </div>
     </div>

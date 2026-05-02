@@ -149,12 +149,15 @@ defmodule Ravner.Domains.DashboardStats do
       |> Enum.map(&{&1.name, &1.count})
       |> Enum.filter(fn {_, c} -> c > 0 end)
 
+    ssl_alerts = get_ssl_alerts(now)
+
     %{
       total: total,
       total_apex: total_apex,
       total_subdomains: total_subdomains,
       lifecycle_list: lifecycle_list,
       top_by_subs: top_by_subs,
+      ssl_alerts: ssl_alerts,
       http: %{
         http_200: http_200,
         http_3xx: http_3xx,
@@ -183,4 +186,29 @@ defmodule Ravner.Domains.DashboardStats do
   end
 
   defp external_redirect_dashboard?(_name, _url), do: false
+
+  defp get_ssl_alerts(now) do
+    # Soon = 14 days
+    soon = DateTime.add(now, 14 * 24 * 60 * 60, :second)
+
+    query =
+      from(m in DomainMetadata,
+        join: d in Domain,
+        on: m.domain_id == d.id,
+        where: m.ssl_valid_until < ^soon,
+        order_by: [asc: m.ssl_valid_until],
+        select: %{
+          id: d.id,
+          name: d.name,
+          valid_until: m.ssl_valid_until,
+          days_remaining: m.ssl_days_remaining
+        }
+      )
+
+    Repo.all(query)
+    |> Enum.map(fn alert ->
+      status = if DateTime.compare(alert.valid_until, now) == :lt, do: :expired, else: :expiring
+      Map.put(alert, :status, status)
+    end)
+  end
 end

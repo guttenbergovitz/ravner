@@ -670,10 +670,40 @@
                       </span>
                     <% end %>
 
+                    <%!-- SSL Status --%>
+                    <%= if meta.ssl_valid_until do %>
+                      <% expiring_soon =
+                        meta.ssl_days_remaining != nil && meta.ssl_days_remaining <= 14 %>
+                      <% expired = meta.ssl_days_remaining != nil && meta.ssl_days_remaining < 0 %>
+                      <span
+                        class={[
+                          "hidden lg:flex items-center gap-1 shrink-0",
+                          expired && "text-red-600 font-medium",
+                          expiring_soon && !expired && "text-amber-600 font-medium",
+                          !expiring_soon && "text-neutral-400"
+                        ]}
+                        title={"SSL expires on #{Calendar.strftime(meta.ssl_valid_until, "%Y-%m-%d")}"}
+                      >
+                        <.icon
+                          name={
+                            if expired or expiring_soon,
+                              do: "hero-shield-exclamation",
+                              else: "hero-shield-check"
+                          }
+                          class="w-3.5 h-3.5"
+                        />
+                        <%= if expired do %>
+                          Expired
+                        <% else %>
+                          {meta.ssl_days_remaining}d
+                        <% end %>
+                      </span>
+                    <% end %>
+
                     <%!-- Last scanned --%>
                     <%= if meta.scanned_at do %>
                       <span
-                        class="hidden xl:inline text-neutral-300"
+                        class="hidden xl:inline text-neutral-300 text-[10px]"
                         title={to_string(meta.scanned_at)}
                       >
                         {Ravner.Formatting.time_ago(meta.scanned_at)}

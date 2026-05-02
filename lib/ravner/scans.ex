@@ -302,17 +302,9 @@ defmodule Ravner.Scans do
         }
 
         # Enrich with ASN if we have stored IPs from a previous DNS scan
-        meta =
-          case get_stored_ipv4(domain_id) do
-            [ip | _] ->
-              case lookup_asn(ip) do
-                {:ok, asn_data} -> Map.merge(meta, asn_data)
-                _ -> meta
-              end
-
-            _ ->
-              meta
-          end
+        meta = maybe_enrich_with_asn(meta, domain_id)
+        # Enrich with SSL if it is an HTTPS site
+        meta = maybe_enrich_with_ssl(meta, domain.name, data.final_url)
 
         Domains.upsert_domain_metadata(domain_id, meta)
         maybe_update_lifecycle_from_http(domain, data)
@@ -331,6 +323,172 @@ defmodule Ravner.Scans do
         else
           {:error, reason}
         end
+    end
+  end
+
+  defp maybe_enrich_with_ssl(meta, domain_name, final_url) do
+    if String.starts_with?(final_url || "", "https://") do
+      case do_ssl_scan(domain_name) do
+        {:ok, ssl_data} -> Map.merge(meta, ssl_data)
+        _ -> meta
+      end
+    else
+      meta
+    end
+  end
+
+  @doc """
+  Connects to port 443 and extracts SSL certificate details.
+  """
+  @spec run_ssl_scan(integer()) :: {:ok, map()} | {:error, term()}
+  def run_ssl_scan(domain_id) do
+    domain = Domains.get_domain!(domain_id)
+
+    case do_ssl_scan(domain.name) do
+      {:ok, data} ->
+        Domains.upsert_domain_metadata(domain_id, data)
+        {:ok, data}
+
+      error ->
+        error
+    end
+  end
+
+  defp do_ssl_scan(domain_name) do
+    host = to_charlist(domain_name)
+
+    # Low timeout, non-blocking
+    opts = [
+      active: false,
+      verify: :verify_none,
+      packet: :raw,
+      mode: :binary
+    ]
+
+    case :ssl.connect(host, 443, opts, 5000) do
+      {:ok, socket} ->
+        case :ssl.peercert(socket) do
+          {:ok, cert} ->
+            :ssl.close(socket)
+            parse_cert(cert)
+
+          error ->
+            :ssl.close(socket)
+            error
+        end
+
+      error ->
+        error
+    end
+  end
+
+  defp parse_cert(cert) do
+    # Decode the certificate using OTP records
+    decoded = :public_key.pkix_decode_cert(cert, :otp)
+    tbs = elem(decoded, 1)
+
+    # Extract validity
+    # Validity ::= SEQUENCE { notBefore Time, notAfter Time }
+    validity = elem(tbs, 4)
+    {_tag_before, not_before} = elem(validity, 0)
+    {_tag_after, not_after} = elem(validity, 1)
+
+    valid_from = parse_asn1_time(not_before)
+    valid_until = parse_asn1_time(not_after)
+
+    # Extract issuer
+    issuer = decode_rdn_sequence(elem(tbs, 3))
+    subject = decode_rdn_sequence(elem(tbs, 5))
+
+    days_remaining =
+      if valid_until do
+        DateTime.diff(valid_until, DateTime.utc_now(), :day)
+      else
+        nil
+      end
+
+    {:ok,
+     %{
+       ssl_issuer: issuer,
+       ssl_subject: subject,
+       ssl_valid_from: valid_from,
+       ssl_valid_until: valid_until,
+       ssl_days_remaining: days_remaining
+     }}
+  rescue
+    e ->
+      Logger.warning("Failed to parse SSL certificate: #{inspect(e)}")
+      {:error, :parse_failed}
+  end
+
+  # Helper to parse ASN1 times (UTCTime or GeneralizedTime)
+  defp parse_asn1_time(time_str) do
+    str = to_string(time_str)
+
+    case String.length(str) do
+      13 ->
+        year_short = String.slice(str, 0, 2) |> String.to_integer()
+        year = if year_short >= 50, do: 1900 + year_short, else: 2000 + year_short
+        rest = String.slice(str, 2, 10)
+        parse_iso("#{year}#{rest}")
+
+      15 ->
+        parse_iso(String.slice(str, 0, 14))
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_iso(str) do
+    case ~r/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/ |> Regex.run(str) do
+      [_, y, m, d, hh, mm, ss] ->
+        "#{y}-#{m}-#{d}T#{hh}:#{mm}:#{ss}Z" |> DateTime.from_iso8601() |> elem(1)
+
+      _ ->
+        nil
+    end
+  end
+
+  # Helper to decode RDN sequence into a readable string
+  defp decode_rdn_sequence({:rdnSequence, list}) do
+    list
+    |> Enum.map(fn [rdn] ->
+      type_oid = elem(rdn, 1)
+      value = decode_asn1_string(elem(rdn, 2))
+      type_label = decode_oid(type_oid)
+      "#{type_label}=#{value}"
+    end)
+    |> Enum.join(", ")
+  end
+
+  defp decode_rdn_sequence(_), do: "unknown"
+
+  defp decode_asn1_string({:utf8String, s}), do: to_string(s)
+  defp decode_asn1_string({:printableString, s}), do: to_string(s)
+  defp decode_asn1_string({:teletexString, s}), do: to_string(s)
+  defp decode_asn1_string({:ia5String, s}), do: to_string(s)
+  defp decode_asn1_string(s) when is_binary(s), do: s
+  defp decode_asn1_string(s), do: inspect(s)
+
+  defp decode_oid({2, 5, 4, 3}), do: "CN"
+  defp decode_oid({2, 5, 4, 10}), do: "O"
+  defp decode_oid({2, 5, 4, 11}), do: "OU"
+  defp decode_oid({2, 5, 4, 6}), do: "C"
+  defp decode_oid({2, 5, 4, 7}), do: "L"
+  defp decode_oid({2, 5, 4, 8}), do: "ST"
+  defp decode_oid(oid), do: inspect(oid)
+
+  defp maybe_enrich_with_asn(meta, domain_id) do
+    case get_stored_ipv4(domain_id) do
+      [ip | _] ->
+        case lookup_asn(ip) do
+          {:ok, asn_data} -> Map.merge(meta, asn_data)
+          _ -> meta
+        end
+
+      _ ->
+        meta
     end
   end
 
