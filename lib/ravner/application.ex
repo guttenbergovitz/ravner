@@ -9,7 +9,7 @@ defmodule Ravner.Application do
   def start(_type, _args) do
     # Load .env file in development
     if Application.get_env(:ravner, :env) == :dev do
-      Dotenvy.source([".env", ".env.dev", ".env.#{Mix.env()}"])
+      Dotenvy.source([".env", ".env.dev", ".env.#{Application.get_env(:ravner, :env)}"])
     end
 
     children = [

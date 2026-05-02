@@ -31,6 +31,7 @@ defmodule Ravner.Scans do
 
   Tries Chaos API first, falls back to HackerTarget if Chaos fails or no key.
   """
+  @spec run_subdomain_scan(integer()) :: {:ok, map()} | {:error, String.t()}
   def run_subdomain_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
 
@@ -372,8 +373,6 @@ defmodule Ravner.Scans do
     final_host != "" && final_host != own_host
   end
 
-  defp external_redirect?(_domain_name, _final_url), do: false
-
   defp do_httpx_scan(domain_name) do
     https_url = "https://#{domain_name}"
     http_url = "http://#{domain_name}"
@@ -630,6 +629,7 @@ defmodule Ravner.Scans do
   Falls back through: RDAP → WHOIS → NS heuristics.
   Saves whatever it finds and records the source.
   """
+  @spec run_rdap_scan(integer()) :: {:ok, map()} | {:error, term()}
   def run_rdap_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
     ns_records = get_stored_ns_records(domain_id)

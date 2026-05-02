@@ -32,6 +32,10 @@ defmodule Ravner.Domains do
     |> Repo.all()
   end
 
+  @doc """
+  Deletes domains by their IDs in bulk.
+  """
+  @spec bulk_delete([integer()]) :: {:ok, integer()}
   def bulk_delete(ids) when is_list(ids) do
     {count, _} =
       Domain
@@ -41,6 +45,16 @@ defmodule Ravner.Domains do
     {:ok, count}
   end
 
+  @doc """
+  Returns a paginated list of domains matching the given filters.
+  """
+  @spec list_domains_filtered(keyword()) :: %{
+          domains: [Domain.t()],
+          page: integer(),
+          total_pages: integer(),
+          total: integer(),
+          page_size: integer()
+        }
   def list_domains_filtered(opts \\ []) do
     base = filtered_query(opts)
     page = max(Keyword.get(opts, :page, 1), 1)
