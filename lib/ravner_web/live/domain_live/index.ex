@@ -172,6 +172,13 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, assign(socket, :include_subdomains, !socket.assigns.include_subdomains)}
   end
 
+  def handle_event("scan_visible", _, socket) do
+    ids = socket.assigns.domains |> Enum.map(& &1.id)
+    include_subdomains = socket.assigns.include_subdomains
+
+    execute_scan_on_ids(socket, ids, include_subdomains)
+  end
+
   def handle_event("bulk_action_confirm", %{"action" => action}, socket) do
     {:noreply, assign(socket, :bulk_action, String.to_existing_atom(action))}
   end
@@ -520,6 +527,10 @@ defmodule RavnerWeb.DomainLive.Index do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
     include_subdomains = socket.assigns.include_subdomains
 
+    execute_scan_on_ids(socket, ids, include_subdomains)
+  end
+
+  defp execute_scan_on_ids(socket, ids, include_subdomains) do
     scan_targets = get_scan_targets(ids, include_subdomains)
 
     Task.async_stream(
