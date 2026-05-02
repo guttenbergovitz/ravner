@@ -511,8 +511,7 @@ defmodule Ravner.Scans do
     from_body = detect_tech_from_body(body_str)
 
     (from_powered_by ++ from_generator ++ from_server ++ from_body)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.reject(&(&1 == ""))
+    |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.uniq()
   end
 

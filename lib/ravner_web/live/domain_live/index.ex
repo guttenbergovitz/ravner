@@ -55,13 +55,15 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    search = Map.get(params, "search", "")
-    ip = Map.get(params, "ip", "")
-    lifecycle = params |> Map.get("lifecycle", "") |> parse_lifecycle()
-    project_id = params |> Map.get("project_id", "") |> parse_int()
-    org_id = params |> Map.get("organization_id", "") |> parse_int()
-    brand_id = params |> Map.get("brand_id", "") |> parse_int()
-    page = params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
+    %{
+      search: search,
+      ip: ip,
+      lifecycle: lifecycle,
+      project_id: project_id,
+      org_id: org_id,
+      brand_id: brand_id,
+      page: page
+    } = parse_filters(params)
 
     # Clear selection when filters change
     prev_search = socket.assigns[:search] || ""
@@ -93,18 +95,7 @@ defmodule RavnerWeb.DomainLive.Index do
     # crashing the template when the accordion is open.
     expanded = socket.assigns[:expanded_domains] || MapSet.new()
 
-    domains =
-      if MapSet.size(expanded) > 0 do
-        Enum.map(result.domains, fn d ->
-          if MapSet.member?(expanded, "#{d.id}") do
-            Domains.preload_subdomain_metadata(d)
-          else
-            d
-          end
-        end)
-      else
-        result.domains
-      end
+    domains = apply_metadata_preload(result.domains, expanded)
 
     socket
     |> assign(:page_title, "Domains")
@@ -139,6 +130,32 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:domain, nil)
     |> assign(:import_results, nil)
     |> assign(:importing, false)
+  end
+
+  defp parse_filters(params) do
+    %{
+      search: Map.get(params, "search", ""),
+      ip: Map.get(params, "ip", ""),
+      lifecycle: params |> Map.get("lifecycle", "") |> parse_lifecycle(),
+      project_id: params |> Map.get("project_id", "") |> parse_int(),
+      org_id: params |> Map.get("organization_id", "") |> parse_int(),
+      brand_id: params |> Map.get("brand_id", "") |> parse_int(),
+      page: params |> Map.get("page", "1") |> Integer.parse() |> elem(0)
+    }
+  end
+
+  defp apply_metadata_preload(domains, expanded) do
+    if MapSet.size(expanded) > 0 do
+      Enum.map(domains, fn d ->
+        if MapSet.member?(expanded, "#{d.id}") do
+          Domains.preload_subdomain_metadata(d)
+        else
+          d
+        end
+      end)
+    else
+      domains
+    end
   end
 
   defp parse_lifecycle(""), do: nil
