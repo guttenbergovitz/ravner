@@ -118,6 +118,42 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
+  def handle_event("toggle_facet", %{"type" => type, "id" => id}, socket) do
+    current_val =
+      case type do
+        "lifecycle" -> socket.assigns.lifecycle_filter |> Kernel.||("") |> to_string()
+        "brand" -> socket.assigns.brand_filter |> Kernel.||("") |> to_string()
+        "org" -> socket.assigns.org_filter |> Kernel.||("") |> to_string()
+        "project" -> socket.assigns.project_filter |> Kernel.||("") |> to_string()
+      end
+
+    new_val = if current_val == id, do: "", else: id
+
+    overrides =
+      case type do
+        "lifecycle" -> [lifecycle: new_val]
+        "brand" -> [brand_id: new_val]
+        "org" -> [organization_id: new_val]
+        "project" -> [project_id: new_val]
+      end
+
+    params = build_params(socket, overrides ++ [page: 1])
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("clear_filter", %{"type" => type}, socket) do
+    overrides =
+      case type do
+        "lifecycle" -> [lifecycle: ""]
+        "brand" -> [brand_id: ""]
+        "org" -> [organization_id: ""]
+        "project" -> [project_id: ""]
+      end
+
+    params = build_params(socket, overrides ++ [page: 1])
+    {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
+  end
+
   def handle_event("paginate", %{"page" => page_str}, socket) do
     page = page_str |> Integer.parse() |> elem(0)
     params = build_params(socket, page: page)
@@ -383,21 +419,21 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:project_filter, nil)
     |> assign(:org_filter, nil)
     |> assign(:brand_filter, nil)
-    |> assign(:projects, Inventory.list_projects())
-    |> assign(:orgs, Inventory.list_organizations())
-    |> assign(:brands, Inventory.list_brands())
+    |> assign(:facets, %{lifecycle: [], brands: [], organizations: [], projects: []})
   end
 
   defp apply_action(socket, :index, params) do
     filters = parse_filters(params)
-    result = Domains.list_domains_filtered(Map.to_list(filters))
+    filter_list = Map.to_list(filters)
+    result = Domains.list_domains_filtered(filter_list)
+    facets = Domains.get_facet_counts(filter_list)
 
     # Re-apply subdomain metadata preload for any currently expanded domains
     expanded = socket.assigns[:expanded_domains] || MapSet.new()
     domains = apply_metadata_preload(result.domains, expanded)
 
     socket
-    |> assign_index_state(result, domains, filters)
+    |> assign_index_state(result, domains, filters, facets)
     |> maybe_clear_selection(filters)
   end
 
@@ -408,6 +444,9 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:page_title, "New Domain")
     |> assign(:domain, %Domain{})
     |> assign(:form, to_form(changeset))
+    |> assign(:projects, Inventory.list_projects())
+    |> assign(:orgs, Inventory.list_organizations())
+    |> assign(:brands, Inventory.list_brands())
   end
 
   defp apply_action(socket, :import, _params) do
@@ -418,7 +457,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:importing, false)
   end
 
-  defp assign_index_state(socket, result, domains, filters) do
+  defp assign_index_state(socket, result, domains, filters, facets) do
     socket
     |> assign(:page_title, "Domains")
     |> assign(:domain, nil)
@@ -432,6 +471,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:project_filter, filters.project_id)
     |> assign(:org_filter, filters.org_id)
     |> assign(:brand_filter, filters.brand_id)
+    |> assign(:facets, facets)
   end
 
   defp maybe_clear_selection(socket, filters) do

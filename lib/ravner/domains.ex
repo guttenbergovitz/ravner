@@ -45,7 +45,95 @@ defmodule Ravner.Domains do
   end
 
   @doc """
+  Returns dynamic facet counts for the given filters.
+  Used for the modern faceted search sidebar.
+  """
+  @spec get_facet_counts(keyword()) :: %{
+          lifecycle: [{atom(), integer()}],
+          brands: [{integer(), String.t(), integer()}],
+          organizations: [{integer(), String.t(), integer()}],
+          projects: [{integer(), String.t(), integer()}]
+        }
+  def get_facet_counts(opts \\ []) do
+    # Global filters that affect all facets
+    search = Keyword.get(opts, :search, "")
+    ip = Keyword.get(opts, :ip, "")
+    include_subdomains = Keyword.get(opts, :include_subdomains, false)
+
+    base_query =
+      Domain
+      |> filter_by_type(include_subdomains)
+      |> filter_by_search(search)
+      |> filter_by_ip(ip)
+
+    %{
+      lifecycle: get_lifecycle_facets(base_query, opts),
+      brands: get_brand_facets(base_query, opts),
+      organizations: get_organization_facets(base_query, opts),
+      projects: get_project_facets(base_query, opts)
+    }
+  end
+
+  defp get_lifecycle_facets(query, opts) do
+    # When counting lifecycle, we ignore the lifecycle filter itself
+    # but respect everything else (brand, org, project, search, ip)
+    query
+    |> filter_by_project(Keyword.get(opts, :project_id))
+    |> filter_by_organization_or_brand(
+      Keyword.get(opts, :organization_id),
+      Keyword.get(opts, :brand_id)
+    )
+    |> group_by([d], d.lifecycle_state)
+    |> select([d], {d.lifecycle_state, count(d.id)})
+    |> Repo.all()
+    |> Enum.reject(fn {k, _} -> is_nil(k) end)
+    |> Enum.sort_by(fn {k, _} -> k end)
+  end
+
+  defp get_brand_facets(query, opts) do
+    # Ignore brand filter when counting brands
+    query
+    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+    |> filter_by_project(Keyword.get(opts, :project_id))
+    |> filter_by_organization_or_brand(Keyword.get(opts, :organization_id), nil)
+    |> join(:inner, [d], b in assoc(d, :brand))
+    |> group_by([d, b], [b.id, b.display_name, b.name])
+    |> select([d, b], {b.id, coalesce(b.display_name, b.name), count(d.id)})
+    |> Repo.all()
+    |> Enum.sort_by(fn {_, name, _} -> name end)
+  end
+
+  defp get_organization_facets(query, opts) do
+    # Ignore organization filter when counting orgs
+    query
+    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+    |> filter_by_project(Keyword.get(opts, :project_id))
+    |> filter_by_organization_or_brand(nil, Keyword.get(opts, :brand_id))
+    |> join(:inner, [d], o in assoc(d, :organization))
+    |> group_by([d, o], [o.id, o.display_name, o.name])
+    |> select([d, o], {o.id, coalesce(o.display_name, o.name), count(d.id)})
+    |> Repo.all()
+    |> Enum.sort_by(fn {_, name, _} -> name end)
+  end
+
+  defp get_project_facets(query, opts) do
+    # Ignore project filter when counting projects
+    query
+    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+    |> filter_by_organization_or_brand(
+      Keyword.get(opts, :organization_id),
+      Keyword.get(opts, :brand_id)
+    )
+    |> join(:inner, [d], p in assoc(d, :project))
+    |> group_by([d, p], [p.id, p.display_name, p.name])
+    |> select([d, p], {p.id, coalesce(p.display_name, p.name), count(d.id)})
+    |> Repo.all()
+    |> Enum.sort_by(fn {_, name, _} -> name end)
+  end
+
+  @doc """
   Returns a paginated list of domains matching the given filters.
+  ...
   """
   @spec list_domains_filtered(keyword()) :: %{
           domains: [Domain.t()],
