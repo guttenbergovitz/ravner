@@ -1,0 +1,79 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-light tracking-tight">SSL Certificates</h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Global overview of monitored encryption certificates
+        </p>
+      </div>
+    </div>
+
+    <div class="border border-neutral-200">
+      <%= if @certificates == [] do %>
+        <div class="p-12 text-center text-sm font-light text-neutral-400">
+          No SSL certificates captured yet.
+        </div>
+      <% else %>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-neutral-200 text-left text-[10px] font-normal text-neutral-400 uppercase tracking-wider">
+              <th class="px-6 py-4">Domain</th>
+              <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4">Expires</th>
+              <th class="px-6 py-4">Issuer</th>
+              <th class="px-6 py-4">Valid From</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100">
+            <%= for cert <- @certificates do %>
+              <% expiring_soon = cert.days_remaining != nil && cert.days_remaining <= 14 %>
+              <% expired = cert.days_remaining != nil && cert.days_remaining < 0 %>
+              <tr class="hover:bg-neutral-50 transition-colors group">
+                <td class="px-6 py-4">
+                  <.link
+                    navigate={~p"/domains/#{cert.id}"}
+                    class="font-normal text-neutral-700 hover:underline"
+                  >
+                    {cert.name}
+                  </.link>
+                </td>
+                <td class="px-6 py-4">
+                  <span class={[
+                    "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider",
+                    expired && "text-red-700 bg-red-50 border-red-200",
+                    expiring_soon && !expired && "text-amber-700 bg-amber-50 border-amber-200",
+                    !expiring_soon && "text-green-700 bg-green-50 border-green-200"
+                  ]}>
+                    <%= if expired do %>
+                      Expired
+                    <% else %>
+                      {cert.days_remaining} days
+                    <% end %>
+                  </span>
+                </td>
+                <td class={[
+                  "px-6 py-4 font-light whitespace-nowrap",
+                  expired && "text-red-600",
+                  expiring_soon && !expired && "text-amber-600",
+                  !expiring_soon && "text-neutral-500"
+                ]}>
+                  {Calendar.strftime(cert.valid_until, "%Y-%m-%d")}
+                </td>
+                <td
+                  class="px-6 py-4 text-neutral-500 font-light truncate max-w-[250px]"
+                  title={cert.issuer}
+                >
+                  {cert.issuer}
+                </td>
+                <td class="px-6 py-4 text-neutral-400 font-light whitespace-nowrap">
+                  {Calendar.strftime(cert.valid_from, "%Y-%m-%d")}
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>

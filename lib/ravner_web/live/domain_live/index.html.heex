@@ -675,14 +675,21 @@
                       <% expiring_soon =
                         meta.ssl_days_remaining != nil && meta.ssl_days_remaining <= 14 %>
                       <% expired = meta.ssl_days_remaining != nil && meta.ssl_days_remaining < 0 %>
+                      <% issuer_short =
+                        (meta.ssl_issuer || "")
+                        |> String.split("O=")
+                        |> List.last()
+                        |> String.split(",")
+                        |> List.first()
+                        |> String.slice(0, 15) %>
                       <span
                         class={[
-                          "hidden lg:flex items-center gap-1 shrink-0",
+                          "hidden lg:flex items-center gap-1.5 shrink-0",
                           expired && "text-red-600 font-medium",
                           expiring_soon && !expired && "text-amber-600 font-medium",
                           !expiring_soon && "text-neutral-400"
                         ]}
-                        title={"SSL expires on #{Calendar.strftime(meta.ssl_valid_until, "%Y-%m-%d")}"}
+                        title={"SSL by #{meta.ssl_issuer} expires on #{Calendar.strftime(meta.ssl_valid_until, "%Y-%m-%d")}"}
                       >
                         <.icon
                           name={
@@ -692,11 +699,12 @@
                           }
                           class="w-3.5 h-3.5"
                         />
-                        <%= if expired do %>
-                          Expired
-                        <% else %>
-                          {meta.ssl_days_remaining}d
-                        <% end %>
+                        <span class="flex flex-col items-start leading-none gap-0.5">
+                          <span>{Calendar.strftime(meta.ssl_valid_until, "%y-%m-%d")}</span>
+                          <span class="text-[9px] opacity-70 uppercase tracking-tighter">
+                            {issuer_short}
+                          </span>
+                        </span>
                       </span>
                     <% end %>
 

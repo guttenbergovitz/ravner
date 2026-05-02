@@ -326,14 +326,11 @@ defmodule Ravner.Scans do
     end
   end
 
-  defp maybe_enrich_with_ssl(meta, domain_name, final_url) do
-    if String.starts_with?(final_url, "https://") do
-      case do_ssl_scan(domain_name) do
-        {:ok, ssl_data} -> Map.merge(meta, ssl_data)
-        _ -> meta
-      end
-    else
-      meta
+  defp maybe_enrich_with_ssl(meta, domain_name, _final_url) do
+    # Always attempt an SSL scan to catch expired certs or non-HTTPS sites that still have a cert
+    case do_ssl_scan(domain_name) do
+      {:ok, ssl_data} -> Map.merge(meta, ssl_data)
+      _ -> meta
     end
   end
 
@@ -449,27 +446,28 @@ defmodule Ravner.Scans do
         nil
     end
   end
-# Helper to decode RDN sequence into a readable string
-defp decode_rdn_sequence({:rdnSequence, list}), do: decode_rdn_list(list)
-defp decode_rdn_sequence(list) when is_list(list), do: decode_rdn_list(list)
-defp decode_rdn_sequence(_), do: "unknown"
 
-defp decode_rdn_list(list) do
-  list
-  |> Enum.map_join(", ", fn
-    rdn_set when is_list(rdn_set) ->
-      Enum.map_join(rdn_set, "+", fn rdn ->
-        # AttributeTypeAndValue record
-        type_oid = elem(rdn, 1)
-        value = decode_asn1_string(elem(rdn, 2))
-        type_label = decode_oid(type_oid)
-        "#{type_label}=#{value}"
-      end)
+  # Helper to decode RDN sequence into a readable string
+  defp decode_rdn_sequence({:rdnSequence, list}), do: decode_rdn_list(list)
+  defp decode_rdn_sequence(list) when is_list(list), do: decode_rdn_list(list)
+  defp decode_rdn_sequence(_), do: "unknown"
 
-    _ ->
-      "unknown"
-  end)
-end
+  defp decode_rdn_list(list) do
+    list
+    |> Enum.map_join(", ", fn
+      rdn_set when is_list(rdn_set) ->
+        Enum.map_join(rdn_set, "+", fn rdn ->
+          # AttributeTypeAndValue record
+          type_oid = elem(rdn, 1)
+          value = decode_asn1_string(elem(rdn, 2))
+          type_label = decode_oid(type_oid)
+          "#{type_label}=#{value}"
+        end)
+
+      _ ->
+        "unknown"
+    end)
+  end
 
   defp decode_asn1_string({:utf8String, s}), do: to_string(s)
   defp decode_asn1_string({:printableString, s}), do: to_string(s)
@@ -516,6 +514,7 @@ end
         String.starts_with?(data.final_url, "http://") ->
           # No valid HTTPS certificate or not enforced
           Domains.update_domain(domain, %{lifecycle_state: :insecure})
+
         data.http_status == 200 ->
           # Healthy — if it was previously auto-set to error/redirect, restore to active
           if domain.lifecycle_state in [:error, :redirect, :insecure] do
@@ -1054,4 +1053,3 @@ end
     end
   end
 end
-
