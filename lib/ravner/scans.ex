@@ -316,17 +316,19 @@ defmodule Ravner.Scans do
         maybe_update_lifecycle_from_http(domain, data)
         {:ok, data}
 
-      {:error, {:transport, _kind}} ->
+      {:error, reason} ->
         Domains.upsert_domain_metadata(domain_id, %{
           http_status: 0,
           http_scanned_at: DateTime.utc_now()
         })
 
         maybe_set_error_lifecycle(domain)
-        {:ok, %{error: :connection_error}}
 
-      {:error, reason} ->
-        {:error, reason}
+        if match?({:transport, _}, reason) do
+          {:ok, %{error: :connection_error}}
+        else
+          {:error, reason}
+        end
     end
   end
 
@@ -342,6 +344,10 @@ defmodule Ravner.Scans do
           Domains.update_domain(domain, %{lifecycle_state: :redirect})
 
         data.http_status >= 400 ->
+          Domains.update_domain(domain, %{lifecycle_state: :error})
+
+        String.starts_with?(data.final_url || "", "http://") ->
+          # No valid HTTPS certificate
           Domains.update_domain(domain, %{lifecycle_state: :error})
 
         data.http_status == 200 ->
