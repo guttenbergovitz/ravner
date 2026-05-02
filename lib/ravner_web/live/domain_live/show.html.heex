@@ -549,106 +549,140 @@
       <div class="space-y-6">
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Discovery</h2>
-          <div class="space-y-3">
-            <%!-- Run all scans — primary action, visually differentiated --%>
-            <button
-              phx-click="scan_all"
-              disabled={@scanning}
-              class={[
-                "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-                @scanning &&
-                  "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                !@scanning &&
-                  "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
-              ]}
-            >
-              <%= if @scanning do %>
-                <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
-                </span>
-                Scanning<span class="animate-pulse">…</span>
-              <% else %>
-                <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run all scans
-              <% end %>
-            </button>
-
-            <div class="border-t border-neutral-100 pt-3 space-y-3">
+          <div class="space-y-4">
+            <%!-- Primary Actions --%>
+            <div class="space-y-2">
               <button
-                phx-click="scan_subdomains"
+                phx-click="scan_all"
                 disabled={@scanning}
                 class={[
-                  "btn-line w-full justify-center text-xs",
-                  @scanning && "opacity-50 cursor-not-allowed"
+                  "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
+                  @scanning &&
+                    "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
+                  !@scanning &&
+                    "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
                 ]}
               >
-                <.icon name="hero-magnifying-glass" class="w-4 h-4" /> Discover subdomains
+                <%= if @scanning do %>
+                  <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                  </span>
+                  Scanning<span class="animate-pulse">…</span>
+                <% else %>
+                  <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run all scans
+                <% end %>
               </button>
-              <%= if @domain.domain_metadata && @domain.domain_metadata.subdomains_scanned_at do %>
-                <p class="text-[10px] text-neutral-400 text-center -mt-1">
-                  Last: {Calendar.strftime(
-                    @domain.domain_metadata.subdomains_scanned_at,
-                    "%Y-%m-%d %H:%M"
-                  )}
-                </p>
-              <% end %>
 
-              <button
-                phx-click="scan_httpx"
-                disabled={@scanning}
-                class={[
-                  "btn-line w-full justify-center text-xs",
-                  @scanning && "opacity-50 cursor-not-allowed"
-                ]}
-              >
-                <.icon name="hero-globe-alt" class="w-4 h-4" /> HTTP scan
-              </button>
-              <%= if @domain.domain_metadata && @domain.domain_metadata.http_scanned_at do %>
-                <p class="text-[10px] text-neutral-400 text-center -mt-1">
-                  Last: {Calendar.strftime(
-                    @domain.domain_metadata.http_scanned_at,
-                    "%Y-%m-%d %H:%M"
-                  )}
-                </p>
-              <% end %>
-
-              <button
-                phx-click="scan_dnsx"
-                disabled={@scanning}
-                class={[
-                  "btn-line w-full justify-center text-xs",
-                  @scanning && "opacity-50 cursor-not-allowed"
-                ]}
-              >
-                <.icon name="hero-server-stack" class="w-4 h-4" /> DNS scan
-              </button>
-              <%= if @domain.domain_metadata && @domain.domain_metadata.dns_scanned_at do %>
-                <p class="text-[10px] text-neutral-400 text-center -mt-1">
-                  Last: {Calendar.strftime(
-                    @domain.domain_metadata.dns_scanned_at,
-                    "%Y-%m-%d %H:%M"
-                  )}
-                </p>
-              <% end %>
-
-              <button
-                phx-click="scan_rdap"
-                disabled={@scanning}
-                class={[
-                  "btn-line w-full justify-center text-xs",
-                  @scanning && "opacity-50 cursor-not-allowed"
-                ]}
-              >
-                <.icon name="hero-identification" class="w-4 h-4" /> Registration scan
-              </button>
-              <%= if @domain.domain_metadata && @domain.domain_metadata.rdap_scanned_at do %>
-                <p class="text-[10px] text-neutral-400 text-center -mt-1">
-                  Last: {Calendar.strftime(
-                    @domain.domain_metadata.rdap_scanned_at,
-                    "%Y-%m-%d %H:%M"
-                  )}
-                </p>
+              <%= if @domain.subdomains != [] do %>
+                <button
+                  phx-click="scan_all_subdomains"
+                  disabled={@scanning}
+                  class={[
+                    "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
+                    @scanning &&
+                      "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
+                    !@scanning &&
+                      "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
+                  ]}
+                >
+                  <%= if @scanning do %>
+                    <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                    </span>
+                    Scanning subdomains<span class="animate-pulse">…</span>
+                  <% else %>
+                    <.icon name="hero-bolt" class="w-3.5 h-3.5" />
+                    Scan {@domain.subdomains |> length()} subdomains
+                  <% end %>
+                </button>
               <% end %>
             </div>
-            <%!-- end individual scans div --%>
+
+            <%!-- Individual scans --%>
+            <details class="group border-t border-neutral-100 pt-3">
+              <summary class="flex justify-between items-center text-xs font-medium text-neutral-500 cursor-pointer list-none hover:text-neutral-900 transition-colors">
+                <span>Individual Scans</span>
+                <span class="transition group-open:rotate-180">
+                  <.icon name="hero-chevron-down" class="w-4 h-4" />
+                </span>
+              </summary>
+
+              <div class="mt-4 space-y-3">
+                <button
+                  phx-click="scan_subdomains"
+                  disabled={@scanning}
+                  class={[
+                    "btn-line w-full justify-center text-xs",
+                    @scanning && "opacity-50 cursor-not-allowed"
+                  ]}
+                >
+                  <.icon name="hero-magnifying-glass" class="w-4 h-4" /> Discover subdomains
+                </button>
+                <%= if @domain.domain_metadata && @domain.domain_metadata.subdomains_scanned_at do %>
+                  <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                    Last: {Calendar.strftime(
+                      @domain.domain_metadata.subdomains_scanned_at,
+                      "%Y-%m-%d %H:%M"
+                    )}
+                  </p>
+                <% end %>
+
+                <button
+                  phx-click="scan_httpx"
+                  disabled={@scanning}
+                  class={[
+                    "btn-line w-full justify-center text-xs",
+                    @scanning && "opacity-50 cursor-not-allowed"
+                  ]}
+                >
+                  <.icon name="hero-globe-alt" class="w-4 h-4" /> HTTP scan
+                </button>
+                <%= if @domain.domain_metadata && @domain.domain_metadata.http_scanned_at do %>
+                  <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                    Last: {Calendar.strftime(
+                      @domain.domain_metadata.http_scanned_at,
+                      "%Y-%m-%d %H:%M"
+                    )}
+                  </p>
+                <% end %>
+
+                <button
+                  phx-click="scan_dnsx"
+                  disabled={@scanning}
+                  class={[
+                    "btn-line w-full justify-center text-xs",
+                    @scanning && "opacity-50 cursor-not-allowed"
+                  ]}
+                >
+                  <.icon name="hero-server-stack" class="w-4 h-4" /> DNS scan
+                </button>
+                <%= if @domain.domain_metadata && @domain.domain_metadata.dns_scanned_at do %>
+                  <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                    Last: {Calendar.strftime(
+                      @domain.domain_metadata.dns_scanned_at,
+                      "%Y-%m-%d %H:%M"
+                    )}
+                  </p>
+                <% end %>
+
+                <button
+                  phx-click="scan_rdap"
+                  disabled={@scanning}
+                  class={[
+                    "btn-line w-full justify-center text-xs",
+                    @scanning && "opacity-50 cursor-not-allowed"
+                  ]}
+                >
+                  <.icon name="hero-identification" class="w-4 h-4" /> Registration scan
+                </button>
+                <%= if @domain.domain_metadata && @domain.domain_metadata.rdap_scanned_at do %>
+                  <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                    Last: {Calendar.strftime(
+                      @domain.domain_metadata.rdap_scanned_at,
+                      "%Y-%m-%d %H:%M"
+                    )}
+                  </p>
+                <% end %>
+              </div>
+            </details>
           </div>
 
           <%= if @scan_results do %>

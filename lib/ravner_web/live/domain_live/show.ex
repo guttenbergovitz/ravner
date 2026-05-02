@@ -74,6 +74,46 @@ defmodule RavnerWeb.DomainLive.Show do
     end
   end
 
+  def handle_event("scan_all_subdomains", _, socket) do
+    if !editor?(socket.assigns.current_scope) do
+      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+    else
+      domain = socket.assigns.domain
+      liveview_pid = self()
+
+      if domain.subdomains == [] do
+        {:noreply, socket}
+      else
+        subdomain_count = length(domain.subdomains)
+
+        socket =
+          socket
+          |> assign(:scanning, true)
+          |> assign(:pending_scans, subdomain_count * 4)
+
+        for sub <- domain.subdomains do
+          Task.start(fn ->
+            send(liveview_pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(sub.id)})
+          end)
+
+          Task.start(fn ->
+            send(liveview_pid, {:scan_done, :httpx, Scans.run_httpx_scan(sub.id)})
+          end)
+
+          Task.start(fn ->
+            send(liveview_pid, {:scan_done, :rdap, Scans.run_rdap_scan(sub.id)})
+          end)
+
+          Task.start(fn ->
+            send(liveview_pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(sub.id)})
+          end)
+        end
+
+        {:noreply, socket}
+      end
+    end
+  end
+
   def handle_event("toggle_lifecycle_menu", _, socket) do
     {:noreply, assign(socket, :lifecycle_menu_open, !socket.assigns.lifecycle_menu_open)}
   end
