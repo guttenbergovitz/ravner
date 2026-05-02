@@ -32,7 +32,21 @@ defmodule Ravner.Domains do
   end
 
   @doc """
+  Updates multiple domains by their IDs.
+  """
+  @spec bulk_update([integer()], map()) :: {:ok, integer()}
+  def bulk_update(ids, attrs) when is_list(ids) and is_map(attrs) do
+    {count, _} =
+      Domain
+      |> where([d], d.id in ^ids)
+      |> Repo.update_all(set: Map.to_list(attrs))
+
+    {:ok, count}
+  end
+
+  @doc """
   Deletes domains by their IDs in bulk.
+  ...
   """
   @spec bulk_delete([integer()]) :: {:ok, integer()}
   def bulk_delete(ids) when is_list(ids) do
@@ -45,7 +59,110 @@ defmodule Ravner.Domains do
   end
 
   @doc """
+  Returns dynamic facet counts for the given filters.
+  Used for the modern faceted search sidebar.
+  """
+  @spec get_facet_counts(keyword()) :: %{
+          lifecycle: [{atom(), integer()}],
+          brands: [{integer(), String.t(), integer()}],
+          organizations: [{integer(), String.t(), integer()}],
+          projects: [{integer(), String.t(), integer()}]
+        }
+  def get_facet_counts(opts \\ []) do
+    # Global filters that affect all facets
+    search = Keyword.get(opts, :search, "")
+    ip = Keyword.get(opts, :ip, "")
+    include_subdomains = Keyword.get(opts, :include_subdomains, false)
+
+    base_query =
+      Domain
+      |> filter_by_type(include_subdomains)
+      |> filter_by_search(search)
+      |> filter_by_ip(ip)
+
+    %{
+      lifecycle: get_lifecycle_facets(base_query, opts),
+      brands: get_brand_facets(base_query, opts),
+      organizations: get_organization_facets(base_query, opts),
+      projects: get_project_facets(base_query, opts)
+    }
+  end
+
+  defp get_lifecycle_facets(query, opts) do
+    # When counting lifecycle, we ignore the lifecycle filter itself
+    # but respect everything else (brand, org, project, search, ip)
+    query
+    |> filter_by_project(Keyword.get(opts, :project_id))
+    |> filter_by_organization_or_brand(
+      Keyword.get(opts, :organization_id),
+      Keyword.get(opts, :brand_id)
+    )
+    |> group_by([d], d.lifecycle_state)
+    |> select([d], {d.lifecycle_state, count(d.id)})
+    |> Repo.all()
+    |> Enum.reject(fn {k, _} -> is_nil(k) end)
+    |> Enum.sort_by(fn {k, _} -> k end)
+  end
+
+  defp get_brand_facets(query, opts) do
+    # Left join from all brands to the filtered query
+    filtered_subquery =
+      query
+      |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+      |> filter_by_project(Keyword.get(opts, :project_id))
+      |> filter_by_organization_or_brand(Keyword.get(opts, :organization_id), nil)
+
+    from(b in Ravner.Inventory.Brand,
+      left_join: d in subquery(filtered_subquery),
+      on: d.brand_id == b.id,
+      group_by: [b.id, b.display_name, b.name],
+      select: {b.id, coalesce(b.display_name, b.name), count(d.id)}
+    )
+    |> Repo.all()
+    |> Enum.sort_by(fn {_, name, _} -> name end)
+  end
+
+  defp get_organization_facets(query, opts) do
+    # Left join from all organizations to the filtered query
+    filtered_subquery =
+      query
+      |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+      |> filter_by_project(Keyword.get(opts, :project_id))
+      |> filter_by_organization_or_brand(nil, Keyword.get(opts, :brand_id))
+
+    from(o in Ravner.Inventory.Organization,
+      left_join: d in subquery(filtered_subquery),
+      on: d.organization_id == o.id,
+      group_by: [o.id, o.display_name, o.name],
+      select: {o.id, coalesce(o.display_name, o.name), count(d.id)}
+    )
+    |> Repo.all()
+    |> Enum.sort_by(fn {_, name, _} -> name end)
+  end
+
+  defp get_project_facets(query, opts) do
+    # Left join from all projects to the filtered query
+    filtered_subquery =
+      query
+      |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+      |> filter_by_organization_or_brand(
+        Keyword.get(opts, :organization_id),
+        Keyword.get(opts, :brand_id)
+      )
+
+    from(p in Ravner.Inventory.Project,
+      left_join: d in subquery(filtered_subquery),
+      on: d.project_id == p.id,
+      group_by: [p.id, p.display_name, p.name],
+      select: {p.id, coalesce(p.display_name, p.name), count(d.id)}
+    )
+    |> Repo.all()
+    |> Enum.sort_by(fn {_, name, _} -> name end)
+  end
+
+  @doc """
   Returns a paginated list of domains matching the given filters.
+  ...
   """
   @spec list_domains_filtered(keyword()) :: %{
           domains: [Domain.t()],
@@ -68,7 +185,15 @@ defmodule Ravner.Domains do
       |> order_by([d], asc: d.name)
       |> limit(@page_size)
       |> offset(^offset)
-      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
+      |> preload([
+        :parent_domain,
+        :domain_tags,
+        :domain_metadata,
+        :subdomains,
+        :project,
+        :brand,
+        :organization
+      ])
       |> Repo.all()
 
     %{
@@ -86,7 +211,15 @@ defmodule Ravner.Domains do
   def list_domains_filtered_all(opts \\ []) do
     filtered_query(opts)
     |> order_by([d], asc: d.name)
-    |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
+    |> preload([
+      :parent_domain,
+      :domain_tags,
+      :domain_metadata,
+      :subdomains,
+      :project,
+      :brand,
+      :organization
+    ])
     |> Repo.all()
   end
 
@@ -101,7 +234,6 @@ defmodule Ravner.Domains do
       Keyword.get(opts, :organization_id, nil),
       Keyword.get(opts, :brand_id, nil)
     )
-    |> preload([:project, :brand, :organization])
   end
 
   defp filter_by_type(query, true), do: query
@@ -114,7 +246,10 @@ defmodule Ravner.Domains do
     where(query, [d], ilike(d.name, ^pattern))
   end
 
-  defp filter_by_lifecycle(query, lifecycle) when lifecycle in [nil, "", :all], do: query
+  defp filter_by_lifecycle(query, lifecycle) when lifecycle in [nil, "", :all, []], do: query
+
+  defp filter_by_lifecycle(query, lifecycle) when is_list(lifecycle),
+    do: where(query, [d], d.lifecycle_state in ^lifecycle)
 
   defp filter_by_lifecycle(query, lifecycle),
     do: where(query, [d], d.lifecycle_state == ^lifecycle)
@@ -133,9 +268,15 @@ defmodule Ravner.Domains do
   end
 
   defp filter_by_project(query, nil), do: query
+  defp filter_by_project(query, []), do: query
+
+  defp filter_by_project(query, project_id) when is_list(project_id),
+    do: where(query, [d], d.project_id in ^project_id)
+
   defp filter_by_project(query, project_id), do: where(query, [d], d.project_id == ^project_id)
 
   defp filter_by_organization_or_brand(query, nil, nil), do: query
+  defp filter_by_organization_or_brand(query, [], []), do: query
 
   defp filter_by_organization_or_brand(query, organization_id, brand_id) do
     joined_query =
@@ -146,15 +287,13 @@ defmodule Ravner.Domains do
       )
 
     cond do
-      organization_id ->
-        where(
-          joined_query,
-          [d, p, o],
-          d.organization_id == ^organization_id or p.organization_id == ^organization_id
-        )
+      organization_id && organization_id != [] ->
+        ids = List.wrap(organization_id)
+        where(joined_query, [d, p, o], d.organization_id in ^ids or p.organization_id in ^ids)
 
-      brand_id ->
-        where(joined_query, [d, p, o], o.brand_id == ^brand_id)
+      brand_id && brand_id != [] ->
+        ids = List.wrap(brand_id)
+        where(joined_query, [d], d.brand_id in ^ids)
 
       true ->
         joined_query

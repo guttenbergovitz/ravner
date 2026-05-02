@@ -86,21 +86,4 @@ defmodule RavnerWeb.DashboardLive.Index do
 
     bars
   end
-
-  defp percentage(num, den) when den > 0, do: round(num / den * 100)
-  defp percentage(_num, _den), do: 0
-
-  defp total_http(http),
-    do: http.http_200 + http.http_3xx + http.http_4xx_5xx + http.http_unscanned
-
-  defp lifecycle_color(:priority), do: "bg-teal-600"
-  defp lifecycle_color(:active), do: "bg-green-500"
-  defp lifecycle_color(:placeholder), do: "bg-violet-500"
-  defp lifecycle_color(:under_review), do: "bg-yellow-500"
-  defp lifecycle_color(:redirect), do: "bg-cyan-500"
-  defp lifecycle_color(:deprecated), do: "bg-orange-400"
-  defp lifecycle_color(:decommissioned), do: "bg-red-500"
-  defp lifecycle_color(:error), do: "bg-red-500"
-  defp lifecycle_color(:abandoned), do: "bg-neutral-400"
-  defp lifecycle_color(_), do: "bg-neutral-300"
 end
