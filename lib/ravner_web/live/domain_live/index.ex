@@ -212,64 +212,63 @@ defmodule RavnerWeb.DomainLive.Index do
      |> put_flash(:info, "Lifecycle updated")}
   end
 
-  def handle_event("toggle_bulk_lifecycle_menu", _params, socket) do
+  def handle_event("clear_selection", _params, socket) do
+    {:noreply, assign(socket, :selected_ids, MapSet.new())}
+  end
+
+  def handle_event("toggle_bulk_actions_menu", _params, socket) do
     {:noreply,
-     assign(socket, :bulk_lifecycle_menu_open, !socket.assigns.bulk_lifecycle_menu_open)}
+     assign(socket, :bulk_actions_menu_open, !socket.assigns.bulk_actions_menu_open)}
   end
 
-  def handle_event("close_bulk_lifecycle_menu", _params, socket) do
-    {:noreply, assign(socket, :bulk_lifecycle_menu_open, false)}
-  end
-
-  def handle_event("toggle_bulk_brand_menu", _params, socket) do
-    {:noreply, assign(socket, :bulk_brand_menu_open, !socket.assigns.bulk_brand_menu_open)}
-  end
-
-  def handle_event("toggle_bulk_org_menu", _params, socket) do
-    {:noreply, assign(socket, :bulk_org_menu_open, !socket.assigns.bulk_org_menu_open)}
-  end
-
-  def handle_event("toggle_bulk_project_menu", _params, socket) do
-    {:noreply, assign(socket, :bulk_project_menu_open, !socket.assigns.bulk_project_menu_open)}
+  def handle_event("close_bulk_actions_menu", _params, socket) do
+    {:noreply, assign(socket, :bulk_actions_menu_open, false)}
   end
 
   def handle_event("bulk_action_confirm", %{"action" => action}, socket) do
-    {:noreply, assign(socket, :bulk_action, String.to_atom(action))}
+    {:noreply,
+     socket
+     |> assign(:bulk_actions_menu_open, false)
+     |> assign(:bulk_action, String.to_atom(action))}
   end
 
   def handle_event("bulk_action_confirm", %{"lifecycle" => state}, socket) do
-    {:noreply, assign(socket, :bulk_action, {:lifecycle, String.to_atom(state)})}
+    {:noreply,
+     socket
+     |> assign(:bulk_actions_menu_open, false)
+     |> assign(:bulk_action, {:lifecycle, String.to_atom(state)})}
   end
 
   def handle_event("bulk_action_confirm", %{"brand_id" => id}, socket) do
-    {:noreply, assign(socket, :bulk_action, {:brand, String.to_integer(id)})}
+    {:noreply,
+     socket
+     |> assign(:bulk_actions_menu_open, false)
+     |> assign(:bulk_action, {:brand, String.to_integer(id)})}
   end
 
   def handle_event("bulk_action_confirm", %{"org_id" => id}, socket) do
-    {:noreply, assign(socket, :bulk_action, {:org, String.to_integer(id)})}
+    {:noreply,
+     socket
+     |> assign(:bulk_actions_menu_open, false)
+     |> assign(:bulk_action, {:org, String.to_integer(id)})}
   end
 
   def handle_event("bulk_action_confirm", %{"project_id" => id}, socket) do
-    {:noreply, assign(socket, :bulk_action, {:project, String.to_integer(id)})}
+    {:noreply,
+     socket
+     |> assign(:bulk_actions_menu_open, false)
+     |> assign(:bulk_action, {:project, String.to_integer(id)})}
   end
 
   def handle_event("bulk_action_cancel", _params, socket) do
     {:noreply,
      socket
      |> assign(:bulk_action, nil)
-     |> assign(:bulk_lifecycle_menu_open, false)
-     |> assign(:bulk_brand_menu_open, false)
-     |> assign(:bulk_org_menu_open, false)
-     |> assign(:bulk_project_menu_open, false)}
+     |> assign(:bulk_actions_menu_open, false)}
   end
 
   def handle_event("bulk_action_execute", _params, socket) do
-    socket =
-      socket
-      |> assign(:bulk_lifecycle_menu_open, false)
-      |> assign(:bulk_brand_menu_open, false)
-      |> assign(:bulk_org_menu_open, false)
-      |> assign(:bulk_project_menu_open, false)
+    socket = assign(socket, :bulk_actions_menu_open, false)
 
     case socket.assigns.bulk_action do
       :delete -> execute_bulk_delete(socket)
@@ -328,10 +327,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:selected_ids, MapSet.new())
     |> assign(:include_subdomains, false)
     |> assign(:bulk_action, nil)
-    |> assign(:bulk_lifecycle_menu_open, false)
-    |> assign(:bulk_brand_menu_open, false)
-    |> assign(:bulk_org_menu_open, false)
-    |> assign(:bulk_project_menu_open, false)
+    |> assign(:bulk_actions_menu_open, false)
     |> assign(:scanning_ids, MapSet.new())
     |> assign(:ip_filter, "")
     |> assign(:export_include_subs, false)
