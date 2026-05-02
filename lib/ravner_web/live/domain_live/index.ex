@@ -532,19 +532,28 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp execute_scan_on_ids(socket, ids, include_subdomains) do
     scan_targets = get_scan_targets(ids, include_subdomains)
+    liveview_pid = self()
 
-    Task.async_stream(
-      scan_targets,
-      fn domain ->
-        Scans.run_dnsx_scan(domain.id)
-        Scans.run_httpx_scan(domain.id)
-        Scans.run_rdap_scan(domain.id)
-        Scans.run_subdomain_scan(domain.id)
-      end,
-      ordered: false,
-      timeout: :infinity
-    )
-    |> Stream.run()
+    # IDs to show as "scanning" in UI
+    target_ids = Enum.map(scan_targets, &to_string(&1.id))
+    new_scanning = MapSet.union(socket.assigns.scanning_ids, MapSet.new(target_ids))
+
+    Task.start(fn ->
+      Task.async_stream(
+        scan_targets,
+        fn domain ->
+          Scans.run_dnsx_scan(domain.id)
+          Scans.run_httpx_scan(domain.id)
+          Scans.run_rdap_scan(domain.id)
+          Scans.run_subdomain_scan(domain.id)
+          send(liveview_pid, {:quick_scan_done, domain.id})
+        end,
+        max_concurrency: 10,
+        ordered: false,
+        timeout: :infinity
+      )
+      |> Stream.run()
+    end)
 
     count = length(scan_targets)
     params = build_params(socket)
@@ -556,10 +565,8 @@ defmodule RavnerWeb.DomainLive.Index do
      |> assign(:include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
-     |> assign(:scanning_ids, MapSet.new())
-     |> assign(:ip_filter, "")
-     |> assign(:export_include_subs, false)
-     |> put_flash(:info, "Scanned #{count} domain#{if count != 1, do: "s", else: ""}")
+     |> assign(:scanning_ids, new_scanning)
+     |> put_flash(:info, "Scan started for #{count} domain#{if count != 1, do: "s", else: ""}")
      |> push_patch(to: ~p"/domains?#{params}")}
   end
 
