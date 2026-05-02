@@ -4,9 +4,9 @@ defmodule RavnerWeb.DomainLive.Show do
   require Logger
 
   alias Ravner.Domains
-  alias Ravner.Scans
   alias Ravner.Inventory
   alias Ravner.Repo
+  alias Ravner.Scans
 
   # Two-part TLDs for root domain extraction (same logic as Balebos)
   @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
@@ -42,75 +42,56 @@ defmodule RavnerWeb.DomainLive.Show do
   # ---------------------------------------------------------------------------
 
   @impl true
+  def handle_event("scan_all", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
   def handle_event("scan_all", _, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain_id = socket.assigns.domain.id
-      liveview_pid = self()
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
 
-      socket =
-        socket
-        |> assign(:scanning, true)
-        |> assign(:pending_scans, 4)
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:pending_scans, 4)
 
-      Task.start(fn ->
-        send(liveview_pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(domain_id)})
-      end)
+    start_scan_tasks(liveview_pid, domain_id)
 
-      Task.start(fn ->
-        send(liveview_pid, {:scan_done, :httpx, Scans.run_httpx_scan(domain_id)})
-      end)
+    {:noreply, socket}
+  end
 
-      Task.start(fn ->
-        send(liveview_pid, {:scan_done, :rdap, Scans.run_rdap_scan(domain_id)})
-      end)
+  defp start_scan_tasks(pid, id) do
+    Task.start(fn -> send(pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(id)}) end)
+    Task.start(fn -> send(pid, {:scan_done, :httpx, Scans.run_httpx_scan(id)}) end)
+    Task.start(fn -> send(pid, {:scan_done, :rdap, Scans.run_rdap_scan(id)}) end)
+    Task.start(fn -> send(pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(id)}) end)
+  end
 
-      Task.start(fn ->
-        send(liveview_pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(domain_id)})
-      end)
-
-      {:noreply, socket}
-    end
+  def handle_event("scan_all_subdomains", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
   end
 
   def handle_event("scan_all_subdomains", _, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain = socket.assigns.domain
-      liveview_pid = self()
+    domain = socket.assigns.domain
+    liveview_pid = self()
 
-      if domain.subdomains == [] do
+    case domain.subdomains do
+      [] ->
         {:noreply, socket}
-      else
-        subdomain_count = length(domain.subdomains)
+
+      subdomains ->
+        subdomain_count = length(subdomains)
 
         socket =
           socket
           |> assign(:scanning, true)
           |> assign(:pending_scans, subdomain_count * 4)
 
-        for sub <- domain.subdomains do
-          Task.start(fn ->
-            send(liveview_pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(sub.id)})
-          end)
-
-          Task.start(fn ->
-            send(liveview_pid, {:scan_done, :httpx, Scans.run_httpx_scan(sub.id)})
-          end)
-
-          Task.start(fn ->
-            send(liveview_pid, {:scan_done, :rdap, Scans.run_rdap_scan(sub.id)})
-          end)
-
-          Task.start(fn ->
-            send(liveview_pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(sub.id)})
-          end)
-        end
+        Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id))
 
         {:noreply, socket}
-      end
     end
   end
 
@@ -122,125 +103,133 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply, assign(socket, :lifecycle_menu_open, false)}
   end
 
+  def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
   def handle_event("set_lifecycle", %{"state" => state}, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-    else
-      domain = socket.assigns.domain
+    domain = socket.assigns.domain
 
-      case Domains.update_domain(domain, %{lifecycle_state: state}) do
-        {:ok, _} ->
-          domain = Domains.get_domain_with_preloads!(domain.id)
+    case Domains.update_domain(domain, %{lifecycle_state: state}) do
+      {:ok, _} ->
+        domain = Domains.get_domain_with_preloads!(domain.id)
 
-          {:noreply,
-           socket
-           |> assign(:domain, domain)
-           |> assign(:lifecycle_menu_open, false)}
+        {:noreply,
+         socket
+         |> assign(:domain, domain)
+         |> assign(:lifecycle_menu_open, false)}
 
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
-      end
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
     end
+  end
+
+  def handle_event("set_project", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission.")}
   end
 
   def handle_event("set_project", %{"project_id" => pid}, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission.")}
-    else
-      domain = socket.assigns.domain
-      pid = if pid == "", do: nil, else: String.to_integer(pid)
+    domain = socket.assigns.domain
+    pid = if pid == "", do: nil, else: String.to_integer(pid)
 
-      case Domains.update_domain_with_project(domain, pid) do
-        {:ok, _} ->
-          domain = Domains.get_domain_with_preloads!(domain.id)
+    case Domains.update_domain_with_project(domain, pid) do
+      {:ok, _} ->
+        domain = Domains.get_domain_with_preloads!(domain.id)
 
-          {:noreply,
-           socket
-           |> assign(:domain, domain)}
+        {:noreply,
+         socket
+         |> assign(:domain, domain)}
 
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update project")}
-      end
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update project")}
     end
+  end
+
+  def handle_event("set_brand", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission.")}
   end
 
   def handle_event("set_brand", %{"brand_id" => bid}, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission.")}
-    else
-      domain = socket.assigns.domain
-      bid = if bid == "", do: nil, else: String.to_integer(bid)
+    domain = socket.assigns.domain
+    bid = if bid == "", do: nil, else: String.to_integer(bid)
 
-      attrs =
-        %{brand_id: bid}
-        |> then(fn a ->
-          if bid do
-            org = domain.organization
+    attrs = build_brand_update_attrs(domain, bid)
 
-            if org && org.brand_id && org.brand_id != bid do
-              Map.merge(a, %{organization_id: nil, project_id: nil})
-            else
-              project = domain.project
+    case Domains.update_domain(domain, attrs) do
+      {:ok, _} ->
+        {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
 
-              if project do
-                proj_org = Repo.get(Ravner.Inventory.Organization, project.organization_id)
-
-                if proj_org && proj_org.brand_id && proj_org.brand_id != bid do
-                  Map.merge(a, %{project_id: nil})
-                else
-                  a
-                end
-              else
-                a
-              end
-            end
-          else
-            a
-          end
-        end)
-
-      case Domains.update_domain(domain, attrs) do
-        {:ok, _} ->
-          {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update brand")}
-      end
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update brand")}
     end
   end
 
-  def handle_event("set_organization", %{"organization_id" => oid}, socket) do
-    if !editor?(socket.assigns.current_scope) do
-      {:noreply, put_flash(socket, :error, "You don't have permission.")}
-    else
-      domain = socket.assigns.domain
-      oid = if oid == "", do: nil, else: String.to_integer(oid)
+  defp build_brand_update_attrs(domain, bid) do
+    attrs = %{brand_id: bid}
 
-      {org, project} =
-        if oid do
-          {Repo.get(Ravner.Inventory.Organization, oid), domain.project}
+    if bid do
+      org = domain.organization
+
+      if org && org.brand_id && org.brand_id != bid do
+        Map.merge(attrs, %{organization_id: nil, project_id: nil})
+      else
+        project = domain.project
+
+        if project do
+          proj_org = Repo.get(Ravner.Inventory.Organization, project.organization_id)
+
+          if proj_org && proj_org.brand_id && proj_org.brand_id != bid do
+            Map.merge(attrs, %{project_id: nil})
+          else
+            attrs
+          end
         else
-          {nil, nil}
+          attrs
         end
-
-      attrs =
-        %{organization_id: oid}
-        |> then(fn a ->
-          if org && org.brand_id, do: Map.put(a, :brand_id, org.brand_id), else: a
-        end)
-        |> then(fn a ->
-          if project && project.organization_id != oid,
-            do: Map.put(a, :project_id, nil),
-            else: a
-        end)
-
-      case Domains.update_domain(domain, attrs) do
-        {:ok, _} ->
-          {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update organization")}
       end
+    else
+      attrs
+    end
+  end
+
+  def handle_event("set_organization", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission.")}
+  end
+
+  def handle_event("set_organization", %{"organization_id" => oid}, socket) do
+    domain = socket.assigns.domain
+    oid = if oid == "", do: nil, else: String.to_integer(oid)
+
+    attrs = build_org_update_attrs(domain, oid)
+
+    case Domains.update_domain(domain, attrs) do
+      {:ok, _} ->
+        {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update organization")}
+    end
+  end
+
+  defp build_org_update_attrs(domain, oid) do
+    attrs = %{organization_id: oid}
+
+    attrs =
+      if oid do
+        org = Repo.get(Ravner.Inventory.Organization, oid)
+        if org && org.brand_id, do: Map.put(attrs, :brand_id, org.brand_id), else: attrs
+      else
+        attrs
+      end
+
+    if domain.project && domain.project.organization_id != oid do
+      Map.put(attrs, :project_id, nil)
+    else
+      attrs
     end
   end
 
@@ -435,34 +424,35 @@ defmodule RavnerWeb.DomainLive.Show do
 
   # Compute domain classification from stored metadata (Balebos-style)
   defp compute_domain_class(domain) do
-    meta = domain.domain_metadata
+    classify_by_metadata(domain, domain.domain_metadata)
+  end
 
-    cond do
-      is_nil(meta) || is_nil(meta.http_status) ->
-        {:not_scanned, nil}
+  defp classify_by_metadata(_domain, nil), do: {:not_scanned, nil}
+  defp classify_by_metadata(_domain, %{http_status: nil}), do: {:not_scanned, nil}
+  defp classify_by_metadata(_domain, %{http_status: 0}), do: {:scan_error, nil}
 
-      meta.http_status == 0 ->
-        {:scan_error, nil}
-
-      meta.http_status == 200 ->
-        case external_redirect_target(domain.name, meta.final_url) do
-          nil -> {:ok, nil}
-          target -> {:external_redirect, target}
-        end
-
-      meta.http_status in 300..399 ->
-        target = meta.final_url || "unknown"
-        {:redirect, target}
-
-      meta.http_status in 400..499 ->
-        {:client_error, meta.http_status}
-
-      meta.http_status in 500..599 ->
-        {:server_error, meta.http_status}
-
-      true ->
-        {:other, meta.http_status}
+  defp classify_by_metadata(domain, %{http_status: 200, final_url: url}) do
+    case external_redirect_target(domain.name, url) do
+      nil -> {:ok, nil}
+      target -> {:external_redirect, target}
     end
+  end
+
+  defp classify_by_metadata(_domain, %{http_status: status, final_url: url})
+       when status in 300..399 do
+    {:redirect, url || "unknown"}
+  end
+
+  defp classify_by_metadata(_domain, %{http_status: status}) when status in 400..499 do
+    {:client_error, status}
+  end
+
+  defp classify_by_metadata(_domain, %{http_status: status}) when status in 500..599 do
+    {:server_error, status}
+  end
+
+  defp classify_by_metadata(_domain, %{http_status: status}) do
+    {:other, status}
   end
 
   # Returns the external redirect target domain if final_url points outside the current root domain

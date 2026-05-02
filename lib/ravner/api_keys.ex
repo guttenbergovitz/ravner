@@ -9,8 +9,8 @@ defmodule Ravner.ApiKeys do
   """
 
   import Ecto.Query, warn: false
-  alias Ravner.Repo
   alias Ravner.ApiKeys.ApiKey
+  alias Ravner.Repo
 
   require Logger
 

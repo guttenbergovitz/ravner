@@ -5,12 +5,7 @@ defmodule RavnerWeb.AdminLive.Backup do
 
   @impl true
   def mount(_params, _session, socket) do
-    if !admin?(socket.assigns.current_scope) do
-      {:ok,
-       socket
-       |> put_flash(:error, "Admin access required")
-       |> push_navigate(to: ~p"/domains")}
-    else
+    if admin?(socket.assigns.current_scope) do
       {:ok,
        socket
        |> assign(:page_title, "Backup & Restore")
@@ -18,10 +13,15 @@ defmodule RavnerWeb.AdminLive.Backup do
        |> assign(:restore_path, nil)
        |> assign(:restoring, false)
        |> allow_upload(:backup_file,
-         accept: :any,
+         accept: ~w(.json),
          max_entries: 1,
-         max_file_size: 500_000_000
+         max_file_size: 10_000_000
        )}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "Admin access required")
+       |> push_navigate(to: ~p"/domains")}
     end
   end
 

@@ -6,7 +6,7 @@ defmodule Ravner.Accounts do
   import Ecto.Query, warn: false
   alias Ravner.Repo
 
-  alias Ravner.Accounts.{User, UserToken, UserNotifier}
+  alias Ravner.Accounts.{User, UserNotifier, UserToken}
 
   ## Database getters
 

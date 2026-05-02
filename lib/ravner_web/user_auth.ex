@@ -1,4 +1,7 @@
 defmodule RavnerWeb.UserAuth do
+  @moduledoc """
+  Authentication-related plugs and helpers for Phoenix.
+  """
   use RavnerWeb, :verified_routes
 
   import Plug.Conn

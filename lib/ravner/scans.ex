@@ -75,48 +75,47 @@ defmodule Ravner.Scans do
   end
 
   defp run_chaos(domain_name) do
-    # Settings have precedence over ENV (as per design)
-    api_key =
-      case ApiKeys.get_effective_key("chaos") do
-        {:settings, _, _} ->
-          # Key is stored as hash in settings, we need to check if there's an ENV fallback
-          # or this is an error condition
-          System.get_env("CHAOS_API_KEY")
+    case get_chaos_api_key() do
+      nil ->
+        {:error,
+         "No Chaos API key configured (add in Settings > API Keys or set CHAOS_API_KEY env var)"}
 
-        {:env, key, _} ->
-          key
+      api_key ->
+        execute_chaos_request(domain_name, api_key)
+    end
+  end
 
-        {:none, _, _} ->
-          nil
-      end
+  defp get_chaos_api_key do
+    case ApiKeys.get_effective_key("chaos") do
+      {:settings, _, _} -> System.get_env("CHAOS_API_KEY")
+      {:env, key, _} -> key
+      {:none, _, _} -> nil
+    end
+  end
 
-    if is_nil(api_key) || api_key == "" do
-      {:error,
-       "No Chaos API key configured (add in Settings > API Keys or set CHAOS_API_KEY env var)"}
-    else
-      case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
-             headers: %{"authorization" => api_key},
-             retry: false,
-             receive_timeout: 30_000
-           ) do
-        {:ok, %{status: 200, body: %{"subdomains" => subdomains}}} when is_list(subdomains) ->
-          {:ok, subdomains}
+  defp execute_chaos_request(domain_name, api_key) do
+    case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
+           headers: %{"authorization" => api_key},
+           retry: false,
+           receive_timeout: 30_000
+         ) do
+      {:ok, %{status: 200, body: %{"subdomains" => subdomains}}} when is_list(subdomains) ->
+        {:ok, subdomains}
 
-        {:ok, %{status: 200, body: body}} ->
-          Logger.warning("Chaos API unexpected body for #{domain_name}: #{inspect(body)}")
-          {:error, "Chaos API returned unexpected response format"}
+      {:ok, %{status: 200, body: body}} ->
+        Logger.warning("Chaos API unexpected body for #{domain_name}: #{inspect(body)}")
+        {:error, "Chaos API returned unexpected response format"}
 
-        {:ok, %{status: 404}} ->
-          {:error, "Chaos has no data for #{domain_name}"}
+      {:ok, %{status: 404}} ->
+        {:error, "Chaos has no data for #{domain_name}"}
 
-        {:ok, %{status: status, body: body}} ->
-          Logger.warning("Chaos API error #{status} for #{domain_name}: #{inspect(body)}")
-          {:error, "Chaos API returned #{status}"}
+      {:ok, %{status: status, body: body}} ->
+        Logger.warning("Chaos API error #{status} for #{domain_name}: #{inspect(body)}")
+        {:error, "Chaos API returned #{status}"}
 
-        {:error, exception} ->
-          Logger.warning("Chaos request failed for #{domain_name}: #{inspect(exception)}")
-          {:error, "Chaos request failed: #{inspect(exception)}"}
-      end
+      {:error, exception} ->
+        Logger.warning("Chaos request failed for #{domain_name}: #{inspect(exception)}")
+        {:error, "Chaos request failed: #{inspect(exception)}"}
     end
   end
 
@@ -213,32 +212,49 @@ defmodule Ravner.Scans do
 
   defp save_subdomains(subdomains, parent_id) do
     domain = Domains.get_domain!(parent_id)
-
-    names =
-      subdomains
-      |> Enum.map(fn subdomain_name ->
-        if String.ends_with?(subdomain_name, ".#{domain.name}") || subdomain_name == domain.name do
-          subdomain_name
-        else
-          "#{subdomain_name}.#{domain.name}"
-        end
-      end)
-      |> Enum.uniq()
-      |> Enum.reject(&(&1 == domain.name || &1 == ""))
-
-    existing =
-      Domain
-      |> where([d], d.name in ^names)
-      |> select([d], {d.name, d.id, d.parent_domain_id})
-      |> Repo.all()
-      |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
+    names = filter_subdomain_names(subdomains, domain.name)
+    existing = get_existing_domains(names)
 
     {inserted_count, new_domains} =
       names
       |> Enum.reject(&Map.has_key?(existing, &1))
-      |> Enum.map(fn name ->
-        now = DateTime.utc_now() |> DateTime.truncate(:second)
+      |> insert_new_subdomains(parent_id)
 
+    relink_existing_subdomains(existing, parent_id)
+
+    all_results = new_domains ++ Enum.map(existing, fn {_name, {id, _pid}} -> %Domain{id: id} end)
+
+    {:ok, %{found: length(names), new: inserted_count, subdomains: all_results}}
+  end
+
+  defp filter_subdomain_names(names, domain_name) do
+    names
+    |> Enum.map(fn subdomain_name ->
+      if String.ends_with?(subdomain_name, ".#{domain_name}") || subdomain_name == domain_name do
+        subdomain_name
+      else
+        "#{subdomain_name}.#{domain_name}"
+      end
+    end)
+    |> Enum.uniq()
+    |> Enum.reject(&(&1 == domain_name or &1 == ""))
+  end
+
+  defp get_existing_domains(names) do
+    Domain
+    |> where([d], d.name in ^names)
+    |> select([d], {d.name, d.id, d.parent_domain_id})
+    |> Repo.all()
+    |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
+  end
+
+  defp insert_new_subdomains([], _parent_id), do: {0, []}
+
+  defp insert_new_subdomains(names, parent_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    entries =
+      Enum.map(names, fn name ->
         %{
           name: name,
           type: :subdomain,
@@ -248,36 +264,22 @@ defmodule Ravner.Scans do
           updated_at: now
         }
       end)
-      |> then(fn entries ->
-        if entries == [] do
-          {0, []}
-        else
-          {count, _} =
-            Repo.insert_all(Domain, entries,
-              conflict: :nothing,
-              returning: [:id, :name, :type, :lifecycle_state, :parent_domain_id]
-            )
 
-          {count, entries |> Enum.map(fn e -> struct(Domain, e) end)}
-        end
-      end)
+    {count, _} =
+      Repo.insert_all(Domain, entries,
+        conflict: :nothing,
+        returning: [:id, :name, :type, :lifecycle_state, :parent_domain_id]
+      )
 
-    relinked =
-      existing
-      |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
-      |> Enum.map(fn {_name, {id, _pid}} ->
-        {id, parent_id}
-      end)
+    {count, Enum.map(entries, &struct(Domain, &1))}
+  end
 
-    if relinked != [] do
-      for {id, new_pid} <- relinked do
-        Domains.update_domain(%Domain{id: id}, %{parent_domain_id: new_pid})
-      end
-    end
-
-    all_results = new_domains ++ Enum.map(existing, fn {_name, {id, _pid}} -> %Domain{id: id} end)
-
-    {:ok, %{found: length(names), new: inserted_count, subdomains: all_results}}
+  defp relink_existing_subdomains(existing, parent_id) do
+    existing
+    |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
+    |> Enum.each(fn {_name, {id, _pid}} ->
+      Domains.update_domain(%Domain{id: id}, %{parent_domain_id: parent_id})
+    end)
   end
 
   # HTTPX scan via Req (fast, non-blocking)

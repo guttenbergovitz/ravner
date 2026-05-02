@@ -5,9 +5,9 @@ defmodule Ravner.Domains.DashboardStats do
 
   import Ecto.Query
 
-  alias Ravner.Repo
   alias Ravner.Domains.Domain
   alias Ravner.Domains.DomainMetadata
+  alias Ravner.Repo
 
   @doc """
   Returns aggregate dashboard statistics.

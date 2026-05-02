@@ -4,11 +4,10 @@ defmodule Ravner.Domains do
   """
 
   import Ecto.Query, warn: false
-  alias Ravner.Repo
-
   alias Ravner.Domains.Domain
-  alias Ravner.Domains.DomainTag
   alias Ravner.Domains.DomainMetadata
+  alias Ravner.Domains.DomainTag
+  alias Ravner.Repo
 
   # Domains
 
@@ -339,27 +338,7 @@ defmodule Ravner.Domains do
       |> then(fn {uniq, _seen, dupes} -> {Enum.reverse(uniq), dupes} end)
 
     {added, skipped, ignored} =
-      Enum.reduce(unique_lines, {[], [], []}, fn name, {added_acc, skipped_acc, ignored_acc} ->
-        case classify_import_line(name) do
-          {:ok, normalized} ->
-            case find_domain_by_name(normalized) do
-              nil ->
-                case create_domain(%{name: normalized, type: :domain}) do
-                  {:ok, domain} ->
-                    {[domain.name | added_acc], skipped_acc, ignored_acc}
-
-                  {:error, cs} ->
-                    {added_acc, skipped_acc, [{name, format_errors(cs)} | ignored_acc]}
-                end
-
-              _existing ->
-                {added_acc, [normalized | skipped_acc], ignored_acc}
-            end
-
-          {:error, reason} ->
-            {added_acc, skipped_acc, [{name, reason} | ignored_acc]}
-        end
-      end)
+      Enum.reduce(unique_lines, {[], [], []}, &process_import_line/2)
 
     %{
       added: Enum.reverse(added),
@@ -367,6 +346,28 @@ defmodule Ravner.Domains do
       ignored: Enum.reverse(ignored),
       file_dupes: Enum.reverse(dupes)
     }
+  end
+
+  defp process_import_line(name, {added, skipped, ignored}) do
+    case classify_import_line(name) do
+      {:ok, normalized} ->
+        case find_domain_by_name(normalized) do
+          nil ->
+            case create_domain(%{name: normalized, type: :domain}) do
+              {:ok, domain} ->
+                {[domain.name | added], skipped, ignored}
+
+              {:error, cs} ->
+                {added, skipped, [{name, format_errors(cs)} | ignored]}
+            end
+
+          _existing ->
+            {added, [normalized | skipped], ignored}
+        end
+
+      {:error, reason} ->
+        {added, skipped, [{name, reason} | ignored]}
+    end
   end
 
   defp strip_scheme_and_path(name) do
@@ -428,8 +429,7 @@ defmodule Ravner.Domains do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
-    |> Enum.map(fn {field, msgs} -> "#{field}: #{Enum.join(msgs, ", ")}" end)
-    |> Enum.join("; ")
+    |> Enum.map_join("; ", fn {field, msgs} -> "#{field}: #{Enum.join(msgs, ", ")}" end)
   end
 
   # Domain Metadata

@@ -6,12 +6,7 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   @impl true
   def mount(_params, _session, socket) do
-    if !admin?(socket.assigns.current_scope) do
-      {:ok,
-       socket
-       |> put_flash(:error, "Admin access required")
-       |> push_navigate(to: ~p"/domains")}
-    else
+    if admin?(socket.assigns.current_scope) do
       {:ok,
        socket
        |> assign(:page_title, "Settings")
@@ -19,6 +14,11 @@ defmodule RavnerWeb.AdminLive.Settings do
        |> assign(:known_keys, ApiKeys.list_known_keys())
        |> assign(:editing_key, nil)
        |> assign(:form, nil)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "Admin access required")
+       |> push_navigate(to: ~p"/domains")}
     end
   end
 
