@@ -359,7 +359,8 @@ defmodule Ravner.Scans do
       active: false,
       verify: :verify_none,
       packet: :raw,
-      mode: :binary
+      mode: :binary,
+      server_name_indication: host
     ]
 
     case :ssl.connect(host, 443, opts, 5000) do
@@ -384,18 +385,26 @@ defmodule Ravner.Scans do
     decoded = :public_key.pkix_decode_cert(cert, :otp)
     tbs = elem(decoded, 1)
 
+    # OTPTBSCertificate record structure (0-indexed):
+    # 0: :OTPTBSCertificate
+    # 1: version
+    # 2: serialNumber
+    # 3: signature
+    # 4: issuer
+    # 5: validity
+    # 6: subject
+
     # Extract validity
-    # Validity ::= SEQUENCE { notBefore Time, notAfter Time }
-    validity = elem(tbs, 4)
-    {_tag_before, not_before} = elem(validity, 0)
-    {_tag_after, not_after} = elem(validity, 1)
+    validity = elem(tbs, 5)
+    {_tag_before, not_before} = elem(validity, 1)
+    {_tag_after, not_after} = elem(validity, 2)
 
     valid_from = parse_asn1_time(not_before)
     valid_until = parse_asn1_time(not_after)
 
-    # Extract issuer
-    issuer = decode_rdn_sequence(elem(tbs, 3))
-    subject = decode_rdn_sequence(elem(tbs, 5))
+    # Extract issuer and subject
+    issuer = decode_rdn_sequence(elem(tbs, 4))
+    subject = decode_rdn_sequence(elem(tbs, 6))
 
     days_remaining =
       if valid_until do
