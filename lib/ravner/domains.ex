@@ -171,7 +171,7 @@ defmodule Ravner.Domains do
       |> order_by([d], asc: d.name)
       |> limit(@page_size)
       |> offset(^offset)
-      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
+      |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains, :project, :brand, :organization])
       |> Repo.all()
 
     %{
@@ -189,7 +189,7 @@ defmodule Ravner.Domains do
   def list_domains_filtered_all(opts \\ []) do
     filtered_query(opts)
     |> order_by([d], asc: d.name)
-    |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains])
+    |> preload([:parent_domain, :domain_tags, :domain_metadata, :subdomains, :project, :brand, :organization])
     |> Repo.all()
   end
 
@@ -204,7 +204,6 @@ defmodule Ravner.Domains do
       Keyword.get(opts, :organization_id, nil),
       Keyword.get(opts, :brand_id, nil)
     )
-    |> preload([:project, :brand, :organization])
   end
 
   defp filter_by_type(query, true), do: query
