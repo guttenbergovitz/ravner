@@ -1,156 +1,184 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-6xl mx-auto px-6 py-8">
-    <h1 class="text-2xl font-light tracking-tight mb-8">Dashboard</h1>
-
-    <%!-- KPI row --%>
-    <div class="grid grid-cols-3 divide-x divide-neutral-200 border border-neutral-200 mb-8">
-      <div class="px-6 py-5">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
-          Total domains
-        </div>
-        <div class="text-3xl font-light tracking-tight">{@stats.total}</div>
-        <div class="text-xs text-neutral-400 mt-1">
-          <span class="text-neutral-700">{@stats.total_apex}</span>
-          apex · <span class="text-neutral-700">{@stats.total_subdomains}</span>
-          subdomains
-        </div>
-      </div>
-      <div class="px-6 py-5">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
-          HTTP health
-        </div>
-        <div class="text-3xl font-light tracking-tight">
-          {percentage(@stats.http.http_200, total_http(@stats.http))}%
-        </div>
-        <div class="text-xs text-neutral-400 mt-1">
-          {@stats.http.http_200} OK · <span class="text-amber-600">{@stats.http.http_3xx}</span>
-          redirects · <span class="text-red-500">{@stats.http.http_4xx_5xx}</span>
-          errors
-        </div>
-      </div>
-      <div class="px-6 py-5">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 mb-2">
-          Scanned
-        </div>
-        <div class="text-3xl font-light tracking-tight">
-          {percentage(
-            @stats.scan.this_week + @stats.scan.this_month + @stats.scan.older,
-            @stats.total
-          )}%
-        </div>
-        <div class="text-xs text-neutral-400 mt-1">
-          {@stats.scan.this_week} this week · {@stats.scan.this_month} this month ·
-          <span class="text-neutral-500">{@stats.scan.never}</span>
-          never
-        </div>
-      </div>
-    </div>
-
-    <%!-- Row 1: Lifecycle table + top domains by subdomains --%>
-    <div class="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 mb-8">
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <div class="flex items-end justify-between mb-12 border-b border-neutral-100 pb-8">
       <div>
-        <div class="px-6 py-4 border-b border-neutral-100">
-          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
-            Lifecycle
-          </span>
-        </div>
-        <div class="divide-y divide-neutral-100 text-sm">
-          <%= for row <- @stats.lifecycle_list do %>
-            <div class="grid grid-cols-4 px-6 py-3">
-              <div class="flex items-center gap-2 col-span-2">
-                <span class={["w-1.5 h-1.5 rounded-full shrink-0", lifecycle_color(row.state)]}>
-                </span>
-                <span class="font-light text-neutral-700">{row.label}</span>
-              </div>
-              <span class="font-light text-neutral-900">{row.apex}</span>
-              <span class="font-light text-neutral-400">{row.sub}</span>
-            </div>
-          <% end %>
-        </div>
+        <h1 class="text-3xl font-light tracking-tight text-neutral-900">Portfolio Dashboard</h1>
+        <p class="text-sm font-light text-neutral-500 mt-2 uppercase tracking-widest">
+          Executive Summary & Operational Risk
+        </p>
       </div>
-
-      <div>
-        <div class="px-6 py-4 border-b border-neutral-100">
-          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
-            Top apex by subdomains
-          </span>
+      <div class="flex gap-10">
+        <div class="text-right">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Total Assets
+          </div>
+          <div class="text-2xl font-light text-neutral-900">{@stats.total}</div>
         </div>
-        <%= if @stats.top_by_subs == [] do %>
-          <div class="px-6 py-8 text-center text-sm text-neutral-400">
-            No apex domains with subdomains yet
+        <div class="text-right border-l border-neutral-100 pl-10">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Apex Domains
           </div>
-        <% else %>
-          <div class="divide-y divide-neutral-100 text-sm">
-            <%= for {name, count} <- @stats.top_by_subs do %>
-              <div class="grid grid-cols-4 px-6 py-3 gap-2">
-                <span class="col-span-3 font-light text-neutral-700 truncate">{name}</span>
-                <span class="font-light text-neutral-900">{count}</span>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
+          <div class="text-2xl font-light text-neutral-900">{@stats.total_apex}</div>
+        </div>
       </div>
     </div>
 
-    <%!-- Row 2: HTTP status + Scan recency --%>
-    <div class="grid grid-cols-2 divide-x divide-neutral-200 border border-neutral-200 mb-8">
-      <div class="p-6">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
-          HTTP Status
+    <%!-- Row 1: High Level Risk & Status --%>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+      <%!-- SSL Health --%>
+      <div class="border border-neutral-200 bg-white p-8">
+        <div class="flex items-center justify-between mb-8">
+          <h2 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400">
+            SSL / TLS Health
+          </h2>
+          <.icon name="hero-shield-check" class="w-4 h-4 text-neutral-300" />
         </div>
-        {raw(@http_chart)}
-      </div>
-      <div class="p-6">
-        <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-5">
-          Scan Recency
-        </div>
-        {raw(@scan_chart)}
-      </div>
-    </div>
-
-    <%!-- Needs attention --%>
-    <div class="grid grid-cols-2 gap-8 mb-8">
-      <div class="border border-neutral-200">
-        <div class="px-6 py-4 border-b border-neutral-100 flex justify-between items-center">
-          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
-            SSL Alerts
-          </span>
-          <%= if length(@stats.ssl_alerts) > 0 do %>
-            <span class="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 border border-red-100 uppercase tracking-tighter">
-              {length(@stats.ssl_alerts)} issue{if length(@stats.ssl_alerts) != 1, do: "s"}
+        <div class="space-y-6">
+          <div class="flex items-end justify-between">
+            <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
+              Secured Domains
             </span>
-          <% end %>
+            <span class="text-xl font-light">
+              {@stats.ssl.total} <span class="text-[10px] opacity-40">/ {@stats.total_apex}</span>
+            </span>
+          </div>
+          <div class="grid grid-cols-3 gap-4 pt-4 border-t border-neutral-50">
+            <div class="text-center">
+              <div class="text-xl font-light text-red-600">{@stats.ssl.expired}</div>
+              <div class="text-[9px] uppercase text-neutral-400 mt-1">Expired</div>
+            </div>
+            <div class="text-center border-l border-neutral-50">
+              <div class="text-xl font-light text-amber-600">{@stats.ssl.soon_7d}</div>
+              <div class="text-[9px] uppercase text-neutral-400 mt-1">Exp 7d</div>
+            </div>
+            <div class="text-center border-l border-neutral-50">
+              <div class="text-xl font-light text-neutral-700">{@stats.ssl.soon_30d}</div>
+              <div class="text-[9px] uppercase text-neutral-400 mt-1">Exp 30d</div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <%!-- Infrastructure Gaps --%>
+      <div class="border border-neutral-200 bg-white p-8">
+        <div class="flex items-center justify-between mb-8">
+          <h2 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400">
+            Ownership Gaps
+          </h2>
+          <.icon name="hero-exclamation-triangle" class="w-4 h-4 text-neutral-300" />
+        </div>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-light text-neutral-500 uppercase tracking-wider">
+              Missing PM / PO
+            </span>
+            <span class={[
+              "font-normal px-2 py-0.5 border",
+              if(@stats.governance.missing_pm > 0,
+                do: "text-amber-600 bg-amber-50 border-amber-100",
+                else: "text-neutral-400 border-neutral-100"
+              )
+            ]}>
+              {@stats.governance.missing_pm}
+            </span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-light text-neutral-500 uppercase tracking-wider">
+              Unassigned Projects
+            </span>
+            <span class={[
+              "font-normal px-2 py-0.5 border",
+              if(@stats.governance.missing_project > 0,
+                do: "text-red-600 bg-red-50 border-red-100",
+                else: "text-neutral-400 border-neutral-100"
+              )
+            ]}>
+              {@stats.governance.missing_project}
+            </span>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-light text-neutral-500 uppercase tracking-wider">
+              Orphaned Brands
+            </span>
+            <span class={[
+              "font-normal px-2 py-0.5 border",
+              if(@stats.governance.missing_brand > 0,
+                do: "text-neutral-600 bg-neutral-50 border-neutral-100",
+                else: "text-neutral-400 border-neutral-100"
+              )
+            ]}>
+              {@stats.governance.missing_brand}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <%!-- HTTP Performance --%>
+      <div class="border border-neutral-200 bg-white p-8">
+        <div class="flex items-center justify-between mb-8">
+          <h2 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400">
+            Connectivity
+          </h2>
+          <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-300" />
+        </div>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
+              Healthy (200 OK)
+            </span>
+            <span class="text-sm font-normal text-green-600">{@stats.http.http_200}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
+              Errors (4xx/5xx)
+            </span>
+            <span class="text-sm font-normal text-red-600">{@stats.http.http_4xx_5xx}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
+              Redirecting (3xx)
+            </span>
+            <span class="text-sm font-normal text-neutral-500">{@stats.http.http_3xx}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Row 2: SSL Alerts & Freshness --%>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
+      <%!-- SSL Alerts --%>
+      <div>
+        <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
+          Urgent SSL Actions <span class="h-px flex-1 bg-neutral-100"></span>
+        </h3>
         <%= if @stats.ssl_alerts == [] do %>
-          <div class="px-6 py-8 text-center text-sm text-neutral-400 font-light">
-            No certificate issues detected
+          <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400">
+            All certificates are within safe limits.
           </div>
         <% else %>
-          <div class="divide-y divide-neutral-100 max-h-[300px] overflow-y-auto">
+          <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 max-h-[400px] overflow-y-auto">
             <%= for alert <- @stats.ssl_alerts do %>
               <.link
                 navigate={~p"/domains/#{alert.id}"}
-                class="block hover:bg-neutral-50 transition-colors px-6 py-3"
+                class="block hover:bg-neutral-50 transition-colors p-6"
               >
-                <div class="flex items-center justify-between gap-4">
-                  <div class="min-w-0 flex-1">
-                    <div class="text-sm font-light text-neutral-700 truncate">{alert.name}</div>
-                    <div class="text-[10px] text-neutral-400 mt-0.5 uppercase tracking-wide">
-                      Expires {Calendar.strftime(alert.valid_until, "%Y-%m-%d")}
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-normal text-neutral-900">{alert.name}</div>
+                    <div class="text-[10px] font-light text-neutral-400 mt-1 uppercase tracking-wider">
+                      Expires {Calendar.strftime(alert.valid_until, "%d-%m-%Y")}
                     </div>
                   </div>
                   <div class={[
-                    "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider shrink-0",
+                    "text-[10px] font-normal px-3 py-1 border uppercase tracking-widest",
                     if(alert.status == :expired,
                       do: "text-red-700 bg-red-50 border-red-100",
                       else: "text-amber-700 bg-amber-50 border-amber-100"
                     )
                   ]}>
-                    <%= if alert.status == :expired do %>
-                      Expired
-                    <% else %>
-                      {alert.days_remaining}d left
-                    <% end %>
+                    {if alert.status == :expired,
+                      do: "Expired",
+                      else: "#{alert.days_remaining}d left"}
                   </div>
                 </div>
               </.link>
@@ -159,47 +187,64 @@
         <% end %>
       </div>
 
-      <div class="border border-neutral-200 h-fit">
-        <div class="px-6 py-4 border-b border-neutral-100">
-          <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-500">
-            Needs Attention
-          </span>
-        </div>
-        <div class="grid grid-cols-2 divide-x divide-y divide-neutral-100">
-          <div class="px-6 py-5">
-            <.icon name="hero-exclamation-circle" class="w-4 h-4 text-red-500 mb-2" />
-            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-              HTTP errors
+      <%!-- Scan Freshness --%>
+      <div>
+        <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
+          Inventory Intelligence <span class="h-px flex-1 bg-neutral-100"></span>
+        </h3>
+        <div class="grid grid-cols-2 gap-8">
+          <div class="border border-neutral-200 p-6">
+            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+              Top Issuers
+            </h4>
+            <div class="space-y-3">
+              <%= for {issuer, count} <- @stats.ssl.issuers do %>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-light text-neutral-600 truncate mr-4">{issuer}</span>
+                  <span class="font-normal text-neutral-900">{count}</span>
+                </div>
+              <% end %>
             </div>
-            <div class="text-xl font-light">{@stats.http.http_4xx_5xx}</div>
-            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
           </div>
-          <div class="px-6 py-5">
-            <% ssl_error_count = Enum.count(@stats.ssl_alerts, &(&1.status == :expired)) %>
-            <.icon name="hero-lock-closed" class="w-4 h-4 text-red-500 mb-2" />
-            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-              SSL expired
+          <div class="border border-neutral-200 p-6">
+            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+              Hosting Reach
+            </h4>
+            <div class="space-y-3">
+              <%= for {host, count} <- @stats.infra.hosting do %>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-light text-neutral-600 truncate mr-4">{host}</span>
+                  <span class="font-normal text-neutral-900">{count}</span>
+                </div>
+              <% end %>
             </div>
-            <div class="text-xl font-light">{ssl_error_count}</div>
-            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
-          </div>
-          <div class="px-6 py-5">
-            <.icon name="hero-shield-exclamation" class="w-4 h-4 text-amber-600 mb-2" />
-            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-              Unscanned
-            </div>
-            <div class="text-xl font-light">{@stats.scan.never}</div>
-            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
-          </div>
-          <div class="px-6 py-5">
-            <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500 mb-2" />
-            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-500 mb-1">
-              Redirecting
-            </div>
-            <div class="text-xl font-light">{@stats.http.http_3xx}</div>
-            <div class="text-xs text-neutral-400 mt-0.5">domains</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <%!-- Row 3: Lifecycle Breakdown --%>
+    <div>
+      <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
+        Asset Lifecycle Distribution <span class="h-px flex-1 bg-neutral-100"></span>
+      </h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <%= for s <- @stats.lifecycle_list do %>
+          <div class="border border-neutral-100 p-4 hover:border-neutral-900 transition-colors group cursor-default">
+            <div class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-2 truncate group-hover:text-neutral-900 transition-colors">
+              {s.label}
+            </div>
+            <div class="text-xl font-light text-neutral-900">{s.total}</div>
+            <div class="flex items-center gap-2 mt-2 text-[9px] font-light text-neutral-400">
+              <span class="flex items-center gap-0.5">
+                Apex: <span class="text-neutral-600">{s.apex}</span>
+              </span>
+              <span class="flex items-center gap-0.5">
+                Subs: <span class="text-neutral-600">{s.sub}</span>
+              </span>
+            </div>
+          </div>
+        <% end %>
       </div>
     </div>
   </div>

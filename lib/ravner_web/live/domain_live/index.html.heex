@@ -359,16 +359,14 @@
                   class="flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors"
                   title="Select all domains matching current filters"
                 >
-                  <.icon name="hero-rectangle-stack" class="w-4 h-4" />
-                  All Matching ({@total})
+                  <.icon name="hero-rectangle-stack" class="w-4 h-4" /> All Matching ({@total})
                 </button>
                 <button
                   phx-click="select_visible"
                   class="flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors"
                   title="Select domains visible on this page"
                 >
-                  <.icon name="hero-eye" class="w-4 h-4" />
-                  Visible ({length(@domains)})
+                  <.icon name="hero-eye" class="w-4 h-4" /> Visible ({length(@domains)})
                 </button>
                 <button
                   phx-click="clear_selection"
@@ -376,8 +374,7 @@
                   class="flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-red-600"
                   title="Clear current selection"
                 >
-                  <.icon name="hero-x-circle" class="w-4 h-4" />
-                  Clear
+                  <.icon name="hero-x-circle" class="w-4 h-4" /> Clear
                 </button>
               </div>
 
@@ -402,10 +399,11 @@
                 ]}
               >
                 <.icon
-                  name={if @include_subdomains, do: "hero-check-circle", else: "hero-circle-stack"}
+                  name={
+                    if @include_subdomains, do: "hero-check-circle", else: "hero-circle-stack"
+                  }
                   class="w-4 h-4"
-                />
-                Incl. subdomains
+                /> Incl. subdomains
               </button>
 
               <%!-- Unified Actions Dropdown --%>
@@ -424,7 +422,9 @@
                 >
                   Actions
                   <.icon
-                    name={if @bulk_actions_menu_open, do: "hero-chevron-up", else: "hero-chevron-down"}
+                    name={
+                      if @bulk_actions_menu_open, do: "hero-chevron-up", else: "hero-chevron-down"
+                    }
                     class="w-3.5 h-3.5"
                   />
                 </button>
@@ -1138,7 +1138,8 @@
             This will update the selected metadata for all target domains.
         <% end %>
         <%= if @include_subdomains && @bulk_action in [:delete, :scan] do %>
-          <br /><span class="text-neutral-900 font-normal">
+          <br />
+          <span class="text-neutral-900 font-normal">
             This will also include all their subdomains.
           </span>
         <% end %>

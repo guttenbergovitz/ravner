@@ -217,8 +217,7 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("toggle_bulk_actions_menu", _params, socket) do
-    {:noreply,
-     assign(socket, :bulk_actions_menu_open, !socket.assigns.bulk_actions_menu_open)}
+    {:noreply, assign(socket, :bulk_actions_menu_open, !socket.assigns.bulk_actions_menu_open)}
   end
 
   def handle_event("close_bulk_actions_menu", _params, socket) do
