@@ -16,6 +16,7 @@ defmodule Ravner.Domains.Domain do
         :under_review,
         :placeholder,
         :redirect,
+        :insecure,
         :deprecated,
         :decommissioned,
         :error,

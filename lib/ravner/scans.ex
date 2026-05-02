@@ -337,7 +337,7 @@ defmodule Ravner.Scans do
   # Auto-updates lifecycle based on HTTP scan result.
   # Only sets redirect/error if the domain is in a "neutral" state —
   # never overwrites intentional states like priority, deprecated, etc.
-  @auto_eligible_states [:active, :under_review, :redirect, :error, nil]
+  @auto_eligible_states [:active, :under_review, :redirect, :insecure, :error, nil]
 
   defp maybe_update_lifecycle_from_http(domain, data) do
     if domain.lifecycle_state in @auto_eligible_states do
@@ -349,12 +349,12 @@ defmodule Ravner.Scans do
           Domains.update_domain(domain, %{lifecycle_state: :error})
 
         String.starts_with?(data.final_url || "", "http://") ->
-          # No valid HTTPS certificate
-          Domains.update_domain(domain, %{lifecycle_state: :error})
+          # No valid HTTPS certificate or not enforced
+          Domains.update_domain(domain, %{lifecycle_state: :insecure})
 
         data.http_status == 200 ->
           # Healthy — if it was previously auto-set to error/redirect, restore to active
-          if domain.lifecycle_state in [:error, :redirect] do
+          if domain.lifecycle_state in [:error, :redirect, :insecure] do
             Domains.update_domain(domain, %{lifecycle_state: :active})
           end
 

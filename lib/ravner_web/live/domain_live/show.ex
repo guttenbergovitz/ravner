@@ -508,6 +508,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp lifecycle_color(:active), do: "bg-green-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
+  defp lifecycle_color(:insecure), do: "bg-amber-600"
+  defp lifecycle_color(:redirect), do: "bg-cyan-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
   defp lifecycle_color(:abandoned), do: "bg-neutral-400"
@@ -517,6 +519,8 @@ defmodule RavnerWeb.DomainLive.Show do
     [
       {:active, "Active", "bg-green-500"},
       {:under_review, "Under review", "bg-yellow-500"},
+      {:insecure, "Insecure HTTP", "bg-amber-600"},
+      {:redirect, "Redirect", "bg-cyan-500"},
       {:deprecated, "Deprecated", "bg-orange-500"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
       {:abandoned, "Abandoned", "bg-neutral-400"}
