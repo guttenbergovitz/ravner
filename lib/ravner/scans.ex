@@ -125,47 +125,46 @@ defmodule Ravner.Scans do
            receive_timeout: 30_000
          ) do
       {:ok, %{status: 200, body: body}} ->
-        if is_binary(body) and
-             (body =~ "API count exceeded" or body =~ "error check your" or
-                body =~ "invalid host") do
-          Logger.warning(
-            "HackerTarget quota/error for #{domain_name}: #{String.slice(body, 0, 100)}"
-          )
-
-          {:error, "HackerTarget: #{String.trim(body)}"}
-        else
-          lines =
-            body
-            |> String.split("\n")
-            |> Enum.map(&String.trim/1)
-            |> Enum.reject(&(&1 == ""))
-
-          subdomains =
-            lines
-            |> Enum.map(fn line ->
-              case String.split(line, ",") do
-                [subdomain, _ip] -> subdomain
-                _ -> line
-              end
-            end)
-            |> Enum.map(fn full ->
-              if String.ends_with?(full, ".#{domain_name}") do
-                String.replace_suffix(full, ".#{domain_name}", "")
-              else
-                full
-              end
-            end)
-            |> Enum.reject(&(&1 == ""))
-            |> Enum.uniq()
-
-          {:ok, subdomains}
-        end
+        parse_hackertarget_response(body, domain_name)
 
       {:ok, %{status: status}} ->
         {:error, "HackerTarget returned #{status}"}
 
       {:error, exception} ->
         {:error, "HackerTarget request failed: #{inspect(exception)}"}
+    end
+  end
+
+  defp parse_hackertarget_response(body, domain_name) do
+    if is_binary(body) and
+         (body =~ "API count exceeded" or body =~ "error check your" or
+            body =~ "invalid host") do
+      Logger.warning("HackerTarget quota/error for #{domain_name}: #{String.slice(body, 0, 100)}")
+
+      {:error, "HackerTarget: #{String.trim(body)}"}
+    else
+      subdomains =
+        body
+        |> String.split("\n")
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.map(fn line ->
+          case String.split(line, ",") do
+            [subdomain, _ip] -> subdomain
+            _ -> line
+          end
+        end)
+        |> Enum.map(fn full ->
+          if String.ends_with?(full, ".#{domain_name}") do
+            String.replace_suffix(full, ".#{domain_name}", "")
+          else
+            full
+          end
+        end)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.uniq()
+
+      {:ok, subdomains}
     end
   end
 

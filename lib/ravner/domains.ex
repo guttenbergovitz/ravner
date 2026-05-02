@@ -450,47 +450,46 @@ defmodule Ravner.Domains do
     header =
       "Name,Type,Lifecycle,HTTP Status,Final URL,IP v4,Tech Stack,Registrar,Expires,Scanned,Subdomains\n"
 
-    rows =
-      Enum.map(domains, fn d ->
-        m = d.domain_metadata
-
-        ip = if m && m.ip_v4, do: Enum.join(m.ip_v4, "; "), else: ""
-        tech = if m && m.tech_stack, do: Enum.join(m.tech_stack, "; "), else: ""
-        registrar = if m && m.registrar, do: m.registrar, else: ""
-
-        expires =
-          if m && m.expiration_date,
-            do: Calendar.strftime(m.expiration_date, "%Y-%m-%d"),
-            else: ""
-
-        scanned =
-          if m && m.scanned_at,
-            do: Calendar.strftime(m.scanned_at, "%Y-%m-%d %H:%M"),
-            else: ""
-
-        http = if m && m.http_status, do: to_string(m.http_status), else: ""
-        final = if m && m.final_url, do: m.final_url, else: ""
-        subs = length(d.subdomains || [])
-
-        [
-          d.name,
-          to_string(d.type),
-          to_string(d.lifecycle_state),
-          http,
-          final,
-          ip,
-          tech,
-          registrar,
-          expires,
-          scanned,
-          to_string(subs)
-        ]
-        |> Enum.map(&csv_escape/1)
-        |> Enum.join(",")
-      end)
-      |> Enum.join("\n")
+    rows = Enum.map_join(domains, "\n", &domain_to_csv_row/1)
 
     header <> rows <> "\n"
+  end
+
+  defp domain_to_csv_row(domain) do
+    m = domain.domain_metadata || %Ravner.Domains.DomainMetadata{}
+
+    ip = if m.ip_v4, do: Enum.join(m.ip_v4, "; "), else: ""
+    tech = if m.tech_stack, do: Enum.join(m.tech_stack, "; "), else: ""
+    registrar = m.registrar || ""
+
+    expires =
+      if m.expiration_date,
+        do: Calendar.strftime(m.expiration_date, "%Y-%m-%d"),
+        else: ""
+
+    scanned =
+      if m.scanned_at,
+        do: Calendar.strftime(m.scanned_at, "%Y-%m-%d %H:%M"),
+        else: ""
+
+    http = if m.http_status, do: to_string(m.http_status), else: ""
+    final = m.final_url || ""
+    subs = length(domain.subdomains || [])
+
+    [
+      domain.name,
+      to_string(domain.type),
+      to_string(domain.lifecycle_state),
+      http,
+      final,
+      ip,
+      tech,
+      registrar,
+      expires,
+      scanned,
+      to_string(subs)
+    ]
+    |> Enum.map_join(",", &csv_escape/1)
   end
 
   defp csv_escape(nil), do: ""
