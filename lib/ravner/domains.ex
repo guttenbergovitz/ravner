@@ -91,42 +91,57 @@ defmodule Ravner.Domains do
   end
 
   defp get_brand_facets(query, opts) do
-    # Ignore brand filter when counting brands
-    query
-    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
-    |> filter_by_project(Keyword.get(opts, :project_id))
-    |> filter_by_organization_or_brand(Keyword.get(opts, :organization_id), nil)
-    |> join(:inner, [d], b in assoc(d, :brand))
-    |> group_by([d, b], [b.id, b.display_name, b.name])
-    |> select([d, b], {b.id, coalesce(b.display_name, b.name), count(d.id)})
+    # Left join from all brands to the filtered query
+    filtered_subquery =
+      query
+      |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+      |> filter_by_project(Keyword.get(opts, :project_id))
+      |> filter_by_organization_or_brand(Keyword.get(opts, :organization_id), nil)
+
+    from(b in Ravner.Inventory.Brand,
+      left_join: d in subquery(filtered_subquery),
+      on: d.brand_id == b.id,
+      group_by: [b.id, b.display_name, b.name],
+      select: {b.id, coalesce(b.display_name, b.name), count(d.id)}
+    )
     |> Repo.all()
     |> Enum.sort_by(fn {_, name, _} -> name end)
   end
 
   defp get_organization_facets(query, opts) do
-    # Ignore organization filter when counting orgs
-    query
-    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
-    |> filter_by_project(Keyword.get(opts, :project_id))
-    |> filter_by_organization_or_brand(nil, Keyword.get(opts, :brand_id))
-    |> join(:inner, [d], o in assoc(d, :organization))
-    |> group_by([d, o], [o.id, o.display_name, o.name])
-    |> select([d, o], {o.id, coalesce(o.display_name, o.name), count(d.id)})
+    # Left join from all organizations to the filtered query
+    filtered_subquery =
+      query
+      |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+      |> filter_by_project(Keyword.get(opts, :project_id))
+      |> filter_by_organization_or_brand(nil, Keyword.get(opts, :brand_id))
+
+    from(o in Ravner.Inventory.Organization,
+      left_join: d in subquery(filtered_subquery),
+      on: d.organization_id == o.id,
+      group_by: [o.id, o.display_name, o.name],
+      select: {o.id, coalesce(o.display_name, o.name), count(d.id)}
+    )
     |> Repo.all()
     |> Enum.sort_by(fn {_, name, _} -> name end)
   end
 
   defp get_project_facets(query, opts) do
-    # Ignore project filter when counting projects
-    query
-    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
-    |> filter_by_organization_or_brand(
-      Keyword.get(opts, :organization_id),
-      Keyword.get(opts, :brand_id)
+    # Left join from all projects to the filtered query
+    filtered_subquery =
+      query
+      |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+      |> filter_by_organization_or_brand(
+        Keyword.get(opts, :organization_id),
+        Keyword.get(opts, :brand_id)
+      )
+
+    from(p in Ravner.Inventory.Project,
+      left_join: d in subquery(filtered_subquery),
+      on: d.project_id == p.id,
+      group_by: [p.id, p.display_name, p.name],
+      select: {p.id, coalesce(p.display_name, p.name), count(d.id)}
     )
-    |> join(:inner, [d], p in assoc(d, :project))
-    |> group_by([d, p], [p.id, p.display_name, p.name])
-    |> select([d, p], {p.id, coalesce(p.display_name, p.name), count(d.id)})
     |> Repo.all()
     |> Enum.sort_by(fn {_, name, _} -> name end)
   end

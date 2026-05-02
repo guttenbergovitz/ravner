@@ -154,6 +154,10 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply, push_patch(socket, to: ~p"/domains?#{params}")}
   end
 
+  def handle_event("toggle_empty_facets", _params, socket) do
+    {:noreply, assign(socket, :show_empty_facets, !socket.assigns.show_empty_facets)}
+  end
+
   def handle_event("paginate", %{"page" => page_str}, socket) do
     page = page_str |> Integer.parse() |> elem(0)
     params = build_params(socket, page: page)
@@ -416,9 +420,10 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:scanning_ids, MapSet.new())
     |> assign(:ip_filter, "")
     |> assign(:export_include_subs, false)
-    |> assign(:project_filter, nil)
-    |> assign(:org_filter, nil)
     |> assign(:brand_filter, nil)
+    |> assign(:org_filter, nil)
+    |> assign(:project_filter, nil)
+    |> assign(:show_empty_facets, false)
     |> assign(:facets, %{lifecycle: [], brands: [], organizations: [], projects: []})
   end
 

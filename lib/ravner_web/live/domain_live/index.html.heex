@@ -5,11 +5,26 @@
       <aside class="space-y-8 sticky top-8">
         <div>
           <h1 class="text-2xl font-light tracking-tight mb-1">Domains</h1>
-          <p class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
-            {if @total == 0 && @search == "" && is_nil(@lifecycle_filter),
-              do: "No domains yet",
-              else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
-          </p>
+          <div class="flex items-center justify-between">
+            <p class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
+              {if @total == 0 && @search == "" && is_nil(@lifecycle_filter),
+                do: "No domains yet",
+                else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
+            </p>
+            <button
+              phx-click="toggle_empty_facets"
+              class={[
+                "text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
+                if(@show_empty_facets,
+                  do: "bg-neutral-900 text-white border-neutral-900",
+                  else: "text-neutral-400 border-neutral-200 hover:border-neutral-400"
+                )
+              ]}
+              title="Show filters with zero results"
+            >
+              Show empty
+            </button>
+          </div>
         </div>
 
         <%!-- Search & IP --%>
@@ -93,26 +108,27 @@
               <%= for {state, label, color} <- lifecycle_options() do %>
                 <% count =
                   Enum.find_value(@facets.lifecycle, 0, fn {s, c} -> if s == state, do: c end) %>
-                <button
-                  phx-click="toggle_facet"
-                  phx-value-type="lifecycle"
-                  phx-value-id={state}
-                  class={[
-                    "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded",
-                    if(@lifecycle_filter == state,
-                      do: "bg-neutral-900 text-white font-normal",
-                      else: "text-neutral-500 hover:bg-neutral-50 font-light"
-                    ),
-                    count == 0 && !(@lifecycle_filter == state) &&
-                      "opacity-30 pointer-events-none"
-                  ]}
-                >
-                  <div class="flex items-center gap-2">
-                    <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
-                    <span>{label}</span>
-                  </div>
-                  <span class="text-[10px] opacity-60">{count}</span>
-                </button>
+                <%= if @show_empty_facets || count > 0 || @lifecycle_filter == state do %>
+                  <button
+                    phx-click="toggle_facet"
+                    phx-value-type="lifecycle"
+                    phx-value-id={state}
+                    class={[
+                      "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded",
+                      if(@lifecycle_filter == state,
+                        do: "bg-neutral-900 text-white font-normal",
+                        else: "text-neutral-500 hover:bg-neutral-50 font-light"
+                      ),
+                      count == 0 && !(@lifecycle_filter == state) && "opacity-30"
+                    ]}
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                      <span>{label}</span>
+                    </div>
+                    <span class="text-[10px] opacity-60">{count}</span>
+                  </button>
+                <% end %>
               <% end %>
             </div>
           </div>
@@ -125,21 +141,24 @@
               </h3>
               <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
                 <%= for {id, name, count} <- @facets.brands do %>
-                  <button
-                    phx-click="toggle_facet"
-                    phx-value-type="brand"
-                    phx-value-id={id}
-                    class={[
-                      "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded text-left",
-                      if(@brand_filter == id,
-                        do: "bg-neutral-900 text-white font-normal",
-                        else: "text-neutral-500 hover:bg-neutral-50 font-light"
-                      )
-                    ]}
-                  >
-                    <span class="truncate pr-2">{name}</span>
-                    <span class="text-[10px] opacity-60 shrink-0">{count}</span>
-                  </button>
+                  <%= if @show_empty_facets || count > 0 || @brand_filter == id do %>
+                    <button
+                      phx-click="toggle_facet"
+                      phx-value-type="brand"
+                      phx-value-id={id}
+                      class={[
+                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded text-left",
+                        if(@brand_filter == id,
+                          do: "bg-neutral-900 text-white font-normal",
+                          else: "text-neutral-500 hover:bg-neutral-50 font-light"
+                        ),
+                        count == 0 && !(@brand_filter == id) && "opacity-30"
+                      ]}
+                    >
+                      <span class="truncate pr-2">{name}</span>
+                      <span class="text-[10px] opacity-60 shrink-0">{count}</span>
+                    </button>
+                  <% end %>
                 <% end %>
               </div>
             </div>
@@ -153,21 +172,24 @@
               </h3>
               <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
                 <%= for {id, name, count} <- @facets.organizations do %>
-                  <button
-                    phx-click="toggle_facet"
-                    phx-value-type="org"
-                    phx-value-id={id}
-                    class={[
-                      "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded text-left",
-                      if(@org_filter == id,
-                        do: "bg-neutral-900 text-white font-normal",
-                        else: "text-neutral-500 hover:bg-neutral-50 font-light"
-                      )
-                    ]}
-                  >
-                    <span class="truncate pr-2">{name}</span>
-                    <span class="text-[10px] opacity-60 shrink-0">{count}</span>
-                  </button>
+                  <%= if @show_empty_facets || count > 0 || @org_filter == id do %>
+                    <button
+                      phx-click="toggle_facet"
+                      phx-value-type="org"
+                      phx-value-id={id}
+                      class={[
+                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded text-left",
+                        if(@org_filter == id,
+                          do: "bg-neutral-900 text-white font-normal",
+                          else: "text-neutral-500 hover:bg-neutral-50 font-light"
+                        ),
+                        count == 0 && !(@org_filter == id) && "opacity-30"
+                      ]}
+                    >
+                      <span class="truncate pr-2">{name}</span>
+                      <span class="text-[10px] opacity-60 shrink-0">{count}</span>
+                    </button>
+                  <% end %>
                 <% end %>
               </div>
             </div>
@@ -181,21 +203,24 @@
               </h3>
               <div class="space-y-1 max-h-64 overflow-y-auto pr-2 scrollbar-thin">
                 <%= for {id, name, count} <- @facets.projects do %>
-                  <button
-                    phx-click="toggle_facet"
-                    phx-value-type="project"
-                    phx-value-id={id}
-                    class={[
-                      "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded text-left",
-                      if(@project_filter == id,
-                        do: "bg-neutral-900 text-white font-normal",
-                        else: "text-neutral-500 hover:bg-neutral-50 font-light"
-                      )
-                    ]}
-                  >
-                    <span class="truncate pr-2">{name}</span>
-                    <span class="text-[10px] opacity-60 shrink-0">{count}</span>
-                  </button>
+                  <%= if @show_empty_facets || count > 0 || @project_filter == id do %>
+                    <button
+                      phx-click="toggle_facet"
+                      phx-value-type="project"
+                      phx-value-id={id}
+                      class={[
+                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded text-left",
+                        if(@project_filter == id,
+                          do: "bg-neutral-900 text-white font-normal",
+                          else: "text-neutral-500 hover:bg-neutral-50 font-light"
+                        ),
+                        count == 0 && !(@project_filter == id) && "opacity-30"
+                      ]}
+                    >
+                      <span class="truncate pr-2">{name}</span>
+                      <span class="text-[10px] opacity-60 shrink-0">{count}</span>
+                    </button>
+                  <% end %>
                 <% end %>
               </div>
             </div>
@@ -824,7 +849,8 @@
           do: "This action cannot be undone.",
           else: "All scans will run in parallel background tasks."}
         <%= if @include_subdomains do %>
-          <br /><span class="text-neutral-900 font-normal">
+          <br />
+          <span class="text-neutral-900 font-normal">
             This will also include all their subdomains.
           </span>
         <% end %>
