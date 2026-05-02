@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Strict typing and static analysis** — integrated Dialyxir and Credo into the development workflow.
-- **Improved scan UX** — added "Scan all subdomains" action and grouped individual scans under a "Discovery" accordion.
+- **SSL monitoring** — integrated certificate extraction (issuer, validity, status) using Erlang's `:ssl` and `:public_key`. Includes SNI support for modern TLS servers and a dedicated Admin overview page.
+- **Improved scan UX** — added "Scan all subdomains" and "Scan visible" actions, grouped individual scans under a "Discovery" accordion.
 - **Enhanced scan resilience** — improved HTTP error handling (recording status 0 on failures) and detection of insecure (HTTP-only) sites as errors.
 - **Form validation** — missing error messages restored on registration and account settings forms.
 
