@@ -215,7 +215,7 @@ defmodule RavnerWeb.UserAuth do
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
-    socket = mount_current_scope(session, socket)
+    socket = do_mount_current_scope(session, socket)
 
     if socket.assigns.current_scope && socket.assigns.current_scope.user do
       {:cont, socket}
@@ -230,7 +230,7 @@ defmodule RavnerWeb.UserAuth do
   end
 
   def on_mount(:ensure_admin, _params, session, socket) do
-    socket = mount_current_scope(session, socket)
+    socket = do_mount_current_scope(session, socket)
     user = socket.assigns.current_scope && socket.assigns.current_scope.user
 
     if user && user.role == :admin do
@@ -246,7 +246,7 @@ defmodule RavnerWeb.UserAuth do
   end
 
   def on_mount(:ensure_editor, _params, session, socket) do
-    socket = mount_current_scope(session, socket)
+    socket = do_mount_current_scope(session, socket)
     user = socket.assigns.current_scope && socket.assigns.current_scope.user
     role_rank = %{viewer: 0, editor: 1, admin: 2}
 
@@ -262,7 +262,12 @@ defmodule RavnerWeb.UserAuth do
     end
   end
 
-  defp mount_current_scope(session, socket) do
+  def on_mount(:mount_current_scope, _params, session, socket) do
+    socket = do_mount_current_scope(session, socket)
+    {:cont, socket}
+  end
+
+  defp do_mount_current_scope(session, socket) do
     case session do
       %{"user_token" => token} ->
         {user, _token_inserted_at} = Accounts.get_user_by_session_token(token)

@@ -10,12 +10,19 @@ defmodule RavnerWeb.DashboardLive.Index do
     http_chart = build_http_chart(stats.http)
     scan_chart = build_scan_chart(stats.scan)
 
+    top_subs_max =
+      case stats.top_by_subs do
+        [{_, max} | _] -> max
+        _ -> 1
+      end
+
     {:ok,
      socket
      |> assign(:page_title, "Ravner")
      |> assign(:stats, stats)
      |> assign(:http_chart, http_chart)
-     |> assign(:scan_chart, scan_chart)}
+     |> assign(:scan_chart, scan_chart)
+     |> assign(:top_subs_max, top_subs_max)}
   end
 
   @impl true

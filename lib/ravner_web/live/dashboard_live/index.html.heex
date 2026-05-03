@@ -192,7 +192,7 @@
         <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
           Inventory Intelligence <span class="h-px flex-1 bg-neutral-100"></span>
         </h3>
-        <div class="grid grid-cols-2 gap-8">
+        <div class="grid grid-cols-3 gap-6">
           <div class="border border-neutral-200 p-6">
             <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
               Top Issuers
@@ -219,11 +219,92 @@
               <% end %>
             </div>
           </div>
+          <div class="border border-neutral-200 p-6">
+            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+              Top Registrars
+            </h4>
+            <div class="space-y-3">
+              <%= for {registrar, count} <- @stats.infra.registrars do %>
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-light text-neutral-600 truncate mr-4">{registrar}</span>
+                  <span class="font-normal text-neutral-900">{count}</span>
+                </div>
+              <% end %>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <%!-- Row 3: Lifecycle Breakdown --%>
+    <%!-- Row 3: Business Insights --%>
+    <div class="mb-12">
+      <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
+        Business Insights <span class="h-px flex-1 bg-neutral-100"></span>
+      </h3>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <%!-- Top Domains by Subdomain Count --%>
+        <div class="border border-neutral-200 bg-white p-8">
+          <div class="flex items-center justify-between mb-6">
+            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400">
+              Largest Subdomain Trees
+            </h4>
+            <.icon name="hero-sitemap" class="w-4 h-4 text-neutral-300" />
+          </div>
+          <%= if @stats.top_by_subs == [] do %>
+            <div class="py-8 text-center text-sm font-light text-neutral-400">
+              No subdomains discovered yet.
+            </div>
+          <% else %>
+            <div class="space-y-4">
+              <%= for {name, count} <- @stats.top_by_subs do %>
+                <div class="flex items-center justify-between">
+                  <.link
+                    navigate={~p"/domains?name=#{name}"}
+                    class="text-sm font-light text-neutral-900 hover:text-neutral-500 transition-colors truncate mr-4"
+                  >
+                    {name}
+                  </.link>
+                  <div class="flex items-center gap-3">
+                    <div class="w-24 h-1 bg-neutral-100">
+                      <div
+                        class="h-1 bg-neutral-400"
+                        style={"width: #{min(count * 100 / @top_subs_max, 100)}%;"}
+                      >
+                      </div>
+                    </div>
+                    <span class="text-xs font-normal text-neutral-500 w-6 text-right">
+                      {count}
+                    </span>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- HTTP & Scan Charts --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="border border-neutral-200 bg-white p-6">
+            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+              HTTP Status
+            </h4>
+            <div class="space-y-2">
+              {@http_chart |> Phoenix.HTML.raw()}
+            </div>
+          </div>
+          <div class="border border-neutral-200 bg-white p-6">
+            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+              Scan Freshness
+            </h4>
+            <div class="space-y-2">
+              {@scan_chart |> Phoenix.HTML.raw()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Row 4: Lifecycle Breakdown --%>
     <div>
       <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
         Asset Lifecycle Distribution <span class="h-px flex-1 bg-neutral-100"></span>

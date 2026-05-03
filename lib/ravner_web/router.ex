@@ -75,7 +75,7 @@ defmodule RavnerWeb.Router do
   scope "/", RavnerWeb do
     pipe_through(:browser)
 
-    live_session :public do
+    live_session :public, on_mount: [{RavnerWeb.UserAuth, :mount_current_scope}] do
       live("/", LandingLive.Index, :index)
     end
   end
