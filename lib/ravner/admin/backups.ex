@@ -115,8 +115,10 @@ defmodule Ravner.Admin.Backups do
       ["-f", tmp_path, database]
   end
 
-  @doc false
-  def run_with_fallback(cmd, args, env) do
+  # Runs `cmd args` capturing stdout+stderr. If the binary is missing or
+  # exits with a "version mismatch" message, falls back to a list of
+  # well-known Postgres install paths and retries with the first match.
+  defp run_with_fallback(cmd, args, env) do
     case safe_cmd(cmd, args, env) do
       {:ok, {_, 0} = ok} -> ok
       {:ok, result} -> try_fallback(cmd, args, env, result)

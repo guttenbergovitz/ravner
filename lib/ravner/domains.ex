@@ -11,10 +11,6 @@ defmodule Ravner.Domains do
 
   # Domains
 
-  def list_domains do
-    Repo.all(Domain)
-  end
-
   @page_size 25
 
   @doc """
@@ -323,8 +319,10 @@ defmodule Ravner.Domains do
     |> Repo.all()
   end
 
+  @spec get_domain!(integer() | String.t()) :: Domain.t()
   def get_domain!(id), do: Repo.get!(Domain, id)
 
+  @spec get_domain_with_preloads!(integer() | String.t()) :: Domain.t()
   def get_domain_with_preloads!(id) do
     Domain
     |> preload([
@@ -349,12 +347,14 @@ defmodule Ravner.Domains do
 
   def preload_subdomain_metadata(domain), do: domain
 
+  @spec create_domain(map()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t()}
   def create_domain(attrs \\ %{}) do
     %Domain{}
     |> Domain.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_domain(Domain.t(), map()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t()}
   def update_domain(%Domain{} = domain, attrs) do
     domain
     |> Domain.changeset(attrs)
@@ -385,14 +385,17 @@ defmodule Ravner.Domains do
     |> Repo.update()
   end
 
+  @spec delete_domain(Domain.t()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t()}
   def delete_domain(%Domain{} = domain) do
     Repo.delete(domain)
   end
 
+  @spec change_domain(Domain.t(), map()) :: Ecto.Changeset.t()
   def change_domain(%Domain{} = domain, attrs \\ %{}) do
     Domain.changeset(domain, attrs)
   end
 
+  @spec find_domain_by_name(String.t()) :: Domain.t() | nil
   def find_domain_by_name(name) do
     Repo.get_by(Domain, name: name)
   end
@@ -419,29 +422,55 @@ defmodule Ravner.Domains do
 
   # Bulk Import
 
-  # Known multi-part ccTLD second-level domains (e.g. .co.uk, .com.ua)
+  # Known multi-part ccTLD second-level domains (e.g. .co.uk, .com.ua).
+  # Kept as a sorted list (no duplicates) for easy auditing.
   @multi_part_tlds ~w(
-    co.uk com.uk net.uk org.uk me.uk
-    co.nz net.nz org.nz
-    com.au net.au org.au edu.au
-    com.ua net.ua org.ua
-    co.kr com.kr net.kr or.kr
-    com.cn net.cn org.cn
-    com.pl net.pl org.pl
-    com.tr net.tr org.tr
-    com.br net.br org.br
-    com.vn net.vn
-    co.il net.il
-    co.tz or.tz
     co.hu
-    co.za
+    co.il
+    co.in
     co.jp
-    com.sg
-    co.in net.in
-    com.au
-    com.pe
-    com.mx
+    co.kr
+    co.nz
+    co.tz
+    co.uk
+    co.za
     com.ar
+    com.au
+    com.br
+    com.cn
+    com.kr
+    com.mx
+    com.pe
+    com.pl
+    com.sg
+    com.tr
+    com.ua
+    com.uk
+    com.vn
+    edu.au
+    me.uk
+    net.au
+    net.br
+    net.cn
+    net.il
+    net.in
+    net.kr
+    net.nz
+    net.pl
+    net.tr
+    net.ua
+    net.uk
+    net.vn
+    or.kr
+    or.tz
+    org.au
+    org.br
+    org.cn
+    org.nz
+    org.pl
+    org.tr
+    org.ua
+    org.uk
   )
 
   @doc """
@@ -455,6 +484,12 @@ defmodule Ravner.Domains do
       file_dupes: [domain_name]             # duplicate within the input itself
     }
   """
+  @spec bulk_import(String.t()) :: %{
+          added: [String.t()],
+          skipped: [String.t()],
+          ignored: [{String.t(), term()}],
+          file_dupes: [String.t()]
+        }
   def bulk_import(text) when is_binary(text) do
     lines =
       text
@@ -476,37 +511,57 @@ defmodule Ravner.Domains do
       end)
       |> then(fn {uniq, _seen, dupes} -> {Enum.reverse(uniq), dupes} end)
 
-    {added, skipped, ignored} =
-      Enum.reduce(unique_lines, {[], [], []}, &process_import_line/2)
+    # First pass: classify every line into {valid, normalized} or
+    # {invalid, reason}. Pure work, no DB access.
+    {valid, ignored_invalid} =
+      Enum.reduce(unique_lines, {[], []}, fn name, {valid, ignored} ->
+        case classify_import_line(name) do
+          {:ok, normalized} -> {[{name, normalized} | valid], ignored}
+          {:error, reason} -> {valid, [{name, reason} | ignored]}
+        end
+      end)
+
+    valid = Enum.reverse(valid)
+
+    # Single batched existence query: SELECT name FROM domains WHERE name IN (...).
+    # Replaces the previous per-line `find_domain_by_name/1` (N round-trips).
+    existing =
+      case valid do
+        [] ->
+          MapSet.new()
+
+        _ ->
+          names = Enum.map(valid, fn {_orig, normalized} -> normalized end)
+
+          Domain
+          |> where([d], d.name in ^names)
+          |> select([d], d.name)
+          |> Repo.all()
+          |> MapSet.new()
+      end
+
+    # Second pass: insert only the names that don't already exist.
+    {added, skipped, ignored_inserts} =
+      Enum.reduce(valid, {[], [], []}, fn {orig_name, normalized}, {added, skipped, ignored} ->
+        if MapSet.member?(existing, normalized) do
+          {added, [normalized | skipped], ignored}
+        else
+          case create_domain(%{name: normalized, type: :domain}) do
+            {:ok, domain} ->
+              {[domain.name | added], skipped, ignored}
+
+            {:error, cs} ->
+              {added, skipped, [{orig_name, format_errors(cs)} | ignored]}
+          end
+        end
+      end)
 
     %{
       added: Enum.reverse(added),
       skipped: Enum.reverse(skipped),
-      ignored: Enum.reverse(ignored),
+      ignored: Enum.reverse(ignored_inserts) ++ Enum.reverse(ignored_invalid),
       file_dupes: Enum.reverse(dupes)
     }
-  end
-
-  defp process_import_line(name, {added, skipped, ignored}) do
-    case classify_import_line(name) do
-      {:ok, normalized} ->
-        case find_domain_by_name(normalized) do
-          nil ->
-            case create_domain(%{name: normalized, type: :domain}) do
-              {:ok, domain} ->
-                {[domain.name | added], skipped, ignored}
-
-              {:error, cs} ->
-                {added, skipped, [{name, format_errors(cs)} | ignored]}
-            end
-
-          _existing ->
-            {added, [normalized | skipped], ignored}
-        end
-
-      {:error, reason} ->
-        {added, skipped, [{name, reason} | ignored]}
-    end
   end
 
   defp strip_scheme_and_path(name) do
@@ -573,22 +628,46 @@ defmodule Ravner.Domains do
 
   # Domain Metadata
 
+  @spec get_domain_metadata(integer() | String.t()) :: DomainMetadata.t() | nil
   def get_domain_metadata(domain_id) do
     Repo.get_by(DomainMetadata, domain_id: domain_id)
   end
 
-  def upsert_domain_metadata(domain_id, attrs) do
-    case get_domain_metadata(domain_id) do
-      nil ->
-        %DomainMetadata{}
-        |> DomainMetadata.changeset(Map.put(attrs, :domain_id, domain_id))
-        |> Repo.insert()
+  @doc """
+  Inserts or updates the metadata row for `domain_id`.
 
-      metadata ->
-        metadata
-        |> DomainMetadata.changeset(attrs)
-        |> Repo.update()
-    end
+  Implemented as a single atomic `INSERT ... ON CONFLICT DO UPDATE`
+  against the `unique_index(:domain_metadata, [:domain_id])`. Replaces
+  ONLY the fields explicitly set by the caller (plus `:updated_at`),
+  matching the previous get-then-update behaviour where fields absent
+  from `attrs` were preserved on the existing row.
+
+  This eliminates the race window between the previous `get_by` and
+  `Repo.insert/update` calls — two concurrent scans for the same
+  domain_id can no longer race to insert a duplicate row or clobber
+  each other's writes.
+  """
+  @spec upsert_domain_metadata(integer() | String.t(), map()) ::
+          {:ok, DomainMetadata.t()} | {:error, Ecto.Changeset.t()}
+  def upsert_domain_metadata(domain_id, attrs) do
+    attrs_with_id = Map.put(attrs, :domain_id, domain_id)
+    changeset = DomainMetadata.changeset(%DomainMetadata{}, attrs_with_id)
+
+    # Only replace the columns the caller is actually setting.
+    # `:updated_at` is bumped unconditionally so the row reflects the
+    # latest write.
+    fields_to_replace =
+      changeset.changes
+      |> Map.keys()
+      |> List.delete(:domain_id)
+      |> then(&[:updated_at | &1])
+      |> Enum.uniq()
+
+    Repo.insert(changeset,
+      on_conflict: {:replace, fields_to_replace},
+      conflict_target: :domain_id,
+      returning: true
+    )
   end
 
   @doc """
@@ -599,6 +678,7 @@ defmodule Ravner.Domains do
   @doc """
   Converts a list of domains to CSV binary.
   """
+  @spec to_csv([Domain.t()]) :: String.t()
   def to_csv(domains) when is_list(domains) do
     header =
       "Name,Type,Lifecycle,HTTP Status,Final URL,IP v4,Tech Stack,Registrar,Expires,Scanned,Subdomains\n"

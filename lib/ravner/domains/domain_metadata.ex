@@ -2,6 +2,8 @@ defmodule Ravner.Domains.DomainMetadata do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   schema "domain_metadata" do
     belongs_to(:domain, Ravner.Domains.Domain)
 

@@ -2,6 +2,8 @@ defmodule Ravner.Inventory.ProjectRepository do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @kinds ~w(website portal ecommerce cms landing app api library tool documentation config other)
 
   schema "project_repositories" do

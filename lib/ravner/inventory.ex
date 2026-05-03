@@ -11,36 +11,44 @@ defmodule Ravner.Inventory do
   alias Ravner.Inventory.Organization
   alias Ravner.Inventory.Person
   alias Ravner.Inventory.Project
+  alias Ravner.Inventory.ProjectRepository
   alias Ravner.Inventory.ProjectRole
 
   # ── Brands ───────────────────────────────────────────────────────────────────
 
+  @spec list_brands() :: [Brand.t()]
   def list_brands do
     Repo.all(Brand)
   end
 
+  @spec get_brand!(integer() | String.t()) :: Brand.t()
   def get_brand!(id), do: Repo.get!(Brand, id)
 
+  @spec create_brand(map()) :: {:ok, Brand.t()} | {:error, Ecto.Changeset.t()}
   def create_brand(attrs \\ %{}) do
     %Brand{}
     |> Brand.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_brand(Brand.t(), map()) :: {:ok, Brand.t()} | {:error, Ecto.Changeset.t()}
   def update_brand(%Brand{} = brand, attrs) do
     brand
     |> Brand.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_brand(Brand.t()) :: {:ok, Brand.t()} | {:error, Ecto.Changeset.t()}
   def delete_brand(%Brand{} = brand) do
     Repo.delete(brand)
   end
 
+  @spec change_brand(Brand.t()) :: Ecto.Changeset.t()
   def change_brand(%Brand{} = brand \\ %Brand{}) do
     Brand.changeset(brand, %{})
   end
 
+  @spec suggest_brands(String.t(), pos_integer()) :: [%{id: integer(), name: String.t()}]
   def suggest_brands(query, limit \\ 10) when is_binary(query) and byte_size(query) > 0 do
     pattern = "%#{query}%"
 
@@ -54,34 +62,44 @@ defmodule Ravner.Inventory do
 
   # ── Organizations ────────────────────────────────────────────────────────────
 
+  @spec list_organizations() :: [Organization.t()]
   def list_organizations do
     Repo.all(Organization) |> Repo.preload([:brand])
   end
 
+  @spec get_organization!(integer() | String.t()) :: Organization.t()
   def get_organization!(id), do: Repo.get!(Organization, id) |> Repo.preload([:brand])
 
+  @spec create_organization(map()) ::
+          {:ok, Organization.t()} | {:error, Ecto.Changeset.t()}
   def create_organization(attrs \\ %{}) do
     %Organization{}
     |> Organization.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_organization(Organization.t(), map()) ::
+          {:ok, Organization.t()} | {:error, Ecto.Changeset.t()}
   def update_organization(%Organization{} = org, attrs) do
     org
     |> Organization.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_organization(Organization.t()) ::
+          {:ok, Organization.t()} | {:error, Ecto.Changeset.t()}
   def delete_organization(%Organization{} = org) do
     Repo.delete(org)
   end
 
+  @spec change_organization(Organization.t()) :: Ecto.Changeset.t()
   def change_organization(%Organization{} = org \\ %Organization{}) do
     Organization.changeset(org, %{})
   end
 
   # ── People ───────────────────────────────────────────────────────────────────
 
+  @spec list_people(keyword()) :: [Person.t()]
   def list_people(opts \\ []) do
     org_id = Keyword.get(opts, :organization_id)
 
@@ -94,28 +112,35 @@ defmodule Ravner.Inventory do
     |> Repo.preload([:organization])
   end
 
+  @spec get_person!(integer() | String.t()) :: Person.t()
   def get_person!(id), do: Repo.get!(Person, id) |> Repo.preload([:organization, :project_roles])
 
+  @spec create_person(map()) :: {:ok, Person.t()} | {:error, Ecto.Changeset.t()}
   def create_person(attrs \\ %{}) do
     %Person{}
     |> Person.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_person(Person.t(), map()) ::
+          {:ok, Person.t()} | {:error, Ecto.Changeset.t()}
   def update_person(%Person{} = person, attrs) do
     person
     |> Person.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_person(Person.t()) :: {:ok, Person.t()} | {:error, Ecto.Changeset.t()}
   def delete_person(%Person{} = person) do
     Repo.delete(person)
   end
 
+  @spec change_person(Person.t()) :: Ecto.Changeset.t()
   def change_person(%Person{} = person \\ %Person{}) do
     Person.changeset(person, %{})
   end
 
+  @spec suggest_people(String.t(), pos_integer()) :: [%{id: integer(), name: String.t()}]
   def suggest_people(query, limit \\ 10) when is_binary(query) and byte_size(query) > 0 do
     pattern = "%#{query}%"
 
@@ -129,6 +154,7 @@ defmodule Ravner.Inventory do
 
   # ── Projects ─────────────────────────────────────────────────────────────────
 
+  @spec list_projects(keyword()) :: [Project.t()]
   def list_projects(opts \\ []) do
     org_id = Keyword.get(opts, :organization_id)
 
@@ -141,31 +167,38 @@ defmodule Ravner.Inventory do
     |> Repo.preload([:organization])
   end
 
+  @spec get_project!(integer() | String.t()) :: Project.t()
   def get_project!(id) do
     Repo.get!(Project, id)
     |> Repo.preload([:organization, :project_roles])
   end
 
+  @spec create_project(map()) :: {:ok, Project.t()} | {:error, Ecto.Changeset.t()}
   def create_project(attrs \\ %{}) do
     %Project{}
     |> Project.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_project(Project.t(), map()) ::
+          {:ok, Project.t()} | {:error, Ecto.Changeset.t()}
   def update_project(%Project{} = project, attrs) do
     project
     |> Project.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_project(Project.t()) :: {:ok, Project.t()} | {:error, Ecto.Changeset.t()}
   def delete_project(%Project{} = project) do
     Repo.delete(project)
   end
 
+  @spec change_project(Project.t()) :: Ecto.Changeset.t()
   def change_project(%Project{} = project \\ %Project{}) do
     Project.changeset(project, %{})
   end
 
+  @spec suggest_projects(String.t(), pos_integer()) :: [%{id: integer(), name: String.t()}]
   def suggest_projects(query, limit \\ 10) when is_binary(query) and byte_size(query) > 0 do
     pattern = "%#{query}%"
 
@@ -179,6 +212,7 @@ defmodule Ravner.Inventory do
 
   # ── Project Roles ────────────────────────────────────────────────────────────
 
+  @spec list_project_roles(integer() | String.t()) :: [ProjectRole.t()]
   def list_project_roles(project_id) do
     ProjectRole
     |> where([pr], pr.project_id == ^project_id)
@@ -186,6 +220,7 @@ defmodule Ravner.Inventory do
     |> Repo.preload([:person])
   end
 
+  @spec list_project_roles_for_person(integer() | String.t()) :: [ProjectRole.t()]
   def list_project_roles_for_person(person_id) do
     ProjectRole
     |> where([pr], pr.person_id == ^person_id)
@@ -193,8 +228,11 @@ defmodule Ravner.Inventory do
     |> Repo.preload([:project])
   end
 
+  @spec get_project_role!(integer() | String.t()) :: ProjectRole.t()
   def get_project_role!(id), do: Repo.get!(ProjectRole, id) |> Repo.preload([:project, :person])
 
+  @spec create_project_role(map()) ::
+          {:ok, ProjectRole.t()} | {:error, Ecto.Changeset.t()}
   def create_project_role(attrs \\ %{}) do
     result =
       %ProjectRole{}
@@ -207,18 +245,20 @@ defmodule Ravner.Inventory do
     end
   end
 
+  @spec delete_project_role(ProjectRole.t()) ::
+          {:ok, ProjectRole.t()} | {:error, Ecto.Changeset.t()}
   def delete_project_role(%ProjectRole{} = pr) do
     Repo.delete(pr)
   end
 
+  @spec change_project_role(ProjectRole.t()) :: Ecto.Changeset.t()
   def change_project_role(%ProjectRole{} = pr \\ %ProjectRole{}) do
     ProjectRole.changeset(pr, %{})
   end
 
   # ── Project Repositories ─────────────────────────────────────────────────────
 
-  alias Ravner.Inventory.ProjectRepository
-
+  @spec list_project_repositories(integer() | String.t()) :: [ProjectRepository.t()]
   def list_project_repositories(project_id) do
     ProjectRepository
     |> where([r], r.project_id == ^project_id)
@@ -226,34 +266,44 @@ defmodule Ravner.Inventory do
     |> Repo.all()
   end
 
+  @spec get_project_repository!(integer() | String.t()) :: ProjectRepository.t()
   def get_project_repository!(id), do: Repo.get!(ProjectRepository, id)
 
+  @spec create_project_repository(map()) ::
+          {:ok, ProjectRepository.t()} | {:error, Ecto.Changeset.t()}
   def create_project_repository(attrs \\ %{}) do
     %ProjectRepository{}
     |> ProjectRepository.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_project_repository(ProjectRepository.t(), map()) ::
+          {:ok, ProjectRepository.t()} | {:error, Ecto.Changeset.t()}
   def update_project_repository(%ProjectRepository{} = repo, attrs) do
     repo
     |> ProjectRepository.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_project_repository(ProjectRepository.t()) ::
+          {:ok, ProjectRepository.t()} | {:error, Ecto.Changeset.t()}
   def delete_project_repository(%ProjectRepository{} = repo) do
     Repo.delete(repo)
   end
 
+  @spec change_project_repository(ProjectRepository.t()) :: Ecto.Changeset.t()
   def change_project_repository(%ProjectRepository{} = repo \\ %ProjectRepository{}) do
     ProjectRepository.changeset(repo, %{})
   end
 
   # ── Dashboard / Ownership counts ─────────────────────────────────────────────
 
+  @spec count_domains_without_project() :: non_neg_integer()
   def count_domains_without_project do
     Repo.aggregate(from(d in Ravner.Domains.Domain, where: is_nil(d.project_id)), :count, :id)
   end
 
+  @spec count_projects_without_roles() :: non_neg_integer()
   def count_projects_without_roles do
     Repo.all(
       from(p in Project,
@@ -270,6 +320,7 @@ defmodule Ravner.Inventory do
     end
   end
 
+  @spec count_people_without_org() :: non_neg_integer()
   def count_people_without_org do
     Repo.aggregate(from(p in Person, where: is_nil(p.organization_id)), :count, :id)
   end

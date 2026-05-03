@@ -2,6 +2,8 @@ defmodule Ravner.Inventory.Organization do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   schema "organizations" do
     field(:name, :string)
     field(:slug, :string)

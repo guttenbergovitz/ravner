@@ -2,6 +2,8 @@ defmodule Ravner.Inventory.ProjectRole do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   schema "project_roles" do
     field(:role, :string)
     field(:notes, :string)

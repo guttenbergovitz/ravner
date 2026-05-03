@@ -284,6 +284,8 @@ defmodule Ravner.Scans do
 
   # HTTPX scan via Req (fast, non-blocking)
 
+  @spec run_httpx_scan(integer()) ::
+          {:ok, Ravner.Domains.DomainMetadata.t()} | {:error, term()}
   def run_httpx_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
 
@@ -745,6 +747,8 @@ defmodule Ravner.Scans do
 
   # DNSX scan via Port + dnsx CLI
 
+  @spec run_dnsx_scan(integer()) ::
+          {:ok, Ravner.Domains.DomainMetadata.t()} | {:error, term()}
   def run_dnsx_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
 
@@ -785,10 +789,25 @@ defmodule Ravner.Scans do
   end
 
   defp do_dnsx_scan(domain_name) do
-    case System.cmd("/bin/sh", [
-           "-c",
-           "echo #{domain_name} | dnsx -a -aaaa -cname -mx -ns -txt -json -silent 2>/dev/null"
-         ]) do
+    # Pass the domain via argv (-d) instead of shell-piping to avoid shell
+    # injection. stderr is captured into the same stream and discarded by
+    # only inspecting stdout on success.
+    case System.cmd(
+           "dnsx",
+           [
+             "-d",
+             domain_name,
+             "-a",
+             "-aaaa",
+             "-cname",
+             "-mx",
+             "-ns",
+             "-txt",
+             "-json",
+             "-silent"
+           ],
+           stderr_to_stdout: false
+         ) do
       {output, 0} ->
         case Jason.decode(output) do
           {:ok, data} -> {:ok, data}
@@ -798,6 +817,8 @@ defmodule Ravner.Scans do
       {output, code} ->
         {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
     end
+  rescue
+    ErlangError -> {:error, "dnsx executable not found"}
   end
 
   # ---------------------------------------------------------------------------

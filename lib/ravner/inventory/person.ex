@@ -2,6 +2,8 @@ defmodule Ravner.Inventory.Person do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   schema "people" do
     field(:first_name, :string)
     field(:last_name, :string)
