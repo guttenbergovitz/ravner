@@ -15,7 +15,7 @@ defmodule Ravner.Scans.SecurityRunner do
   alias Ravner.SecurityScans.SecurityScan
 
   @nuclei_tags "http,ssl,tech,exposure,misconfig"
-  @scan_timeout 120_000
+  @scan_timeout 300_000
   @template_update_timeout 180_000
 
   # ─── Public API ───────────────────────────────────────────────────────────
@@ -140,8 +140,9 @@ defmodule Ravner.Scans.SecurityRunner do
           domain_name,
           "-json",
           "-silent",
+          "-stream",
           "-top-ports",
-          "1000"
+          "100"
         ]
 
         case cmd_with_timeout("naabu", args,
@@ -283,8 +284,9 @@ defmodule Ravner.Scans.SecurityRunner do
         domain_name,
         "-json",
         "-silent",
+        "-stream",
         "-top-ports",
-        "1000"
+        "100"
       ]
 
       case cmd_with_timeout("naabu", naabu_args,
@@ -479,15 +481,32 @@ defmodule Ravner.Scans.SecurityRunner do
   @doc false
   @spec cmd_with_timeout(String.t(), [String.t()], keyword(), non_neg_integer()) ::
           {String.t(), non_neg_integer()} | {:error, :timeout}
-  defp cmd_with_timeout(cmd, args, opts, timeout) do
+  defp cmd_with_timeout(cmd, args, _opts, timeout) do
+    # naabu and other PD tools hang when stdin is a terminal.
+    # Wrap in bash with </dev/null to force immediate EOF on stdin.
+    shell_cmd = "#{cmd} #{escape_args(args)} </dev/null"
+
     task =
       Task.async(fn ->
-        System.cmd(cmd, args, opts)
+        System.cmd("bash", ["-c", shell_cmd], stderr_to_stdout: true)
       end)
 
     case Task.yield(task, timeout) || Task.shutdown(task) do
       {:ok, result} -> result
       nil -> {:error, :timeout}
     end
+  end
+
+  defp escape_args(args) do
+    args
+    |> Enum.map(fn arg ->
+      if String.match?(arg, ~r/^[a-zA-Z0-9_.~+=@-]+$/) do
+        arg
+      else
+        escaped = String.replace(arg, "'", "'\"'\"'")
+        "'" <> escaped <> "'"
+      end
+    end)
+    |> Enum.join(" ")
   end
 end
