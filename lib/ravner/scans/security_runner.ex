@@ -16,6 +16,7 @@ defmodule Ravner.Scans.SecurityRunner do
 
   @nuclei_tags "http,ssl,tech,exposure,misconfig"
   @scan_timeout 120_000
+  @template_update_timeout 180_000
 
   # ─── Public API ───────────────────────────────────────────────────────────
 
@@ -143,14 +144,17 @@ defmodule Ravner.Scans.SecurityRunner do
           "1000"
         ]
 
-        case System.cmd("naabu", args,
-               stderr_to_stdout: true,
-               timeout: @scan_timeout
+        case cmd_with_timeout("naabu", args,
+               [stderr_to_stdout: true],
+               @scan_timeout
              ) do
           {output, 0} ->
             send_progress(scan.id, 75, liveview_pid)
             findings = SecurityScans.parse_naabu_output(output)
             complete_scan(scan, findings, output, liveview_pid, :naabu)
+
+          {:error, :timeout} ->
+            fail_scan(scan, "naabu timed out after #{@scan_timeout}ms", liveview_pid, :naabu)
 
           {output, code} ->
             fail_scan(
@@ -190,14 +194,17 @@ defmodule Ravner.Scans.SecurityRunner do
           "10"
         ]
 
-        case System.cmd("nuclei", args,
-               stderr_to_stdout: true,
-               timeout: @scan_timeout
+        case cmd_with_timeout("nuclei", args,
+               [stderr_to_stdout: true],
+               @scan_timeout
              ) do
           {output, 0} ->
             send_progress(scan.id, 85, liveview_pid)
             findings = SecurityScans.parse_nuclei_output(output)
             complete_scan(scan, findings, output, liveview_pid, :nuclei)
+
+          {:error, :timeout} ->
+            fail_scan(scan, "nuclei timed out after #{@scan_timeout}ms", liveview_pid, :nuclei)
 
           {output, code} ->
             fail_scan(
@@ -235,14 +242,17 @@ defmodule Ravner.Scans.SecurityRunner do
           "-status-code"
         ]
 
-        case System.cmd("httpx", args,
-               stderr_to_stdout: true,
-               timeout: @scan_timeout
+        case cmd_with_timeout("httpx", args,
+               [stderr_to_stdout: true],
+               @scan_timeout
              ) do
           {output, 0} ->
             send_progress(scan.id, 85, liveview_pid)
             findings = SecurityScans.parse_httpx_output(output)
             complete_scan(scan, findings, output, liveview_pid, :httpx_binary)
+
+          {:error, :timeout} ->
+            fail_scan(scan, "httpx timed out after #{@scan_timeout}ms", liveview_pid, :httpx_binary)
 
           {output, code} ->
             fail_scan(
@@ -277,9 +287,9 @@ defmodule Ravner.Scans.SecurityRunner do
         "1000"
       ]
 
-      case System.cmd("naabu", naabu_args,
-             stderr_to_stdout: true,
-             timeout: @scan_timeout
+      case cmd_with_timeout("naabu", naabu_args,
+             [stderr_to_stdout: true],
+             @scan_timeout
            ) do
         {naabu_output, 0} ->
           send_progress(scan.id, 40, liveview_pid)
@@ -316,9 +326,9 @@ defmodule Ravner.Scans.SecurityRunner do
                 "10"
               ]
 
-              case System.cmd("nuclei", nuclei_args,
-                     stderr_to_stdout: true,
-                     timeout: @scan_timeout
+              case cmd_with_timeout("nuclei", nuclei_args,
+                     [stderr_to_stdout: true],
+                     @scan_timeout
                    ) do
                 {output, 0} ->
                   findings = SecurityScans.parse_nuclei_output(output)
@@ -337,6 +347,9 @@ defmodule Ravner.Scans.SecurityRunner do
 
             finalize_scan(scan, updated_findings, naabu_output, summary, liveview_pid, :deep_scan)
           end
+
+        {:error, :timeout} ->
+          fail_scan(scan, "naabu timed out after #{@scan_timeout}ms", liveview_pid, :deep_scan)
 
         {output, code} ->
           fail_scan(
@@ -395,9 +408,9 @@ defmodule Ravner.Scans.SecurityRunner do
       send_progress(scan.id, 15, liveview_pid)
       Logger.info("Updating Nuclei templates for the first time...")
 
-      case System.cmd("nuclei", ["-update-templates"],
-             stderr_to_stdout: true,
-             timeout: 180_000
+      case cmd_with_timeout("nuclei", ["-update-templates"],
+             [stderr_to_stdout: true],
+             @template_update_timeout
            ) do
         {_, 0} ->
           Logger.info("Nuclei templates updated successfully")
@@ -459,5 +472,22 @@ defmodule Ravner.Scans.SecurityRunner do
     Enum.each(findings, fn attrs ->
       SecurityScans.create_finding(Map.put(attrs, :security_scan_id, scan.id))
     end)
+  end
+
+  # ─── Timeout wrapper for System.cmd ───────────────────────────────────────
+
+  @doc false
+  @spec cmd_with_timeout(String.t(), [String.t()], keyword(), non_neg_integer()) ::
+          {String.t(), non_neg_integer()} | {:error, :timeout}
+  defp cmd_with_timeout(cmd, args, opts, timeout) do
+    task =
+      Task.async(fn ->
+        System.cmd(cmd, args, opts)
+      end)
+
+    case Task.yield(task, timeout) || Task.shutdown(task) do
+      {:ok, result} -> result
+      nil -> {:error, :timeout}
+    end
   end
 end

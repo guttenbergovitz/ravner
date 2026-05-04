@@ -848,7 +848,7 @@
                     <p class="text-xs text-red-600 mt-2">{scan.error_message}</p>
                   <% end %>
 
-                  <%= if scan.findings != [] do %>
+                  <%= if Ecto.assoc_loaded?(scan.findings) && scan.findings != [] do %>
                     <div class="mt-2 space-y-1">
                       <%= for finding <- scan.findings do %>
                         <div class="flex items-start gap-2 text-xs py-1 border-b border-neutral-50 last:border-0">
