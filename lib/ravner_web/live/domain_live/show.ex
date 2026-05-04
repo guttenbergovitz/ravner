@@ -11,6 +11,8 @@ defmodule RavnerWeb.DomainLive.Show do
   alias Ravner.Inventory
   alias Ravner.Repo
   alias Ravner.Scans
+  alias Ravner.Scans.SecurityRunner
+  alias Ravner.SecurityScans
 
   # Two-part TLDs for root domain extraction (same logic as Balebos)
   @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
@@ -24,12 +26,14 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:lifecycle_menu_open, false)
      |> assign(:projects, Inventory.list_projects())
      |> assign(:brands, Inventory.list_brands())
-     |> assign(:orgs, Inventory.list_organizations())}
+     |> assign(:orgs, Inventory.list_organizations())
+     |> stream(:security_scans, [])}
   end
 
   @impl true
   def handle_params(%{"id" => id}, _, socket) do
     domain = Domains.get_domain_with_preloads!(id)
+    scans = SecurityScans.list_scans_for_domain(id)
 
     {:noreply,
      socket
@@ -38,7 +42,8 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:scan_results, nil)
      |> assign(:scanning, false)
      |> assign(:pending_scans, 0)
-     |> assign(:domain_class, compute_domain_class(domain))}
+     |> assign(:domain_class, compute_domain_class(domain))
+     |> stream(:security_scans, scans, reset: true)}
   end
 
   # ---------------------------------------------------------------------------
@@ -162,6 +167,80 @@ defmodule RavnerWeb.DomainLive.Show do
     end)
 
     {:noreply, socket}
+  end
+
+  # ─── Security scans (admin only) ──────────────────────────────────────────
+
+  def handle_event("scan_naabu", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role != :admin do
+    {:noreply, put_flash(socket, :error, "Admin access required for security scans.")}
+  end
+
+  def handle_event("scan_naabu", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+
+    case SecurityRunner.run_naabu_scan(domain_id, liveview_pid) do
+      {:ok, scan} ->
+        {:noreply, stream_insert(socket, :security_scans, scan)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, reason)}
+    end
+  end
+
+  def handle_event("scan_nuclei", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role != :admin do
+    {:noreply, put_flash(socket, :error, "Admin access required for security scans.")}
+  end
+
+  def handle_event("scan_nuclei", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+
+    case SecurityRunner.run_nuclei_scan(domain_id, liveview_pid) do
+      {:ok, scan} ->
+        {:noreply, stream_insert(socket, :security_scans, scan)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, reason)}
+    end
+  end
+
+  def handle_event("scan_httpx_binary", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role != :admin do
+    {:noreply, put_flash(socket, :error, "Admin access required for security scans.")}
+  end
+
+  def handle_event("scan_httpx_binary", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+
+    case SecurityRunner.run_httpx_binary_scan(domain_id, liveview_pid) do
+      {:ok, scan} ->
+        {:noreply, stream_insert(socket, :security_scans, scan)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, reason)}
+    end
+  end
+
+  def handle_event("scan_deep", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role != :admin do
+    {:noreply, put_flash(socket, :error, "Admin access required for security scans.")}
+  end
+
+  def handle_event("scan_deep", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+
+    case SecurityRunner.run_deep_scan(domain_id, liveview_pid) do
+      {:ok, scan} ->
+        {:noreply, stream_insert(socket, :security_scans, scan)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, reason)}
+    end
   end
 
   def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
@@ -343,6 +422,47 @@ defmodule RavnerWeb.DomainLive.Show do
      socket
      |> finish_scan()
      |> put_flash(:info, "No subdomains found")}
+  end
+
+  # ─── Security scan progress & results ─────────────────────────────────────
+
+  def handle_info({:scan_progress, scan_id, _progress}, socket) do
+    # Update the scan in the stream with new progress
+    scan = SecurityScans.get_scan!(scan_id)
+    {:noreply, stream_insert(socket, :security_scans, scan)}
+  end
+
+  def handle_info({:scan_done, :naabu, {:ok, scan}}, socket) do
+    {:noreply,
+     socket
+     |> stream_insert(:security_scans, scan)
+     |> put_flash(:info, "Naabu scan completed — #{scan.summary}")}
+  end
+
+  def handle_info({:scan_done, :nuclei, {:ok, scan}}, socket) do
+    {:noreply,
+     socket
+     |> stream_insert(:security_scans, scan)
+     |> put_flash(:info, "Nuclei scan completed — #{scan.summary}")}
+  end
+
+  def handle_info({:scan_done, :httpx_binary, {:ok, scan}}, socket) do
+    {:noreply,
+     socket
+     |> stream_insert(:security_scans, scan)
+     |> put_flash(:info, "httpx scan completed — #{scan.summary}")}
+  end
+
+  def handle_info({:scan_done, :deep_scan, {:ok, scan}}, socket) do
+    {:noreply,
+     socket
+     |> stream_insert(:security_scans, scan)
+     |> put_flash(:info, "Deep scan completed — #{scan.summary}")}
+  end
+
+  def handle_info({:scan_done, tool, {:error, reason}}, socket)
+      when tool in [:naabu, :nuclei, :httpx_binary, :deep_scan] do
+    {:noreply, put_flash(socket, :error, "#{tool} scan failed: #{reason}")}
   end
 
   def handle_info({:scan_done, _kind, {:error, reason}}, socket) when is_binary(reason) do

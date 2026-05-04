@@ -22,6 +22,9 @@ ARG OTP_VERSION=27.3.4
 ARG DEBIAN_VERSION=bookworm-20260421-slim
 ARG PG_MAJOR=16
 ARG DNSX_VERSION=1.2.3
+ARG NAABU_VERSION=2.3.4
+ARG NUCLEI_VERSION=3.4.2
+ARG HTTPX_VERSION=1.6.10
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -78,6 +81,42 @@ RUN apt-get update -y \
  && install -m 0755 /tmp/dnsx/dnsx /usr/local/bin/dnsx \
  && rm -rf /var/lib/apt/lists/* /tmp/dnsx /tmp/dnsx.zip
 
+# ─── Fetch naabu (ProjectDiscovery) ──────────────────────────────────────────
+FROM debian:${DEBIAN_VERSION} AS naabu
+ARG NAABU_VERSION
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+ && curl -fsSL -o /tmp/naabu.zip \
+      "https://github.com/projectdiscovery/naabu/releases/download/v${NAABU_VERSION}/naabu_${NAABU_VERSION}_linux_${TARGETARCH}.zip" \
+ && unzip /tmp/naabu.zip -d /tmp/naabu \
+ && install -m 0755 /tmp/naabu/naabu /usr/local/bin/naabu \
+ && rm -rf /var/lib/apt/lists/* /tmp/naabu /tmp/naabu.zip
+
+# ─── Fetch nuclei (ProjectDiscovery) ─────────────────────────────────────────
+FROM debian:${DEBIAN_VERSION} AS nuclei
+ARG NUCLEI_VERSION
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+ && curl -fsSL -o /tmp/nuclei.zip \
+      "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_${TARGETARCH}.zip" \
+ && unzip /tmp/nuclei.zip -d /tmp/nuclei \
+ && install -m 0755 /tmp/nuclei/nuclei /usr/local/bin/nuclei \
+ && rm -rf /var/lib/apt/lists/* /tmp/nuclei /tmp/nuclei.zip
+
+# ─── Fetch httpx (ProjectDiscovery) ──────────────────────────────────────────
+FROM debian:${DEBIAN_VERSION} AS httpx
+ARG HTTPX_VERSION
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+ && curl -fsSL -o /tmp/httpx.zip \
+      "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_${TARGETARCH}.zip" \
+ && unzip /tmp/httpx.zip -d /tmp/httpx \
+ && install -m 0755 /tmp/httpx/httpx /usr/local/bin/httpx \
+ && rm -rf /var/lib/apt/lists/* /tmp/httpx /tmp/httpx.zip
+
 # ─── Runtime ─────────────────────────────────────────────────────────────────
 FROM ${RUNNER_IMAGE} AS runner
 ARG PG_MAJOR
@@ -118,8 +157,11 @@ RUN groupadd --system --gid 1000 ravner \
 WORKDIR /app
 USER ravner:ravner
 
-# dnsx binary from the fetch stage and the OTP release from the builder.
+# Security scanner binaries from fetch stages and the OTP release from the builder.
 COPY --from=dnsx    /usr/local/bin/dnsx              /usr/local/bin/dnsx
+COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
+COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
+COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=builder --chown=ravner:ravner /app/_build/prod/rel/ravner ./
 
 EXPOSE 4000

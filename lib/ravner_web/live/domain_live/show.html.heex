@@ -759,6 +759,129 @@
           <% end %>
         </div>
 
+        <%!-- Security Scans --%>
+        <div class="card-line">
+          <h2 class="text-sm font-normal tracking-wide uppercase mb-4">Security Scans</h2>
+
+          <%= if @current_scope && @current_scope.user.role == :admin do %>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+              <button
+                phx-click="scan_naabu"
+                class="btn-line w-full justify-center text-xs"
+              >
+                <.icon name="hero-signal" class="w-3.5 h-3.5" /> Naabu
+              </button>
+              <button
+                phx-click="scan_nuclei"
+                class="btn-line w-full justify-center text-xs"
+              >
+                <.icon name="hero-shield-exclamation" class="w-3.5 h-3.5" /> Nuclei
+              </button>
+              <button
+                phx-click="scan_httpx_binary"
+                class="btn-line w-full justify-center text-xs"
+              >
+                <.icon name="hero-globe-alt" class="w-3.5 h-3.5" /> httpx
+              </button>
+              <button
+                phx-click="scan_deep"
+                class="btn-line w-full justify-center text-xs"
+              >
+                <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Deep
+              </button>
+            </div>
+          <% else %>
+            <p class="text-xs text-neutral-400 mb-4">
+              Admin access required to run security scans.
+            </p>
+          <% end %>
+
+          <div id="security-scans" phx-update="stream" class="space-y-2">
+            <%= for {id, scan} <- @streams.security_scans do %>
+              <details id={id} class="group border border-neutral-200 rounded-sm">
+                <summary class="flex items-center justify-between px-3 py-2 cursor-pointer list-none hover:bg-neutral-50 transition-colors">
+                  <div class="flex items-center gap-2">
+                    <span class={[
+                      "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
+                      scan.tool == "naabu" && "bg-blue-50 text-blue-600",
+                      scan.tool == "nuclei" && "bg-red-50 text-red-600",
+                      scan.tool == "httpx" && "bg-purple-50 text-purple-600",
+                      scan.tool == "deep_scan" && "bg-amber-50 text-amber-600"
+                    ]}>
+                      {scan.tool}
+                    </span>
+                    <span class={[
+                      "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
+                      scan.status == "completed" && "bg-green-50 text-green-600",
+                      scan.status == "running" && "bg-yellow-50 text-yellow-600",
+                      scan.status == "failed" && "bg-red-50 text-red-600",
+                      scan.status == "pending" && "bg-neutral-100 text-neutral-500"
+                    ]}>
+                      {scan.status}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <%= if scan.status == "running" do %>
+                      <div class="w-16 h-1 bg-neutral-200 rounded-full overflow-hidden">
+                        <div
+                          class="h-full bg-blue-500 transition-all duration-300"
+                          style={"width: #{scan.progress}%"}
+                        >
+                        </div>
+                      </div>
+                    <% end %>
+                    <span class="text-[10px] text-neutral-400">
+                      {Calendar.strftime(scan.inserted_at, "%Y-%m-%d %H:%M")}
+                    </span>
+                    <.icon
+                      name="hero-chevron-down"
+                      class="w-3.5 h-3.5 text-neutral-400 transition group-open:rotate-180"
+                    />
+                  </div>
+                </summary>
+
+                <div class="px-3 pb-3 border-t border-neutral-100">
+                  <%= if scan.summary do %>
+                    <p class="text-xs text-neutral-600 mt-2">{scan.summary}</p>
+                  <% end %>
+                  <%= if scan.error_message do %>
+                    <p class="text-xs text-red-600 mt-2">{scan.error_message}</p>
+                  <% end %>
+
+                  <%= if scan.findings != [] do %>
+                    <div class="mt-2 space-y-1">
+                      <%= for finding <- scan.findings do %>
+                        <div class="flex items-start gap-2 text-xs py-1 border-b border-neutral-50 last:border-0">
+                          <span class={[
+                            "shrink-0 text-[10px] uppercase tracking-wide px-1 py-0.5 rounded-sm mt-0.5",
+                            finding.severity == "critical" && "bg-red-100 text-red-700",
+                            finding.severity == "high" && "bg-orange-100 text-orange-700",
+                            finding.severity == "medium" && "bg-yellow-100 text-yellow-700",
+                            finding.severity == "low" && "bg-blue-100 text-blue-700",
+                            true && "bg-neutral-100 text-neutral-600"
+                          ]}>
+                            {finding.severity || "info"}
+                          </span>
+                          <div class="min-w-0">
+                            <p class="font-medium text-neutral-700 truncate">{finding.title}</p>
+                            <%= if finding.target do %>
+                              <p class="text-neutral-400 truncate">{finding.target}</p>
+                            <% end %>
+                          </div>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <%= if scan.status == "completed" do %>
+                      <p class="text-xs text-neutral-400 mt-2">No findings recorded.</p>
+                    <% end %>
+                  <% end %>
+                </div>
+              </details>
+            <% end %>
+          </div>
+        </div>
+
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Tags</h2>
           <%= if @domain.domain_tags == [] do %>
