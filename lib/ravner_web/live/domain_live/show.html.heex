@@ -833,6 +833,16 @@
                     <span class="text-[10px] text-neutral-400">
                       {Calendar.strftime(scan.inserted_at, "%Y-%m-%d %H:%M")}
                     </span>
+                    <%= if @current_scope && @current_scope.user.role == :admin do %>
+                      <button
+                        phx-click="delete_scan"
+                        phx-value-id={scan.id}
+                        class="text-neutral-300 hover:text-red-500 transition-colors"
+                        title="Delete scan"
+                      >
+                        <.icon name="hero-trash" class="w-3 h-3" />
+                      </button>
+                    <% end %>
                     <.icon
                       name="hero-chevron-down"
                       class="w-3.5 h-3.5 text-neutral-400 transition group-open:rotate-180"

@@ -243,6 +243,27 @@ defmodule RavnerWeb.DomainLive.Show do
     end
   end
 
+  def handle_event("delete_scan", _params, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role != :admin do
+    {:noreply, put_flash(socket, :error, "Admin access required.")}
+  end
+
+  def handle_event("delete_scan", %{"id" => scan_id}, socket) do
+    scan_id = String.to_integer(scan_id)
+
+    case SecurityScans.get_scan!(scan_id) do
+      scan ->
+        SecurityScans.delete_scan(scan)
+        {:noreply, stream_delete(socket, :security_scans, scan)}
+
+      nil ->
+        {:noreply, put_flash(socket, :error, "Scan not found.")}
+    end
+  rescue
+    Ecto.NoResultsError ->
+      {:noreply, put_flash(socket, :error, "Scan not found.")}
+  end
+
   def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
       when is_nil(scope) or scope.user.role not in [:admin, :editor] do
     {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}

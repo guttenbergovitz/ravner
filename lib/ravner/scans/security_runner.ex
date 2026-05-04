@@ -14,7 +14,7 @@ defmodule Ravner.Scans.SecurityRunner do
   alias Ravner.SecurityScans
   alias Ravner.SecurityScans.SecurityScan
 
-  @nuclei_tags "http,ssl,tech,exposure,misconfig"
+  @nuclei_tags "http,ssl,exposure"
   @scan_timeout 300_000
   @template_update_timeout 180_000
 
