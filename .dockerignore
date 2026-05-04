@@ -1,0 +1,44 @@
+# Keep the build context lean — anything not needed to build the release stays out.
+
+# Mix build artefacts and fetched deps (rebuilt inside the image)
+_build
+deps
+*.ez
+
+# Generated/digested static assets (rebuilt by `mix assets.deploy`)
+priv/static/assets
+priv/static/cache_manifest.json
+
+# Tests, dialyzer plts, coverage
+test
+cover
+*.plt
+*.plt.hash
+
+# Tooling and editor metadata
+.git
+.github
+.gitignore
+.elixir_ls
+.dialyzer
+.formatter.exs
+.vscode
+.idea
+.DS_Store
+
+# Local secrets — never bake them into the image
+.env
+.env.*
+!.env.example
+
+# Docs / scratch / agent artefacts
+documentation
+.superpowers
+CHANGELOG.md
+README.md
+
+# Container metadata (not needed inside the build context once the build runs)
+Dockerfile
+.dockerignore
+compose.yml
+docker-compose.yml

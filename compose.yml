@@ -1,0 +1,55 @@
+# Local prod-like stack for verifying the production image.
+#
+# Usage:
+#   export SECRET_KEY_BASE=$(mix phx.gen.secret)
+#   docker compose up --build
+#
+# `app` won't start until `migrate` exits successfully.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ravner
+      POSTGRES_PASSWORD: ravner
+      POSTGRES_DB: ravner_prod
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ravner -d ravner_prod"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build: .
+    image: ravner:latest
+    command: ["/app/bin/migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ecto://ravner:ravner@db/ravner_prod
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE — generate with `mix phx.gen.secret`}
+      POOL_SIZE: "2"
+    restart: "no"
+
+  app:
+    image: ravner:latest
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ecto://ravner:ravner@db/ravner_prod
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE — generate with `mix phx.gen.secret`}
+      PHX_HOST: ${PHX_HOST:-localhost}
+      PORT: "4000"
+      POOL_SIZE: "10"
+      CHAOS_API_KEY: ${CHAOS_API_KEY:-}
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
