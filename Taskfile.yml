@@ -1,103 +1,120 @@
-# https://taskfile.dev — install with `brew install go-task/tap/go-task`.
-# Run `task --list` to see all available tasks.
-version: "3"
+version: '3'
 
 vars:
+  # ── Auto-detect container runtime (prefer Podman) ──────────────────────────
+  RUNTIME:
+    sh: |
+      if command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
+        echo "podman"
+      elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        echo "docker"
+      else
+        echo ""
+      fi
+
   IMAGE: ravner:latest
-  COMPOSE: docker compose
+  CONTAINER_NAME: ravner-web
+
+  # Load .env into environment variables for docker/podman commands
+  ENV_ARGS:
+    sh: |
+      if [ -f .env ]; then
+        while IFS='=' read -r key value; do
+          case "$key" in
+            ''|'#'*) continue ;;
+          esac
+          printf '%s' " -e $key=$value"
+        done < .env
+      fi
 
 tasks:
   default:
-    desc: Show the task list
+    desc: Show available tasks
     cmds:
       - task --list
 
-  # ── Local dev (Mix) ────────────────────────────────────────────────────────
-  setup:
-    desc: Fetch deps, set up DB, install asset tooling
+  # ── Runtime detection ──────────────────────────────────────────────────────
+  detect:
+    desc: Detect active container runtime
+    silent: true
     cmds:
-      - mix setup
+      - |
+        if [ "{{.RUNTIME}}" = "" ]; then
+          echo "❌ No container runtime detected."
+          echo "   Start Docker Desktop or Podman Desktop and try again."
+          exit 1
+        else
+          echo "✅ Using container runtime: {{.RUNTIME}}"
+        fi
 
-  server:
-    desc: Run Phoenix in dev with code reload
+  # ── Build ──────────────────────────────────────────────────────────────────
+  build:
+    desc: Build the container image
+    deps: [detect]
     cmds:
-      - mix phx.server
+      - "{{.RUNTIME}} build -t {{.IMAGE}} ."
 
-  iex:
-    desc: Start IEx with the app
+  # ── Run ────────────────────────────────────────────────────────────────────
+  run:
+    desc: Run the app in a container (foreground)
+    deps: [detect]
     cmds:
-      - iex -S mix phx.server
+      - |
+        {{.RUNTIME}} run --rm \
+          --name {{.CONTAINER_NAME}} \
+          -p 4000:4000 \
+          -e PHX_SERVER=true \
+          -e PORT=4000 \
+          -e PHX_HOST="${PHX_HOST:-localhost}" \
+          {{.ENV_ARGS}} \
+          {{.IMAGE}}
 
-  test:
-    desc: Run the full test suite
+  # ── Start (detached) ───────────────────────────────────────────────────────
+  start:
+    desc: Start the app in the background
+    deps: [detect]
     cmds:
-      - mix test
+      - |
+        {{.RUNTIME}} run -d \
+          --name {{.CONTAINER_NAME}} \
+          -p 4000:4000 \
+          -e PHX_SERVER=true \
+          -e PORT=4000 \
+          -e PHX_HOST="${PHX_HOST:-localhost}" \
+          {{.ENV_ARGS}} \
+          {{.IMAGE}}
 
-  format:
-    desc: Format the codebase
+  # ── Stop ───────────────────────────────────────────────────────────────────
+  stop:
+    desc: Stop and remove the running container
+    deps: [detect]
     cmds:
-      - mix format
+      - "{{.RUNTIME}} rm -f {{.CONTAINER_NAME}}"
 
-  precommit:
-    desc: Compile (warnings as errors), prune unused deps, format, test
+  # ── Logs ───────────────────────────────────────────────────────────────────
+  logs:
+    desc: Tail logs from the running container
+    deps: [detect]
     cmds:
-      - mix precommit
+      - "{{.RUNTIME}} logs -f {{.CONTAINER_NAME}}"
 
-  ecto:reset:
-    desc: Drop & recreate the dev database, then seed
+  # ── Status ─────────────────────────────────────────────────────────────────
+  status:
+    desc: Show running container status
+    deps: [detect]
     cmds:
-      - mix ecto.reset
+      - "{{.RUNTIME}} ps --filter name={{.CONTAINER_NAME}}"
 
-  # ── Container image ────────────────────────────────────────────────────────
-  docker:build:
-    desc: Build the production image
+  # ── Shell ──────────────────────────────────────────────────────────────────
+  shell:
+    desc: Open a shell inside the running container
+    deps: [detect]
     cmds:
-      - docker build -t {{.IMAGE}} .
+      - "{{.RUNTIME}} exec -it {{.CONTAINER_NAME}} /bin/bash"
 
-  docker:secret:
-    desc: Generate a SECRET_KEY_BASE you can export for compose
+  # ── Migrate ────────────────────────────────────────────────────────────────
+  migrate:
+    desc: Run Ecto migrations inside the container
+    deps: [detect]
     cmds:
-      - mix phx.gen.secret
-
-  docker:up:
-    desc: Start the full stack (db, migrate, app) in the background
-    preconditions:
-      - sh: '[ -n "$SECRET_KEY_BASE" ]'
-        msg: 'SECRET_KEY_BASE is not set — run `task docker:secret` and `export SECRET_KEY_BASE=…`'
-    cmds:
-      - "{{.COMPOSE}} up -d --build"
-
-  docker:down:
-    desc: Stop the stack (keeps the postgres volume)
-    cmds:
-      - "{{.COMPOSE}} down"
-
-  docker:nuke:
-    desc: Stop the stack AND drop the postgres volume
-    cmds:
-      - "{{.COMPOSE}} down -v"
-
-  docker:logs:
-    desc: Tail logs from the app container
-    cmds:
-      - "{{.COMPOSE}} logs -f app"
-
-  docker:migrate:
-    desc: Run pending migrations against the running stack
-    cmds:
-      - "{{.COMPOSE}} run --rm migrate"
-
-  docker:shell:
-    desc: Open a shell inside the running app container
-    cmds:
-      - "{{.COMPOSE}} exec app sh"
-
-  docker:remote:
-    desc: Attach an IEx remote console to the running release
-    cmds:
-      - "{{.COMPOSE}} exec app /app/bin/ravner remote"
-
-  docker:verify-tools:
-    desc: Sanity-check the CLI tools bundled in the image (pg_dump, whois, dnsx)
-    cmds:
-      - docker run --rm {{.IMAGE}} sh -c 'pg_dump --version && whois --version | head -1 && dnsx -version'
+      - "{{.RUNTIME}} exec {{.CONTAINER_NAME}} /app/bin/migrate"
