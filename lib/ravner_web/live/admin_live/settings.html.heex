@@ -156,6 +156,19 @@
       </a>
     </div>
 
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-2">Security Scanner</h2>
+      <p class="text-sm font-light text-neutral-500 mb-4">
+        Nuclei templates are pre-loaded in the container. Update manually to get the latest vulnerability templates.
+      </p>
+      <button
+        phx-click="update_nuclei_templates"
+        class="btn-line text-xs flex items-center gap-1.5"
+      >
+        <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Update Nuclei Templates
+      </button>
+    </div>
+
     <div class="text-xs text-neutral-400">
       <p>* Required keys must be configured for full functionality.</p>
       <p>Environment variables: CHAOS_API_KEY, SECURITYTRAILS_API_KEY, SHODAN_API_KEY</p>

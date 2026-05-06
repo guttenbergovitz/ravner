@@ -789,23 +789,14 @@ defmodule Ravner.Scans do
   end
 
   defp do_dnsx_scan(domain_name) do
-    # Pass the domain via argv (-d) instead of shell-piping to avoid shell
-    # injection. stderr is captured into the same stream and discarded by
-    # only inspecting stdout on success.
+    # Use -l (list mode) for DNS resolution instead of -d (brute force mode).
+    # Pipe domain via stdin to avoid shell injection.
+    escaped = String.replace(domain_name, "'", "'\"'\"'")
+    shell_cmd = "echo '#{escaped}' | dnsx -l - -a -aaaa -cname -mx -ns -txt -json -silent"
+
     case System.cmd(
-           "dnsx",
-           [
-             "-d",
-             domain_name,
-             "-a",
-             "-aaaa",
-             "-cname",
-             "-mx",
-             "-ns",
-             "-txt",
-             "-json",
-             "-silent"
-           ],
+           "bash",
+           ["-c", shell_cmd],
            stderr_to_stdout: false
          ) do
       {output, 0} ->
@@ -913,9 +904,10 @@ defmodule Ravner.Scans do
   end
 
   defp parse_rdap_response(body) when is_map(body) do
+    entities = Map.get(body, "entities", [])
+
     registrar =
-      body
-      |> Map.get("entities", [])
+      entities
       |> Enum.find_value(fn entity ->
         roles = Map.get(entity, "roles", [])
 
@@ -927,6 +919,46 @@ defmodule Ravner.Scans do
             _ -> nil
           end)
         end
+      end)
+
+    contacts =
+      entities
+      |> Enum.reduce(%{}, fn entity, acc ->
+        roles = Map.get(entity, "roles", [])
+        vcard_data = get_in(entity, ["vcardArray", Access.at(1)]) || []
+
+        name =
+          vcard_data
+          |> List.wrap()
+          |> Enum.find_value(fn
+            ["fn", _, _, n] -> n
+            _ -> nil
+          end)
+
+        email =
+          vcard_data
+          |> List.wrap()
+          |> Enum.find_value(fn
+            ["email", _, _, e] -> e
+            _ -> nil
+          end)
+
+        phone =
+          vcard_data
+          |> List.wrap()
+          |> Enum.find_value(fn
+            ["tel", _, _, p] -> p
+            _ -> nil
+          end)
+
+        contact_info = %{}
+        |> (fn m -> if name, do: Map.put(m, "name", name), else: m end).()
+        |> (fn m -> if email, do: Map.put(m, "email", email), else: m end).()
+        |> (fn m -> if phone, do: Map.put(m, "phone", phone), else: m end).()
+
+        Enum.reduce(roles, acc, fn role, acc2 ->
+          if contact_info != %{}, do: Map.put(acc2, role, contact_info), else: acc2
+        end)
       end)
 
     registration_date =
@@ -948,7 +980,8 @@ defmodule Ravner.Scans do
        %{
          registrar: registrar,
          registration_date: registration_date,
-         expiration_date: expiration_date
+         expiration_date: expiration_date,
+         contacts: contacts
        }}
     end
   end

@@ -112,6 +112,21 @@ defmodule RavnerWeb.AdminLive.Settings do
     end
   end
 
+  @impl true
+  def handle_event("update_nuclei_templates", _params, socket) do
+    case System.cmd("nuclei", ["-update-templates"], stderr_to_stdout: true) do
+      {_output, 0} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Nuclei templates updated successfully")}
+
+      {output, _code} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Nuclei template update failed: #{String.slice(output, 0, 200)}")}
+    end
+  end
+
   defp admin?(nil), do: false
 
   defp admin?(scope) do

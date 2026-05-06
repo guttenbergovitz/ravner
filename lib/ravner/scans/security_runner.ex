@@ -25,17 +25,19 @@ defmodule Ravner.Scans.SecurityRunner do
   alias Ravner.SecurityScans
   alias Ravner.SecurityScans.SecurityScan
 
-  @nuclei_tags "http,ssl,exposure"
   @scan_timeout 300_000
   @nuclei_timeout 240_000
 
   # Common nuclei flags to keep runs predictable inside our timeout budget:
   # disable self/template update probes, refuse to read stdin, cap concurrency
-  # and request rate so we don't get throttled or run wildly long.
+  # and request rate so we don't get throttled or run wildly long. `-mhe`
+  # mirrors `-c` so nuclei doesn't warn about concurrency > max-host-error.
   @nuclei_perf_flags [
     "-disable-update-check",
     "-no-stdin",
     "-c",
+    "50",
+    "-mhe",
     "50",
     "-bulk-size",
     "25",
@@ -129,8 +131,8 @@ defmodule Ravner.Scans.SecurityRunner do
         naabu_findings = SecurityScans.parse_naabu_output(naabu_output)
 
         # Phase 3: lightweight nuclei against the HTTP/HTTPS surface only
+        # Templates are pre-baked in the Docker image. Manual updates available via admin settings.
         send_progress(scan.id, 60, liveview_pid)
-        maybe_update_nuclei_templates(scan, liveview_pid)
 
         case run_nuclei(domain_name) do
           {:ok, nuclei_findings} ->
@@ -216,12 +218,16 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   defp run_nuclei(domain_name) do
+    # Phase 1: framework-specific + severity filter for targeted scan
+    # (WordPress, Drupal, PHP, Node.js, Django, FastAPI, etc.)
+    framework_tags = "wordpress,drupal,php,nodejs,express,django,fastapi,astro,nextjs"
+
     args =
       [
         "-u",
         domain_name,
         "-tags",
-        @nuclei_tags,
+        framework_tags,
         "-severity",
         "critical,high",
         "-jsonl",
@@ -321,33 +327,6 @@ defmodule Ravner.Scans.SecurityRunner do
       :ok
     else
       {:error, "#{name} executable not found. Install it or use the container image."}
-    end
-  end
-
-  @template_update_timeout 180_000
-
-  defp maybe_update_nuclei_templates(scan, liveview_pid) do
-    templates_dir = Path.join(System.user_home!(), ".nuclei-templates")
-
-    unless File.exists?(templates_dir) do
-      send_progress(scan.id, 55, liveview_pid)
-      Logger.info("Updating Nuclei templates for the first time...")
-
-      case cmd_with_timeout(
-             "nuclei",
-             ["-update-templates"],
-             [stderr_to_stdout: true],
-             @template_update_timeout
-           ) do
-        {_, 0} ->
-          Logger.info("Nuclei templates updated successfully")
-          :ok
-
-        {output, code} ->
-          Logger.warning("Nuclei template update exited #{code}: #{String.slice(output, 0, 200)}")
-
-          :ok
-      end
     end
   end
 

@@ -31,6 +31,7 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:registration_date, :utc_datetime)
     field(:expiration_date, :utc_datetime)
     field(:whois_raw, :string)
+    field(:contacts, :map, default: %{})
 
     # Infrastructure
     field(:hosting_platform, :string)
@@ -75,6 +76,7 @@ defmodule Ravner.Domains.DomainMetadata do
       :registration_date,
       :expiration_date,
       :whois_raw,
+      :contacts,
       :hosting_platform,
       :asn_org,
       :asn_number,

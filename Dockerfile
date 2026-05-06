@@ -24,6 +24,7 @@ ARG PG_MAJOR=16
 ARG DNSX_VERSION=1.2.3
 ARG NAABU_VERSION=2.6.0
 ARG NUCLEI_VERSION=3.8.0
+ARG NUCLEI_TEMPLATES_VERSION=10.4.3
 ARG HTTPX_VERSION=1.9.0
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
@@ -96,6 +97,7 @@ RUN apt-get update -y \
 # ─── Fetch nuclei (ProjectDiscovery) ─────────────────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS nuclei
 ARG NUCLEI_VERSION
+ARG NUCLEI_TEMPLATES_VERSION
 ARG TARGETARCH
 RUN apt-get update -y \
  && apt-get install -y --no-install-recommends curl unzip ca-certificates \
@@ -104,6 +106,12 @@ RUN apt-get update -y \
  && unzip /tmp/nuclei.zip -d /tmp/nuclei \
  && install -m 0755 /tmp/nuclei/nuclei /usr/local/bin/nuclei \
  && rm -rf /var/lib/apt/lists/* /tmp/nuclei /tmp/nuclei.zip
+
+RUN curl -fsSL -o /tmp/nuclei-templates.tar.gz \
+      "https://github.com/projectdiscovery/nuclei-templates/archive/refs/tags/v${NUCLEI_TEMPLATES_VERSION}.tar.gz" \
+ && tar -xzf /tmp/nuclei-templates.tar.gz -C /root/ \
+ && mv /root/nuclei-templates-${NUCLEI_TEMPLATES_VERSION} /root/.nuclei-templates \
+ && rm /tmp/nuclei-templates.tar.gz
 
 # ─── Fetch httpx (ProjectDiscovery) ──────────────────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS httpx
@@ -161,6 +169,7 @@ USER ravner:ravner
 COPY --from=dnsx    /usr/local/bin/dnsx              /usr/local/bin/dnsx
 COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
 COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
+COPY --from=nuclei  /root/.nuclei-templates          /home/ravner/.nuclei-templates
 COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=builder --chown=ravner:ravner /app/_build/prod/rel/ravner ./
 

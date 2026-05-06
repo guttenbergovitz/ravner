@@ -622,6 +622,37 @@
               </div>
             </div>
 
+            <%= if @domain.domain_metadata.contacts && map_size(@domain.domain_metadata.contacts) > 0 do %>
+              <div class="mt-6 pt-6 border-t border-neutral-100">
+                <h3 class="text-xs font-normal tracking-wide uppercase text-neutral-600 mb-4">
+                  Contacts
+                </h3>
+                <div class="space-y-3">
+                  <%= for {role, contact} <- @domain.domain_metadata.contacts do %>
+                    <div class="text-sm">
+                      <p class="text-xs uppercase tracking-wide text-neutral-400 mb-1">
+                        {String.capitalize(role)}
+                      </p>
+                      <div class="space-y-0.5 text-xs font-light">
+                        <%= if contact["name"] do %>
+                          <p class="text-neutral-700">{contact["name"]}</p>
+                        <% end %>
+                        <%= if contact["email"] do %>
+                          <p class="text-neutral-500">{contact["email"]}</p>
+                        <% end %>
+                        <%= if contact["phone"] do %>
+                          <p class="text-neutral-500">{contact["phone"]}</p>
+                        <% end %>
+                        <%= if !contact["name"] && !contact["email"] && !contact["phone"] do %>
+                          <p class="text-neutral-400">—</p>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
             <div
               :if={@domain.domain_metadata.rdap_scanned_at}
               class="mt-4 pt-4 border-t border-neutral-100"
@@ -787,32 +818,34 @@
 
         <%!-- Security Posture --%>
         <div class="card-line">
-          <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-normal tracking-wide uppercase">Security Posture</h2>
-            <div class="flex gap-2">
-              <%= if @running_security_scan && @current_scope && @current_scope.user.role == :admin do %>
-                <button
-                  phx-click="clear_scans"
-                  class="btn-line text-xs py-1 text-red-600 hover:bg-red-50 border-red-100"
-                  data-confirm="Force clear the running security scan for this domain?"
-                >
-                  <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> Clear
-                </button>
-              <% end %>
-              <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
-                <button
-                  phx-click="run_security_scan"
-                  id="run-security-scan"
-                  class={[
-                    "btn-line text-xs py-1",
-                    @running_security_scan && "opacity-50 cursor-not-allowed"
-                  ]}
-                  disabled={!is_nil(@running_security_scan)}
-                >
-                  <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Security Scan
-                </button>
-              <% end %>
-            </div>
+            <%= if @running_security_scan && @current_scope && @current_scope.user.role == :admin do %>
+              <button
+                phx-click="clear_scans"
+                class="text-neutral-400 hover:text-red-600 transition-colors"
+                data-confirm="Force clear the running security scan for this domain?"
+                title="Clear scan"
+              >
+                <.icon name="hero-x-circle" class="w-4 h-4" />
+              </button>
+            <% end %>
+          </div>
+
+          <div class="flex flex-col gap-3 mb-6">
+            <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
+              <button
+                phx-click="run_security_scan"
+                id="run-security-scan"
+                class={[
+                  "btn-line w-full justify-center text-xs",
+                  @running_security_scan && "opacity-50 cursor-not-allowed"
+                ]}
+                disabled={!is_nil(@running_security_scan)}
+              >
+                <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Security Scan
+              </button>
+            <% end %>
           </div>
 
           <div id="security-scan-card">
@@ -861,37 +894,43 @@
                   </div>
 
                   <%= if findings != [] do %>
-                    <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                      <%= for finding <-
-                            findings
-                            |> Enum.sort_by(& &1.severity)
-                            |> Enum.take(15) do %>
-                        <div class="flex items-start gap-2 text-[11px] py-1.5 border-b border-neutral-100 last:border-0">
-                          <span class={[
-                            "shrink-0 w-2 h-2 rounded-full mt-1",
-                            finding.severity == "critical" && "bg-red-500",
-                            finding.severity == "high" && "bg-orange-500",
-                            finding.severity == "medium" && "bg-yellow-500",
-                            finding.severity == "low" && "bg-blue-500",
-                            finding.severity not in ["critical", "high", "medium", "low"] &&
-                              "bg-neutral-300"
-                          ]}>
+                    <div class="space-y-2">
+                      <div class="grid grid-cols-2 gap-2 text-sm">
+                        <% critical_count = findings |> Enum.count(&(&1.severity == "critical")) %>
+                        <% high_count = findings |> Enum.count(&(&1.severity == "high")) %>
+                        <% medium_count = findings |> Enum.count(&(&1.severity == "medium")) %>
+                        <% low_count = findings |> Enum.count(&(&1.severity == "low")) %>
+                        <div class="flex items-center gap-2">
+                          <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                          <span class="text-xs font-light text-neutral-600">
+                            Critical: <span class="font-medium text-neutral-900">{critical_count}</span>
                           </span>
-                          <div class="min-w-0 flex-1">
-                            <p class="font-medium text-neutral-700 leading-tight">
-                              {finding.title}
-                            </p>
-                            <p class="text-neutral-400 text-[10px] truncate font-light mt-0.5">
-                              {finding.target}
-                            </p>
-                          </div>
                         </div>
-                      <% end %>
-                      <%= if length(findings) > 15 do %>
-                        <p class="text-[10px] text-neutral-400 text-center pt-2 font-light">
-                          + {length(findings) - 15} more findings
-                        </p>
-                      <% end %>
+                        <div class="flex items-center gap-2">
+                          <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                          <span class="text-xs font-light text-neutral-600">
+                            High: <span class="font-medium text-neutral-900">{high_count}</span>
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+                          <span class="text-xs font-light text-neutral-600">
+                            Medium: <span class="font-medium text-neutral-900">{medium_count}</span>
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                          <span class="text-xs font-light text-neutral-600">
+                            Low: <span class="font-medium text-neutral-900">{low_count}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        phx-click="toggle_findings_modal"
+                        class="btn-line w-full justify-center text-xs mt-3"
+                      >
+                        <.icon name="hero-document-magnifying-glass" class="w-3.5 h-3.5" /> View findings
+                      </button>
                     </div>
                   <% else %>
                     <div class="flex flex-col items-center justify-center py-6 opacity-40">
@@ -931,6 +970,88 @@
             <% end %>
           </div>
         </div>
+
+        <%!-- Findings modal --%>
+        <%= if @show_findings_modal && @latest_security_scan do %>
+          <% findings =
+            if Ecto.assoc_loaded?(@latest_security_scan.findings),
+              do: @latest_security_scan.findings,
+              else: [] %>
+          <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+              <div class="flex items-center justify-between p-6 border-b border-neutral-200">
+                <h2 class="text-lg font-light">Security Findings</h2>
+                <button
+                  phx-click="toggle_findings_modal"
+                  class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                  aria-label="Close"
+                >
+                  <.icon name="hero-x-mark" class="w-5 h-5" />
+                </button>
+              </div>
+              <div class="overflow-y-auto flex-1 p-6">
+                <%= if findings != [] do %>
+                  <div class="space-y-3">
+                    <%= for finding <- Enum.sort_by(findings, & &1.severity) do %>
+                      <div class="border border-neutral-100 rounded-lg p-4 hover:border-neutral-200 transition-colors">
+                        <div class="flex items-start gap-3">
+                          <span class={[
+                            "shrink-0 w-3 h-3 rounded-full mt-1",
+                            finding.severity == "critical" && "bg-red-500",
+                            finding.severity == "high" && "bg-orange-500",
+                            finding.severity == "medium" && "bg-yellow-500",
+                            finding.severity == "low" && "bg-blue-500",
+                            finding.severity not in ["critical", "high", "medium", "low"] &&
+                              "bg-neutral-300"
+                          ]}>
+                          </span>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                              <p class="font-medium text-neutral-900">{finding.title}</p>
+                              <span class={[
+                                "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm font-medium",
+                                finding.severity == "critical" && "bg-red-50 text-red-600",
+                                finding.severity == "high" && "bg-orange-50 text-orange-600",
+                                finding.severity == "medium" && "bg-yellow-50 text-yellow-600",
+                                finding.severity == "low" && "bg-blue-50 text-blue-600"
+                              ]}>
+                                {finding.severity}
+                              </span>
+                            </div>
+                            <p class="text-sm text-neutral-500 mt-1 font-light break-all">
+                              {finding.target}
+                            </p>
+                            <%= if finding.detail && is_map(finding.detail) do %>
+                              <div class="mt-2 text-xs text-neutral-400 space-y-0.5">
+                                <%= for {key, value} <- Map.to_list(finding.detail) |> Enum.take(3) do %>
+                                  <% display_value = if is_binary(value), do: String.slice(value, 0, 60), else: inspect(value) %>
+                                  <p><span class="font-medium">{key}:</span> {display_value}</p>
+                                <% end %>
+                              </div>
+                            <% end %>
+                          </div>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <div class="flex flex-col items-center justify-center py-8 text-neutral-400">
+                    <.icon name="hero-check-badge" class="w-8 h-8 mb-2" />
+                    <p class="text-sm font-light">No findings</p>
+                  </div>
+                <% end %>
+              </div>
+              <div class="flex items-center justify-end gap-2 p-6 border-t border-neutral-200">
+                <button
+                  phx-click="toggle_findings_modal"
+                  class="btn-line text-xs"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        <% end %>
 
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Tags</h2>

@@ -24,6 +24,7 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:scanning, false)
      |> assign(:pending_scans, 0)
      |> assign(:lifecycle_menu_open, false)
+     |> assign(:show_findings_modal, false)
      |> assign(:projects, Inventory.list_projects())
      |> assign(:brands, Inventory.list_brands())
      |> assign(:orgs, Inventory.list_organizations())
@@ -322,6 +323,11 @@ defmodule RavnerWeb.DomainLive.Show do
 
   def handle_event("close_lifecycle_menu", _, socket) do
     {:noreply, assign(socket, :lifecycle_menu_open, false)}
+  end
+
+  @impl true
+  def handle_event("toggle_findings_modal", _, socket) do
+    {:noreply, assign(socket, :show_findings_modal, !socket.assigns.show_findings_modal)}
   end
 
   # ---------------------------------------------------------------------------

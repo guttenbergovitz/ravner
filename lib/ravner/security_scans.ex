@@ -152,7 +152,7 @@ defmodule Ravner.SecurityScans do
           severity: f[:severity] || "info",
           title: f[:title],
           target: f[:target],
-          detail: f[:detail] && Jason.encode!(f[:detail]),
+          detail: f[:detail],
           inserted_at: now,
           updated_at: now
         }
@@ -293,6 +293,7 @@ defmodule Ravner.SecurityScans do
           []
       end
     end)
+    |> Enum.uniq_by(& &1.target)
   end
 
   def parse_naabu_output(_), do: []
