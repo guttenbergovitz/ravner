@@ -62,7 +62,13 @@ defmodule Ravner.SecurityScans.SecurityScan do
       :domain_id
     ])
     |> validate_required([:tool, :status, :domain_id])
-    |> validate_inclusion(:tool, ["naabu", "nuclei", "httpx", "deep_scan"])
+    |> validate_inclusion(:tool, [
+      "naabu",
+      "nuclei",
+      "httpx",
+      "deep_scan",
+      "security_scan"
+    ])
     |> validate_inclusion(:status, ["pending", "running", "completed", "failed"])
     |> validate_number(:progress, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
     |> foreign_key_constraint(:domain_id)

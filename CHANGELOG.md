@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- **Lean security scanner** — single `Run Security Scan` action chains httpx → naabu → tightly-scoped nuclei (critical/high only, HTTP/HTTPS surface). Persists derived `open_ports`, `tech_stack`, `http_status`, `final_url`, `server_header`, `hosting_platform`, and `last_security_scan_at` to `domain_metadata`.
+- **Severity badge row** at the top of every domain page, derived from the latest completed scan.
+- **Open ports chips** in the Infrastructure section.
+
+### Changed
+
+- **Security Posture section** simplified to show only the current scan (running, latest completed, latest failure, or empty state) — no more historical stream of per-tool cards.
+- Security scans are now available to admins **and editors** (previously admin-only).
+
+### Removed
+
+- Standalone Naabu / Nuclei / httpx scan entry points and the "Advanced Tools" UI block.
+
 ## [0.4.0] - 2026-05-02
 
 ### Added

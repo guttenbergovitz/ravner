@@ -1,14 +1,25 @@
 defmodule Ravner.Scans.SecurityRunner do
   @moduledoc """
-  On-demand security scanner runners for Naabu, Nuclei, and httpx.
+  On-demand lean security scanner.
 
-  Each runner executes the underlying CLI tool via `System.cmd/3`, parses the
-  JSON/JSONL output, persists findings through `Ravner.SecurityScans`, and
-  reports progress back to the calling LiveView process.
+  A single `run_security_scan/2` entry point chains:
+
+      httpx (tech detect, status, server, CDN)
+        │
+        ▼
+      naabu (top-100 port discovery)
+        │
+        ▼
+      nuclei (critical/high only, against the host's HTTP/HTTPS surface)
+
+  Findings are persisted through `Ravner.SecurityScans` and the captured
+  HTTP / port / tech data is upserted into `domain_metadata` so it composes
+  with the rest of the domain page.
   """
 
   require Logger
 
+  alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Repo
   alias Ravner.SecurityScans
@@ -16,84 +27,40 @@ defmodule Ravner.Scans.SecurityRunner do
 
   @nuclei_tags "http,ssl,exposure"
   @scan_timeout 300_000
-  @template_update_timeout 180_000
+  @nuclei_timeout 240_000
+
+  # Common nuclei flags to keep runs predictable inside our timeout budget:
+  # disable self/template update probes, refuse to read stdin, cap concurrency
+  # and request rate so we don't get throttled or run wildly long.
+  @nuclei_perf_flags [
+    "-disable-update-check",
+    "-no-stdin",
+    "-c",
+    "50",
+    "-bulk-size",
+    "25",
+    "-rl",
+    "200"
+  ]
 
   # ─── Public API ───────────────────────────────────────────────────────────
 
   @doc """
-  Runs a Naabu port scan for a domain and persists results.
+  Runs the lean security scan (httpx → naabu → nuclei) for a domain.
 
-  Returns the created `SecurityScan` record on success.
+  Persists findings, upserts derived metadata into `domain_metadata`, and
+  reports `{:scan_progress, ...}` / `{:scan_done, :security_scan, ...}` to
+  the calling LiveView pid.
   """
-  @spec run_naabu_scan(integer(), pid()) ::
+  @spec run_security_scan(integer(), pid()) ::
           {:ok, SecurityScan.t()} | {:error, String.t()}
-  def run_naabu_scan(domain_id, liveview_pid) do
+  def run_security_scan(domain_id, liveview_pid) do
     with {:ok, domain} <- fetch_domain_for_scan(domain_id),
-         {:ok, scan} <- create_security_scan(domain_id, "naabu", domain.name) do
+         {:ok, scan} <- create_security_scan(domain_id, "security_scan", domain.name) do
       send_progress(scan.id, 5, liveview_pid)
 
       Task.start(fn ->
-        do_naabu_scan(scan, domain.name, liveview_pid)
-      end)
-
-      {:ok, scan}
-    end
-  end
-
-  @doc """
-  Runs a Nuclei vulnerability scan for a domain and persists results.
-
-  Returns the created `SecurityScan` record on success.
-  """
-  @spec run_nuclei_scan(integer(), pid()) ::
-          {:ok, SecurityScan.t()} | {:error, String.t()}
-  def run_nuclei_scan(domain_id, liveview_pid) do
-    with {:ok, domain} <- fetch_domain_for_scan(domain_id),
-         {:ok, scan} <- create_security_scan(domain_id, "nuclei", domain.name) do
-      send_progress(scan.id, 5, liveview_pid)
-
-      Task.start(fn ->
-        do_nuclei_scan(scan, domain.name, liveview_pid)
-      end)
-
-      {:ok, scan}
-    end
-  end
-
-  @doc """
-  Runs an httpx binary probe for a domain and persists results.
-
-  Returns the created `SecurityScan` record on success.
-  """
-  @spec run_httpx_binary_scan(integer(), pid()) ::
-          {:ok, SecurityScan.t()} | {:error, String.t()}
-  def run_httpx_binary_scan(domain_id, liveview_pid) do
-    with {:ok, domain} <- fetch_domain_for_scan(domain_id),
-         {:ok, scan} <- create_security_scan(domain_id, "httpx", domain.name) do
-      send_progress(scan.id, 5, liveview_pid)
-
-      Task.start(fn ->
-        do_httpx_binary_scan(scan, domain.name, liveview_pid)
-      end)
-
-      {:ok, scan}
-    end
-  end
-
-  @doc """
-  Runs a deep scan: Naabu discovers ports, then Nuclei scans each port.
-
-  Returns the created `SecurityScan` record on success.
-  """
-  @spec run_deep_scan(integer(), pid()) ::
-          {:ok, SecurityScan.t()} | {:error, String.t()}
-  def run_deep_scan(domain_id, liveview_pid) do
-    with {:ok, domain} <- fetch_domain_for_scan(domain_id),
-         {:ok, scan} <- create_security_scan(domain_id, "deep_scan", domain.name) do
-      send_progress(scan.id, 5, liveview_pid)
-
-      Task.start(fn ->
-        do_deep_scan(scan, domain.name, liveview_pid)
+        do_security_scan(scan, domain.name, liveview_pid)
       end)
 
       {:ok, scan}
@@ -120,258 +87,201 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   defp send_progress(scan_id, progress, liveview_pid) do
+    # Persist progress to DB so UI re-fetches correct state
+    case Repo.get(SecurityScan, scan_id) do
+      nil -> :ok
+      scan -> SecurityScans.update_scan(scan, %{progress: progress})
+    end
+
     send(liveview_pid, {:scan_progress, scan_id, progress})
   end
 
-  # ─── Naabu runner ─────────────────────────────────────────────────────────
+  # ─── Lean security scan runner ────────────────────────────────────────────
 
-  defp do_naabu_scan(scan, domain_name, liveview_pid) do
-    send_progress(scan.id, 10, liveview_pid)
-
-    case check_binary("naabu") do
-      {:error, reason} ->
-        fail_scan(scan, reason, liveview_pid, :naabu)
-
-      :ok ->
-        send_progress(scan.id, 25, liveview_pid)
-
-        args = [
-          "-host",
-          domain_name,
-          "-json",
-          "-silent",
-          "-stream",
-          "-top-ports",
-          "100"
-        ]
-
-        case cmd_with_timeout("naabu", args,
-               [stderr_to_stdout: true],
-               @scan_timeout
-             ) do
-          {output, 0} ->
-            send_progress(scan.id, 75, liveview_pid)
-            findings = SecurityScans.parse_naabu_output(output)
-            complete_scan(scan, findings, output, liveview_pid, :naabu)
-
-          {:error, :timeout} ->
-            fail_scan(scan, "naabu timed out after #{@scan_timeout}ms", liveview_pid, :naabu)
-
-          {output, code} ->
-            fail_scan(
-              scan,
-              "naabu exited with code #{code}: #{String.slice(output, 0, 200)}",
-              liveview_pid,
-              :naabu
-            )
-        end
-    end
-  rescue
-    ErlangError ->
-      fail_scan(scan, "naabu executable not found or failed to run", liveview_pid, :naabu)
-  end
-
-  # ─── Nuclei runner ────────────────────────────────────────────────────────
-
-  defp do_nuclei_scan(scan, domain_name, liveview_pid) do
-    send_progress(scan.id, 10, liveview_pid)
-
-    case check_binary("nuclei") do
-      {:error, reason} ->
-        fail_scan(scan, reason, liveview_pid, :nuclei)
-
-      :ok ->
-        maybe_update_nuclei_templates(scan, liveview_pid)
-        send_progress(scan.id, 30, liveview_pid)
-
-        args = [
-          "-u",
-          domain_name,
-          "-tags",
-          @nuclei_tags,
-          "-jsonl",
-          "-silent",
-          "-timeout",
-          "10"
-        ]
-
-        case cmd_with_timeout("nuclei", args,
-               [stderr_to_stdout: true],
-               @scan_timeout
-             ) do
-          {output, 0} ->
-            send_progress(scan.id, 85, liveview_pid)
-            findings = SecurityScans.parse_nuclei_output(output)
-            complete_scan(scan, findings, output, liveview_pid, :nuclei)
-
-          {:error, :timeout} ->
-            fail_scan(scan, "nuclei timed out after #{@scan_timeout}ms", liveview_pid, :nuclei)
-
-          {output, code} ->
-            fail_scan(
-              scan,
-              "nuclei exited with code #{code}: #{String.slice(output, 0, 200)}",
-              liveview_pid,
-              :nuclei
-            )
-        end
-    end
-  rescue
-    ErlangError ->
-      fail_scan(scan, "nuclei executable not found or failed to run", liveview_pid, :nuclei)
-  end
-
-  # ─── httpx runner ─────────────────────────────────────────────────────────
-
-  defp do_httpx_binary_scan(scan, domain_name, liveview_pid) do
-    send_progress(scan.id, 10, liveview_pid)
-
-    case check_binary("httpx") do
-      {:error, reason} ->
-        fail_scan(scan, reason, liveview_pid, :httpx_binary)
-
-      :ok ->
-        send_progress(scan.id, 30, liveview_pid)
-
-        args = [
-          "-u",
-          domain_name,
-          "-json",
-          "-silent",
-          "-title",
-          "-tech-detect",
-          "-status-code"
-        ]
-
-        case cmd_with_timeout("httpx", args,
-               [stderr_to_stdout: true],
-               @scan_timeout
-             ) do
-          {output, 0} ->
-            send_progress(scan.id, 85, liveview_pid)
-            findings = SecurityScans.parse_httpx_output(output)
-            complete_scan(scan, findings, output, liveview_pid, :httpx_binary)
-
-          {:error, :timeout} ->
-            fail_scan(scan, "httpx timed out after #{@scan_timeout}ms", liveview_pid, :httpx_binary)
-
-          {output, code} ->
-            fail_scan(
-              scan,
-              "httpx exited with code #{code}: #{String.slice(output, 0, 200)}",
-              liveview_pid,
-              :httpx_binary
-            )
-        end
-    end
-  rescue
-    ErlangError ->
-      fail_scan(scan, "httpx executable not found or failed to run", liveview_pid, :httpx_binary)
-  end
-
-  # ─── Deep scan runner ─────────────────────────────────────────────────────
-
-  defp do_deep_scan(scan, domain_name, liveview_pid) do
+  defp do_security_scan(scan, domain_name, liveview_pid) do
     send_progress(scan.id, 5, liveview_pid)
 
-    with :ok <- check_binary("naabu"),
+    with :ok <- check_binary("httpx"),
+         :ok <- check_binary("naabu"),
          :ok <- check_binary("nuclei") do
-      # Phase 1: Naabu port discovery
-      send_progress(scan.id, 10, liveview_pid)
-
-      naabu_args = [
-        "-host",
-        domain_name,
-        "-json",
-        "-silent",
-        "-stream",
-        "-top-ports",
-        "100"
-      ]
-
-      case cmd_with_timeout("naabu", naabu_args,
-             [stderr_to_stdout: true],
-             @scan_timeout
-           ) do
-        {naabu_output, 0} ->
-          send_progress(scan.id, 40, liveview_pid)
-          ports = extract_ports_from_naabu(naabu_output)
-
-          if ports == [] do
-            # No ports found — complete with just naabu results
-            findings = SecurityScans.parse_naabu_output(naabu_output)
-            complete_scan(scan, findings, naabu_output, liveview_pid, :deep_scan)
-          else
-            # Phase 2: Nuclei on each discovered port
-            maybe_update_nuclei_templates(scan, liveview_pid)
-            send_progress(scan.id, 50, liveview_pid)
-
-            all_findings = SecurityScans.parse_naabu_output(naabu_output)
-
-            total = length(ports)
-
-            ports
-            |> Enum.with_index(1)
-            |> Enum.each(fn {port, idx} ->
-              target = "#{domain_name}:#{port}"
-              progress = 50 + div(idx * 40, total)
-              send_progress(scan.id, progress, liveview_pid)
-
-              nuclei_args = [
-                "-u",
-                target,
-                "-tags",
-                @nuclei_tags,
-                "-jsonl",
-                "-silent",
-                "-timeout",
-                "10"
-              ]
-
-              case cmd_with_timeout("nuclei", nuclei_args,
-                     [stderr_to_stdout: true],
-                     @scan_timeout
-                   ) do
-                {output, 0} ->
-                  findings = SecurityScans.parse_nuclei_output(output)
-                  insert_findings(scan, findings)
-
-                _ ->
-                  :ok
-              end
-            end)
-
-            # Reload findings from DB after all nuclei runs
-            updated_findings = SecurityScans.list_findings_for_scan(scan.id)
-
-            summary =
-              "#{length(all_findings)} ports, #{count_nuclei_findings(updated_findings)} nuclei findings"
-
-            finalize_scan(scan, updated_findings, naabu_output, summary, liveview_pid, :deep_scan)
-          end
-
-        {:error, :timeout} ->
-          fail_scan(scan, "naabu timed out after #{@scan_timeout}ms", liveview_pid, :deep_scan)
-
-        {output, code} ->
-          fail_scan(
-            scan,
-            "naabu exited with code #{code}: #{String.slice(output, 0, 200)}",
-            liveview_pid,
-            :deep_scan
-          )
-      end
+      run_pipeline(scan, domain_name, liveview_pid)
     else
-      {:error, reason} -> fail_scan(scan, reason, liveview_pid, :deep_scan)
+      {:error, reason} -> fail_scan(scan, reason, liveview_pid)
     end
   rescue
     ErlangError ->
-      fail_scan(
-        scan,
-        "scanner executable not found or failed to run",
-        liveview_pid,
-        :deep_scan
-      )
+      fail_scan(scan, "scanner executable not found or failed to run", liveview_pid)
+
+    e ->
+      fail_scan(scan, "unexpected error during scan: #{inspect(e)}", liveview_pid)
+  end
+
+  defp run_pipeline(scan, domain_name, liveview_pid) do
+    # Phase 1: httpx (tech, status, server, CDN, redirect)
+    send_progress(scan.id, 10, liveview_pid)
+    {httpx_output, httpx_metadata} = run_httpx(domain_name)
+
+    # Phase 2: naabu port discovery
+    send_progress(scan.id, 35, liveview_pid)
+
+    case run_naabu(domain_name) do
+      {:ok, naabu_output, ports} ->
+        naabu_findings = SecurityScans.parse_naabu_output(naabu_output)
+
+        # Phase 3: lightweight nuclei against the HTTP/HTTPS surface only
+        send_progress(scan.id, 60, liveview_pid)
+        maybe_update_nuclei_templates(scan, liveview_pid)
+
+        case run_nuclei(domain_name) do
+          {:ok, nuclei_findings} ->
+            send_progress(scan.id, 90, liveview_pid)
+
+            summary =
+              "#{length(ports)} open ports, " <>
+                "#{length(nuclei_findings)} critical/high findings"
+
+            metadata_attrs =
+              httpx_metadata
+              |> Map.put(:open_ports, ports)
+              |> Map.put(:last_security_scan_at, DateTime.utc_now())
+
+            persist_metadata(scan.domain_id, metadata_attrs)
+
+            finalize_scan(
+              scan,
+              naabu_findings ++ nuclei_findings,
+              naabu_output <> "\n---\n" <> httpx_output,
+              summary,
+              liveview_pid
+            )
+
+          {:error, reason} ->
+            fail_scan(scan, "nuclei: #{reason}", liveview_pid)
+        end
+
+      {:error, reason} ->
+        fail_scan(scan, "naabu: #{reason}", liveview_pid)
+    end
+  end
+
+  # ─── Phase implementations ────────────────────────────────────────────────
+
+  defp run_httpx(domain_name) do
+    args = [
+      "-u",
+      domain_name,
+      "-json",
+      "-silent",
+      "-tech-detect",
+      "-status-code",
+      "-server",
+      "-cdn",
+      "-follow-redirects",
+      "-location"
+    ]
+
+    case cmd_with_timeout("httpx", args, [stderr_to_stdout: true], @scan_timeout) do
+      {output, 0} ->
+        {output, extract_httpx_metadata(output)}
+
+      _ ->
+        {"", %{}}
+    end
+  end
+
+  defp run_naabu(domain_name) do
+    args = [
+      "-host",
+      domain_name,
+      "-json",
+      "-silent",
+      "-stream",
+      "-top-ports",
+      "100"
+    ]
+
+    case cmd_with_timeout("naabu", args, [stderr_to_stdout: true], @scan_timeout) do
+      {output, 0} ->
+        {:ok, output, extract_ports_from_naabu(output)}
+
+      {:error, :timeout} ->
+        {:error, "timed out after #{@scan_timeout}ms"}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      {output, code} ->
+        {:error, "exited with code #{code}: #{String.slice(output, 0, 200)}"}
+    end
+  end
+
+  defp run_nuclei(domain_name) do
+    args =
+      [
+        "-u",
+        domain_name,
+        "-tags",
+        @nuclei_tags,
+        "-severity",
+        "critical,high",
+        "-jsonl",
+        "-silent",
+        "-timeout",
+        "10"
+      ] ++ @nuclei_perf_flags
+
+    case cmd_with_timeout("nuclei", args, [stderr_to_stdout: true], @nuclei_timeout) do
+      {output, 0} ->
+        {:ok, SecurityScans.parse_nuclei_output(output)}
+
+      {:error, :timeout} ->
+        {:error, "timed out after #{@nuclei_timeout}ms"}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      {output, code} ->
+        {:error, "exited with code #{code}: #{String.slice(output, 0, 200)}"}
+    end
+  end
+
+  # ─── Output extraction ────────────────────────────────────────────────────
+
+  defp extract_httpx_metadata(httpx_output) do
+    httpx_output
+    |> String.split("\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.flat_map(fn line ->
+      case Jason.decode(line) do
+        {:ok, data} when is_map(data) -> [data]
+        _ -> []
+      end
+    end)
+    |> case do
+      [] ->
+        %{}
+
+      [data | _] ->
+        %{
+          tech_stack: data |> Map.get("tech") |> List.wrap() |> Enum.uniq(),
+          http_status: data["status-code"] || data["status_code"],
+          final_url: data["final-url"] || data["url"],
+          server_header: data["webserver"] || data["server"],
+          hosting_platform: data["cdn-name"] || data["cdn_name"]
+        }
+        |> drop_empty()
+    end
+  end
+
+  defp drop_empty(map) do
+    map
+    |> Enum.reject(fn
+      {_k, nil} -> true
+      {_k, ""} -> true
+      {_k, []} -> true
+      _ -> false
+    end)
+    |> Map.new()
   end
 
   defp extract_ports_from_naabu(output) do
@@ -380,17 +290,28 @@ defmodule Ravner.Scans.SecurityRunner do
     |> Enum.reject(&(&1 == ""))
     |> Enum.flat_map(fn line ->
       case Jason.decode(line) do
-        {:ok, %{"port" => port}} -> [port]
+        {:ok, %{"port" => port}} when is_integer(port) -> [port]
         _ -> []
       end
     end)
     |> Enum.uniq()
+    |> Enum.sort()
   end
 
-  defp count_nuclei_findings(findings) do
-    findings
-    |> Enum.reject(fn f -> is_nil(f.detail["template-id"]) end)
-    |> length()
+  defp persist_metadata(_domain_id, attrs) when map_size(attrs) == 0, do: :ok
+
+  defp persist_metadata(domain_id, attrs) do
+    case Domains.upsert_domain_metadata(domain_id, attrs) do
+      {:ok, _} ->
+        :ok
+
+      {:error, changeset} ->
+        Logger.warning(
+          "Failed to upsert domain_metadata for #{domain_id}: #{inspect(changeset.errors)}"
+        )
+
+        :ok
+    end
   end
 
   # ─── Binary / template helpers ────────────────────────────────────────────
@@ -403,14 +324,18 @@ defmodule Ravner.Scans.SecurityRunner do
     end
   end
 
+  @template_update_timeout 180_000
+
   defp maybe_update_nuclei_templates(scan, liveview_pid) do
     templates_dir = Path.join(System.user_home!(), ".nuclei-templates")
 
     unless File.exists?(templates_dir) do
-      send_progress(scan.id, 15, liveview_pid)
+      send_progress(scan.id, 55, liveview_pid)
       Logger.info("Updating Nuclei templates for the first time...")
 
-      case cmd_with_timeout("nuclei", ["-update-templates"],
+      case cmd_with_timeout(
+             "nuclei",
+             ["-update-templates"],
              [stderr_to_stdout: true],
              @template_update_timeout
            ) do
@@ -428,36 +353,26 @@ defmodule Ravner.Scans.SecurityRunner do
 
   # ─── Scan lifecycle helpers ───────────────────────────────────────────────
 
-  defp complete_scan(scan, findings, raw_output, liveview_pid, tool) do
-    send_progress(scan.id, 95, liveview_pid)
+  defp finalize_scan(scan, findings, raw_output, summary, liveview_pid) do
+    {:ok, updated_scan} =
+      SecurityScans.update_scan(scan, %{
+        status: "completed",
+        completed_at: DateTime.utc_now(),
+        progress: 100,
+        raw_output: raw_output,
+        summary: summary
+      })
 
-    summary =
-      case scan.tool do
-        "naabu" -> "#{length(findings)} open ports found"
-        "nuclei" -> "#{length(findings)} potential issues found"
-        "httpx" -> "#{length(findings)} responses probed"
-        _ -> "#{length(findings)} findings"
-      end
+    SecurityScans.create_findings_batch(scan.id, findings)
 
-    finalize_scan(scan, findings, raw_output, summary, liveview_pid, tool)
+    # Prune old scans now that we have a fresh successful one
+    SecurityScans.prune_old_scans(scan.domain_id)
+
+    final_scan = SecurityScans.get_scan!(updated_scan.id)
+    send(liveview_pid, {:scan_done, :security_scan, {:ok, final_scan}})
   end
 
-  defp finalize_scan(scan, findings, raw_output, summary, liveview_pid, tool) do
-    SecurityScans.update_scan(scan, %{
-      status: "completed",
-      completed_at: DateTime.utc_now(),
-      progress: 100,
-      raw_output: raw_output,
-      summary: summary
-    })
-
-    insert_findings(scan, findings)
-
-    updated_scan = SecurityScans.get_scan!(scan.id)
-    send(liveview_pid, {:scan_done, tool, {:ok, updated_scan}})
-  end
-
-  defp fail_scan(scan, message, liveview_pid, tool) do
+  defp fail_scan(scan, message, liveview_pid) do
     Logger.warning("Security scan #{scan.id} failed: #{message}")
 
     SecurityScans.update_scan(scan, %{
@@ -467,33 +382,100 @@ defmodule Ravner.Scans.SecurityRunner do
       error_message: message
     })
 
-    send(liveview_pid, {:scan_done, tool, {:error, message}})
+    send(liveview_pid, {:scan_done, :security_scan, {:error, message}})
   end
 
-  defp insert_findings(scan, findings) do
-    Enum.each(findings, fn attrs ->
-      SecurityScans.create_finding(Map.put(attrs, :security_scan_id, scan.id))
-    end)
-  end
+  # ─── Timeout wrapper for spawned scanner CLIs ─────────────────────────────
+  #
+  # `System.cmd/3` + `Task.shutdown` only kills the BEAM-side Task: the bash
+  # subprocess and any descendants (naabu/nuclei/httpx and their helpers) keep
+  # running as orphans on the host. To avoid leaking processes when we hit a
+  # timeout, we:
+  #
+  #   1. Spawn a Port directly so we know the OS PID we created.
+  #   2. Wrap the command in a Perl one-liner that calls `POSIX::setsid()` and
+  #      then `exec`s into bash. That places the entire command tree in a fresh
+  #      process group whose PGID equals the Port's OS PID (Perl's PID is
+  #      preserved across `exec`).
+  #   3. On timeout, send SIGTERM (then SIGKILL) to the negative PGID so the
+  #      whole group, including grandchildren spawned by the scanner, dies.
+  #
+  # Perl is used instead of `setsid(1)` because the latter is not present on
+  # macOS by default; Perl ships on every supported dev/runtime platform.
 
-  # ─── Timeout wrapper for System.cmd ───────────────────────────────────────
-
-  @doc false
   @spec cmd_with_timeout(String.t(), [String.t()], keyword(), non_neg_integer()) ::
-          {String.t(), non_neg_integer()} | {:error, :timeout}
+          {String.t(), non_neg_integer()} | {:error, :timeout} | {:error, String.t()}
   defp cmd_with_timeout(cmd, args, _opts, timeout) do
     # naabu and other PD tools hang when stdin is a terminal.
-    # Wrap in bash with </dev/null to force immediate EOF on stdin.
-    shell_cmd = "#{cmd} #{escape_args(args)} </dev/null"
+    # `</dev/null` forces immediate EOF on stdin; `exec` drops the bash layer.
+    shell_cmd = "exec #{cmd} #{escape_args(args)} </dev/null"
 
-    task =
-      Task.async(fn ->
-        System.cmd("bash", ["-c", shell_cmd], stderr_to_stdout: true)
-      end)
+    perl_script = "use POSIX qw(setsid); setsid(); exec @ARGV"
 
-    case Task.yield(task, timeout) || Task.shutdown(task) do
-      {:ok, result} -> result
-      nil -> {:error, :timeout}
+    case System.find_executable("perl") do
+      nil ->
+        {:error, "perl not found (required for process group isolation)"}
+
+      perl_path ->
+        port =
+          Port.open(
+            {:spawn_executable, perl_path},
+            [
+              :binary,
+              :exit_status,
+              :stderr_to_stdout,
+              args: ["-e", perl_script, "--", "/bin/bash", "-c", shell_cmd]
+            ]
+          )
+
+        os_pid =
+          case Port.info(port, :os_pid) do
+            {:os_pid, pid} -> pid
+            _ -> nil
+          end
+
+        deadline = System.monotonic_time(:millisecond) + timeout
+
+        case collect_port_output(port, deadline, "") do
+          {:ok, output, status} ->
+            {output, status}
+
+          :timeout ->
+            if os_pid, do: kill_process_group(os_pid)
+            close_port(port)
+            {:error, :timeout}
+        end
+    end
+  end
+
+  defp collect_port_output(port, deadline, acc) do
+    remaining = max(deadline - System.monotonic_time(:millisecond), 0)
+
+    receive do
+      {^port, {:data, data}} ->
+        collect_port_output(port, deadline, acc <> data)
+
+      {^port, {:exit_status, status}} ->
+        {:ok, acc, status}
+    after
+      remaining ->
+        :timeout
+    end
+  end
+
+  defp kill_process_group(os_pid) do
+    pgid_arg = "-#{os_pid}"
+    _ = System.cmd("kill", ["-TERM", "--", pgid_arg], stderr_to_stdout: true)
+    Process.sleep(500)
+    _ = System.cmd("kill", ["-KILL", "--", pgid_arg], stderr_to_stdout: true)
+    :ok
+  end
+
+  defp close_port(port) do
+    try do
+      Port.close(port)
+    rescue
+      ArgumentError -> :ok
     end
   end
 

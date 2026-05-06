@@ -46,6 +46,10 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:dns_scanned_at, :utc_datetime)
     field(:subdomains_scanned_at, :utc_datetime)
     field(:rdap_scanned_at, :utc_datetime)
+    field(:last_security_scan_at, :utc_datetime)
+
+    # Security scan results
+    field(:open_ports, {:array, :integer}, default: [])
 
     timestamps(type: :utc_datetime)
   end
@@ -81,7 +85,9 @@ defmodule Ravner.Domains.DomainMetadata do
       :http_scanned_at,
       :dns_scanned_at,
       :subdomains_scanned_at,
-      :rdap_scanned_at
+      :rdap_scanned_at,
+      :last_security_scan_at,
+      :open_ports
     ])
     |> validate_required([:domain_id])
     |> foreign_key_constraint(:domain_id)

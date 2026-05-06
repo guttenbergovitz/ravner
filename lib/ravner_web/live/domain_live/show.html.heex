@@ -40,6 +40,17 @@
           {@domain.type}
         </span>
       </div>
+
+      <div id="severity-badges" class="flex gap-1.5 items-center mt-3">
+        <%= for {label, count, color} <- severity_badges(@severity_counts) do %>
+          <span class={[
+            "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm font-medium",
+            if(count > 0, do: color, else: "bg-neutral-50 text-neutral-300")
+          ]}>
+            {count} {label}
+          </span>
+        <% end %>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -476,7 +487,7 @@
           </div>
         <% end %>
 
-        <%= if @domain.domain_metadata && (@domain.domain_metadata.hosting_platform || @domain.domain_metadata.asn_org || (@domain.domain_metadata.tech_stack && @domain.domain_metadata.tech_stack != [])) do %>
+        <%= if @domain.domain_metadata && (@domain.domain_metadata.hosting_platform || @domain.domain_metadata.asn_org || (@domain.domain_metadata.tech_stack && @domain.domain_metadata.tech_stack != []) || (@domain.domain_metadata.open_ports && @domain.domain_metadata.open_ports != [])) do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
             <div class="grid grid-cols-2 gap-6 text-sm">
@@ -523,6 +534,21 @@
                   <%= for tech <- @domain.domain_metadata.tech_stack do %>
                     <span class="px-2 py-0.5 border border-neutral-200 text-xs font-light">
                       {tech}
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @domain.domain_metadata.open_ports && @domain.domain_metadata.open_ports != [] do %>
+              <div class="mt-4">
+                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
+                  Open Ports
+                </span>
+                <div class="flex flex-wrap gap-1">
+                  <%= for port <- @domain.domain_metadata.open_ports do %>
+                    <span class="text-[11px] font-mono px-1.5 py-0.5 border border-neutral-200 text-neutral-600 rounded-sm">
+                      {port}
                     </span>
                   <% end %>
                 </div>
@@ -759,135 +785,149 @@
           <% end %>
         </div>
 
-        <%!-- Security Scans --%>
+        <%!-- Security Posture --%>
         <div class="card-line">
-          <h2 class="text-sm font-normal tracking-wide uppercase mb-4">Security Scans</h2>
-
-          <%= if @current_scope && @current_scope.user.role == :admin do %>
-            <div class="grid grid-cols-2 gap-2 mb-4">
-              <button
-                phx-click="scan_naabu"
-                class="btn-line w-full justify-center text-xs"
-              >
-                <.icon name="hero-signal" class="w-3.5 h-3.5" /> Naabu
-              </button>
-              <button
-                phx-click="scan_nuclei"
-                class="btn-line w-full justify-center text-xs"
-              >
-                <.icon name="hero-shield-exclamation" class="w-3.5 h-3.5" /> Nuclei
-              </button>
-              <button
-                phx-click="scan_httpx_binary"
-                class="btn-line w-full justify-center text-xs"
-              >
-                <.icon name="hero-globe-alt" class="w-3.5 h-3.5" /> httpx
-              </button>
-              <button
-                phx-click="scan_deep"
-                class="btn-line w-full justify-center text-xs"
-              >
-                <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Deep
-              </button>
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-sm font-normal tracking-wide uppercase">Security Posture</h2>
+            <div class="flex gap-2">
+              <%= if @running_security_scan && @current_scope && @current_scope.user.role == :admin do %>
+                <button
+                  phx-click="clear_scans"
+                  class="btn-line text-xs py-1 text-red-600 hover:bg-red-50 border-red-100"
+                  data-confirm="Force clear the running security scan for this domain?"
+                >
+                  <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> Clear
+                </button>
+              <% end %>
+              <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
+                <button
+                  phx-click="run_security_scan"
+                  id="run-security-scan"
+                  class={[
+                    "btn-line text-xs py-1",
+                    @running_security_scan && "opacity-50 cursor-not-allowed"
+                  ]}
+                  disabled={!is_nil(@running_security_scan)}
+                >
+                  <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Security Scan
+                </button>
+              <% end %>
             </div>
-          <% else %>
-            <p class="text-xs text-neutral-400 mb-4">
-              Admin access required to run security scans.
-            </p>
-          <% end %>
+          </div>
 
-          <div id="security-scans" phx-update="stream" class="space-y-2">
-            <%= for {id, scan} <- @streams.security_scans do %>
-              <details id={id} class="group border border-neutral-200 rounded-sm">
-                <summary class="flex items-center justify-between px-3 py-2 cursor-pointer list-none hover:bg-neutral-50 transition-colors">
-                  <div class="flex items-center gap-2">
-                    <span class={[
-                      "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
-                      scan.tool == "naabu" && "bg-blue-50 text-blue-600",
-                      scan.tool == "nuclei" && "bg-red-50 text-red-600",
-                      scan.tool == "httpx" && "bg-purple-50 text-purple-600",
-                      scan.tool == "deep_scan" && "bg-amber-50 text-amber-600"
-                    ]}>
-                      {scan.tool}
-                    </span>
-                    <span class={[
-                      "text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
-                      scan.status == "completed" && "bg-green-50 text-green-600",
-                      scan.status == "running" && "bg-yellow-50 text-yellow-600",
-                      scan.status == "failed" && "bg-red-50 text-red-600",
-                      scan.status == "pending" && "bg-neutral-100 text-neutral-500"
-                    ]}>
-                      {scan.status}
+          <div id="security-scan-card">
+            <%= cond do %>
+              <% @running_security_scan -> %>
+                <div class="border border-neutral-100 rounded-lg p-4 bg-neutral-50/30">
+                  <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-medium text-neutral-900">Security Scan</span>
+                    <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-yellow-50 text-yellow-600">
+                      running
                     </span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <%= if scan.status == "running" do %>
-                      <div class="w-16 h-1 bg-neutral-200 rounded-full overflow-hidden">
-                        <div
-                          class="h-full bg-blue-500 transition-all duration-300"
-                          style={"width: #{scan.progress}%"}
-                        >
-                        </div>
-                      </div>
-                    <% end %>
-                    <span class="text-[10px] text-neutral-400">
-                      {Calendar.strftime(scan.inserted_at, "%Y-%m-%d %H:%M")}
-                    </span>
-                    <%= if @current_scope && @current_scope.user.role == :admin do %>
-                      <button
-                        phx-click="delete_scan"
-                        phx-value-id={scan.id}
-                        class="text-neutral-300 hover:text-red-500 transition-colors"
-                        title="Delete scan"
+                  <div class="space-y-3 py-2">
+                    <div class="flex justify-between text-[10px] text-neutral-500 font-light">
+                      <span>Phase: {scan_phase_label(@running_security_scan.progress)}</span>
+                      <span>{@running_security_scan.progress}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-blue-500 transition-all duration-1000 ease-in-out"
+                        style={"width: #{@running_security_scan.progress}%"}
                       >
-                        <.icon name="hero-trash" class="w-3 h-3" />
-                      </button>
-                    <% end %>
-                    <.icon
-                      name="hero-chevron-down"
-                      class="w-3.5 h-3.5 text-neutral-400 transition group-open:rotate-180"
-                    />
+                      </div>
+                    </div>
                   </div>
-                </summary>
+                </div>
+              <% @latest_security_scan -> %>
+                <% findings =
+                  if Ecto.assoc_loaded?(@latest_security_scan.findings),
+                    do: @latest_security_scan.findings,
+                    else: [] %>
+                <div class="border border-neutral-100 rounded-lg p-4 bg-neutral-50/30">
+                  <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-medium text-neutral-900">Security Scan</span>
+                      <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-green-50 text-green-600">
+                        completed
+                      </span>
+                    </div>
+                    <span class="text-[10px] text-neutral-400 font-light">
+                      Last scan {Calendar.strftime(
+                        @latest_security_scan.completed_at || @latest_security_scan.inserted_at,
+                        "%Y-%m-%d %H:%M"
+                      )}
+                    </span>
+                  </div>
 
-                <div class="px-3 pb-3 border-t border-neutral-100">
-                  <%= if scan.summary do %>
-                    <p class="text-xs text-neutral-600 mt-2">{scan.summary}</p>
-                  <% end %>
-                  <%= if scan.error_message do %>
-                    <p class="text-xs text-red-600 mt-2">{scan.error_message}</p>
-                  <% end %>
-
-                  <%= if Ecto.assoc_loaded?(scan.findings) && scan.findings != [] do %>
-                    <div class="mt-2 space-y-1">
-                      <%= for finding <- scan.findings do %>
-                        <div class="flex items-start gap-2 text-xs py-1 border-b border-neutral-50 last:border-0">
+                  <%= if findings != [] do %>
+                    <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                      <%= for finding <-
+                            findings
+                            |> Enum.sort_by(& &1.severity)
+                            |> Enum.take(15) do %>
+                        <div class="flex items-start gap-2 text-[11px] py-1.5 border-b border-neutral-100 last:border-0">
                           <span class={[
-                            "shrink-0 text-[10px] uppercase tracking-wide px-1 py-0.5 rounded-sm mt-0.5",
-                            finding.severity == "critical" && "bg-red-100 text-red-700",
-                            finding.severity == "high" && "bg-orange-100 text-orange-700",
-                            finding.severity == "medium" && "bg-yellow-100 text-yellow-700",
-                            finding.severity == "low" && "bg-blue-100 text-blue-700",
-                            true && "bg-neutral-100 text-neutral-600"
+                            "shrink-0 w-2 h-2 rounded-full mt-1",
+                            finding.severity == "critical" && "bg-red-500",
+                            finding.severity == "high" && "bg-orange-500",
+                            finding.severity == "medium" && "bg-yellow-500",
+                            finding.severity == "low" && "bg-blue-500",
+                            finding.severity not in ["critical", "high", "medium", "low"] &&
+                              "bg-neutral-300"
                           ]}>
-                            {finding.severity || "info"}
                           </span>
-                          <div class="min-w-0">
-                            <p class="font-medium text-neutral-700 truncate">{finding.title}</p>
-                            <%= if finding.target do %>
-                              <p class="text-neutral-400 truncate">{finding.target}</p>
-                            <% end %>
+                          <div class="min-w-0 flex-1">
+                            <p class="font-medium text-neutral-700 leading-tight">
+                              {finding.title}
+                            </p>
+                            <p class="text-neutral-400 text-[10px] truncate font-light mt-0.5">
+                              {finding.target}
+                            </p>
                           </div>
                         </div>
                       <% end %>
+                      <%= if length(findings) > 15 do %>
+                        <p class="text-[10px] text-neutral-400 text-center pt-2 font-light">
+                          + {length(findings) - 15} more findings
+                        </p>
+                      <% end %>
                     </div>
                   <% else %>
-                    <%= if scan.status == "completed" do %>
-                      <p class="text-xs text-neutral-400 mt-2">No findings recorded.</p>
-                    <% end %>
+                    <div class="flex flex-col items-center justify-center py-6 opacity-40">
+                      <.icon name="hero-check-badge" class="w-8 h-8 text-green-500 mb-1" />
+                      <p class="text-xs font-light">No vulnerabilities found</p>
+                    </div>
                   <% end %>
                 </div>
-              </details>
+              <% @latest_failed_security_scan -> %>
+                <div class="p-3 bg-red-50 border border-red-100 rounded-md text-red-700 text-[11px] font-light">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="font-semibold mb-1">Last scan failed</p>
+                      <p class="leading-relaxed text-red-600">
+                        {@latest_failed_security_scan.error_message}
+                      </p>
+                    </div>
+                    <%= if @current_scope && @current_scope.user.role == :admin do %>
+                      <button
+                        type="button"
+                        phx-click="delete_scan"
+                        phx-value-id={@latest_failed_security_scan.id}
+                        data-confirm="Delete this failed scan?"
+                        class="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-red-500 hover:text-red-700 transition-colors"
+                        aria-label="Delete failed scan"
+                      >
+                        <.icon name="hero-trash" class="w-3 h-3" /> Delete
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+              <% true -> %>
+                <div class="flex flex-col items-center justify-center py-8 text-neutral-400">
+                  <.icon name="hero-shield-check" class="w-8 h-8 mb-2" />
+                  <p class="text-xs font-light">No security scan yet</p>
+                </div>
             <% end %>
           </div>
         </div>
