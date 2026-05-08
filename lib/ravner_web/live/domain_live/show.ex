@@ -7,11 +7,12 @@ defmodule RavnerWeb.DomainLive.Show do
 
   require Logger
 
+  import RavnerWeb.DomainComponents
+
   alias Ravner.Domains
   alias Ravner.Inventory
   alias Ravner.Repo
   alias Ravner.Scans
-  alias Ravner.Scans.SecurityRunner
   alias Ravner.SecurityScans
 
   # Two-part TLDs for root domain extraction (same logic as Balebos)
@@ -217,64 +218,7 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply, socket}
   end
 
-  # ─── Security scan (lean: httpx → naabu → nuclei) ─────────────────────────
-
-  def handle_event("run_security_scan", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("run_security_scan", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-
-    if socket.assigns.running_security_scan do
-      {:noreply, put_flash(socket, :error, "A security scan is already in progress.")}
-    else
-      case SecurityRunner.run_security_scan(domain_id, liveview_pid) do
-        {:ok, _scan} ->
-          {:noreply, refresh_security_scan_assigns(socket)}
-
-        {:error, reason} ->
-          {:noreply, put_flash(socket, :error, reason)}
-      end
-    end
-  end
-
-  def handle_event("clear_scans", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role != :admin do
-    {:noreply, put_flash(socket, :error, "Admin access required.")}
-  end
-
-  def handle_event("clear_scans", _, socket) do
-    domain_id = socket.assigns.domain.id
-    SecurityScans.clear_running_scans(domain_id)
-
-    {:noreply,
-     socket
-     |> assign(:scanning, false)
-     |> assign(:active_scan_kind, nil)
-     |> refresh_security_scan_assigns()
-     |> put_flash(:info, "Running scans cleared.")}
-  end
-
-  def handle_event("delete_scan", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role != :admin do
-    {:noreply, put_flash(socket, :error, "Admin access required.")}
-  end
-
-  def handle_event("delete_scan", %{"id" => scan_id}, socket) do
-    scan_id = String.to_integer(scan_id)
-
-    case Repo.get(Ravner.SecurityScans.SecurityScan, scan_id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Scan not found.")}
-
-      scan ->
-        SecurityScans.delete_scan(scan)
-        {:noreply, refresh_security_scan_assigns(socket)}
-    end
-  end
+  # ─── Security scan events have been moved to SecurityPostureComponent ─────
 
   def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
       when is_nil(scope) or scope.user.role not in [:admin, :editor] do
@@ -368,14 +312,18 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply, assign(socket, :lifecycle_menu_open, false)}
   end
 
-  @impl true
-  def handle_event("toggle_findings_modal", _, socket) do
-    {:noreply, assign(socket, :show_findings_modal, !socket.assigns.show_findings_modal)}
-  end
-
   # ---------------------------------------------------------------------------
   # Info handlers (handle_info/2)
   # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_info(:refresh_security_scans, socket) do
+    {:noreply,
+     socket
+     |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
+     |> refresh_security_scan_assigns()}
+  end
 
   @impl true
   def handle_info({:scan_done, :subdomains, {:ok, results}}, socket) do
@@ -711,56 +659,5 @@ defmodule RavnerWeb.DomainLive.Show do
     |> assign(:running_security_scan, running)
     |> assign(:latest_failed_security_scan, failed)
     |> assign(:severity_counts, SecurityScans.severity_counts_for_domain(domain_id))
-  end
-
-  # Returns the severity badges in fixed order so the row stays visually
-  # consistent across domains. Each tuple: {label, count, active CSS classes}.
-  defp severity_badges(counts) do
-    [
-      {"critical", counts.critical, "bg-red-50 text-red-600"},
-      {"high", counts.high, "bg-orange-50 text-orange-600"},
-      {"medium", counts.medium, "bg-yellow-50 text-yellow-700"},
-      {"low", counts.low, "bg-blue-50 text-blue-600"}
-    ]
-  end
-
-  # Maps the running scan's progress percentage to a human phase label so the
-  # progress bar can describe what's happening end-to-end.
-  defp scan_phase_label(progress) when is_integer(progress) do
-    cond do
-      progress < 30 -> "Tech detection"
-      progress < 55 -> "Port discovery"
-      progress < 90 -> "Vulnerability scan"
-      true -> "Finalizing"
-    end
-  end
-
-  defp scan_phase_label(_), do: "Starting"
-
-  defp lifecycle_color(:priority), do: "bg-teal-600"
-  defp lifecycle_color(:active), do: "bg-green-500"
-  defp lifecycle_color(:placeholder), do: "bg-violet-500"
-  defp lifecycle_color(:under_review), do: "bg-yellow-500"
-  defp lifecycle_color(:insecure), do: "bg-amber-600"
-  defp lifecycle_color(:redirect), do: "bg-cyan-500"
-  defp lifecycle_color(:error), do: "bg-red-500"
-  defp lifecycle_color(:deprecated), do: "bg-orange-500"
-  defp lifecycle_color(:decommissioned), do: "bg-red-500"
-  defp lifecycle_color(:abandoned), do: "bg-neutral-400"
-  defp lifecycle_color(_), do: "bg-neutral-400"
-
-  defp lifecycle_options do
-    [
-      {:priority, "Priority", "bg-teal-600"},
-      {:active, "Active", "bg-green-500"},
-      {:under_review, "Under review", "bg-yellow-500"},
-      {:placeholder, "Placeholder", "bg-violet-500"},
-      {:insecure, "Insecure HTTP", "bg-amber-600"},
-      {:redirect, "Redirect", "bg-cyan-500"},
-      {:error, "Error", "bg-red-500"},
-      {:deprecated, "Deprecated", "bg-orange-500"},
-      {:decommissioned, "Decommissioned", "bg-red-500"},
-      {:abandoned, "Abandoned", "bg-neutral-400"}
-    ]
   end
 end
