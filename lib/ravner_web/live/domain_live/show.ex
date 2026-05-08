@@ -465,12 +465,13 @@ defmodule RavnerWeb.DomainLive.Show do
   # ---------------------------------------------------------------------------
 
   defp start_scan_tasks(pid, id) do
-    start_background_scan(fn -> send(pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(id)}) end)
-    start_background_scan(fn -> send(pid, {:scan_done, :httpx, Scans.run_httpx_scan(id)}) end)
-    start_background_scan(fn -> send(pid, {:scan_done, :rdap, Scans.run_rdap_scan(id)}) end)
-
     start_background_scan(fn ->
-      send(pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(id)})
+      results = Scans.run_quick_scan(id)
+
+      send(pid, {:scan_done, :dnsx, Map.fetch!(results, :dnsx)})
+      send(pid, {:scan_done, :httpx, Map.fetch!(results, :httpx)})
+      send(pid, {:scan_done, :rdap, Map.fetch!(results, :rdap)})
+      send(pid, {:scan_done, :subdomains, Map.fetch!(results, :subdomains)})
     end)
   end
 
