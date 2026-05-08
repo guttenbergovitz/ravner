@@ -139,6 +139,24 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply, socket}
   end
 
+  def handle_event("scan_deep_tech", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_deep_tech", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+    socket = assign(socket, :scanning, true)
+
+    start_background_scan(fn ->
+      result = Scans.run_deep_tech_scan(domain_id)
+      send(liveview_pid, {:scan_done, :deep_tech, result})
+    end)
+
+    {:noreply, socket}
+  end
+
   def handle_event("scan_dnsx", _, %{assigns: %{current_scope: scope}} = socket)
       when is_nil(scope) or scope.user.role not in [:admin, :editor] do
     {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
@@ -379,6 +397,27 @@ defmodule RavnerWeb.DomainLive.Show do
      |> put_flash(:info, "HTTP scan completed")}
   end
 
+  def handle_info({:scan_done, :deep_tech, {:ok, results}}, socket) do
+    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+
+    suffix =
+      if results.errors == [] do
+        ""
+      else
+        " (#{length(results.errors)} tool warnings)"
+      end
+
+    {:noreply,
+     socket
+     |> finish_scan()
+     |> assign(:domain, domain)
+     |> assign(:domain_class, compute_domain_class(domain))
+     |> put_flash(
+       :info,
+       "Deep tech scan completed: #{results.evidence} findings, #{results.urls} URLs#{suffix}"
+     )}
+  end
+
   def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
     domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
 
@@ -463,6 +502,18 @@ defmodule RavnerWeb.DomainLive.Show do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp infrastructure_metadata?(metadata) do
+    metadata &&
+      (metadata.hosting_platform || metadata.asn_org ||
+         populated?(metadata.tech_stack) ||
+         populated?(metadata.tech_evidence) ||
+         populated?(metadata.discovered_urls) ||
+         populated?(metadata.js_assets) ||
+         populated?(metadata.open_ports))
+  end
+
+  defp populated?(value), do: is_list(value) && value != []
 
   defp start_scan_tasks(pid, id) do
     start_background_scan(fn ->

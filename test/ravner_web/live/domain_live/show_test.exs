@@ -79,6 +79,17 @@ defmodule RavnerWeb.DomainLive.ShowTest do
       refute has_element?(view, "button[phx-click='scan_deep']")
     end
 
+    test "shows deep tech scan as an individual scan", %{conn: conn, domain: domain} do
+      admin = AccountsFixtures.user_fixture()
+      {:ok, admin} = admin |> Accounts.User.role_changeset(%{role: :admin}) |> Repo.update()
+      conn = log_in_user(conn, admin)
+
+      {:ok, view, _html} = live(conn, ~p"/domains/#{domain.id}")
+
+      assert has_element?(view, "#scan-deep-tech")
+      assert has_element?(view, "button[phx-click='scan_deep_tech']")
+    end
+
     test "priority lifecycle renders with the same color as the listing", %{conn: conn} do
       domain = DomainsFixtures.domain_fixture(%{lifecycle_state: :priority})
       admin = AccountsFixtures.user_fixture()

@@ -14,6 +14,9 @@
 # Runtime CLI dependencies bundled into the image:
 #   • pg_dump / pg_restore  — Ravner.Admin.Backups
 #   • dnsx                  — Ravner.Scans (subdomain DNS resolution)
+#   • httpx                 — Ravner.Scans (HTTP probing)
+#   • katana                — Ravner.Scans (deep URL crawling)
+#   • webanalyze            — Ravner.Scans (deep tech fingerprinting)
 #   • whois                 — Ravner.Scans (WHOIS lookup)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -26,6 +29,9 @@ ARG NAABU_VERSION=2.6.0
 ARG NUCLEI_VERSION=3.8.0
 ARG NUCLEI_TEMPLATES_VERSION=10.4.3
 ARG HTTPX_VERSION=1.9.0
+ARG KATANA_VERSION=1.5.0
+ARG WEBANALYZE_VERSION=0.3.8
+ARG GO_VERSION=1.24
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -125,6 +131,25 @@ RUN apt-get update -y \
  && install -m 0755 /tmp/httpx/httpx /usr/local/bin/httpx \
  && rm -rf /var/lib/apt/lists/* /tmp/httpx /tmp/httpx.zip
 
+# ─── Fetch katana (ProjectDiscovery) ─────────────────────────────────────────
+FROM debian:${DEBIAN_VERSION} AS katana
+ARG KATANA_VERSION
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+ && curl -fsSL -o /tmp/katana.zip \
+      "https://github.com/projectdiscovery/katana/releases/download/v${KATANA_VERSION}/katana_${KATANA_VERSION}_linux_${TARGETARCH}.zip" \
+ && unzip /tmp/katana.zip -d /tmp/katana \
+ && install -m 0755 /tmp/katana/katana /usr/local/bin/katana \
+ && rm -rf /var/lib/apt/lists/* /tmp/katana /tmp/katana.zip
+
+# ─── Build webanalyze and bundle app definitions ─────────────────────────────
+FROM golang:${GO_VERSION}-bookworm AS webanalyze
+ARG WEBANALYZE_VERSION
+RUN go install -v "github.com/rverton/webanalyze/cmd/webanalyze@v${WEBANALYZE_VERSION}"
+WORKDIR /tmp/webanalyze
+RUN /go/bin/webanalyze -update -silent
+
 # ─── Runtime ─────────────────────────────────────────────────────────────────
 FROM ${RUNNER_IMAGE} AS runner
 ARG PG_MAJOR
@@ -137,7 +162,7 @@ RUN set -eux; \
     apt-get update -y; \
     apt-get install -y --no-install-recommends \
       libstdc++6 openssl libncurses6 ca-certificates locales tini \
-      whois curl gnupg; \
+      bash whois curl gnupg; \
     install -d /usr/share/keyrings; \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
       | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg; \
@@ -148,6 +173,7 @@ RUN set -eux; \
     apt-get purge -y --auto-remove curl gnupg; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*; \
+    install -d /usr/local/share/webanalyze; \
     sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen; \
     locale-gen
 
@@ -171,6 +197,9 @@ COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
 COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
 COPY --from=nuclei  /root/.nuclei-templates          /home/ravner/.nuclei-templates
 COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
+COPY --from=katana  /usr/local/bin/katana            /usr/local/bin/katana
+COPY --from=webanalyze /go/bin/webanalyze            /usr/local/bin/webanalyze
+COPY --from=webanalyze /tmp/webanalyze/technologies.json /usr/local/share/webanalyze/technologies.json
 COPY --from=builder --chown=ravner:ravner /app/_build/prod/rel/ravner ./
 
 EXPOSE 4000

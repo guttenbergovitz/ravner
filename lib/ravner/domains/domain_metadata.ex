@@ -39,6 +39,11 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:asn_number, :string)
     field(:server_header, :string)
     field(:tech_stack, {:array, :string}, default: [])
+    field(:tech_evidence, {:array, :map}, default: [])
+    field(:discovered_urls, {:array, :map}, default: [])
+    field(:js_assets, {:array, :string}, default: [])
+    field(:forms, {:array, :map}, default: [])
+    field(:deep_scan_errors, {:array, :string}, default: [])
 
     # Scan provenance
     field(:scanned_at, :utc_datetime)
@@ -47,6 +52,7 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:dns_scanned_at, :utc_datetime)
     field(:subdomains_scanned_at, :utc_datetime)
     field(:rdap_scanned_at, :utc_datetime)
+    field(:deep_tech_scanned_at, :utc_datetime)
     field(:last_security_scan_at, :utc_datetime)
 
     # Security scan results
@@ -82,12 +88,18 @@ defmodule Ravner.Domains.DomainMetadata do
       :asn_number,
       :server_header,
       :tech_stack,
+      :tech_evidence,
+      :discovered_urls,
+      :js_assets,
+      :forms,
+      :deep_scan_errors,
       :scanned_at,
       :scan_duration_ms,
       :http_scanned_at,
       :dns_scanned_at,
       :subdomains_scanned_at,
       :rdap_scanned_at,
+      :deep_tech_scanned_at,
       :last_security_scan_at,
       :open_ports
     ])
