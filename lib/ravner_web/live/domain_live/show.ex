@@ -22,6 +22,7 @@ defmodule RavnerWeb.DomainLive.Show do
     {:ok,
      socket
      |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:lifecycle_menu_open, false)
      |> assign(:show_findings_modal, false)
@@ -47,6 +48,7 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:domain, domain)
      |> assign(:scan_results, nil)
      |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:domain_class, compute_domain_class(domain))
      |> refresh_security_scan_assigns()}
@@ -69,6 +71,7 @@ defmodule RavnerWeb.DomainLive.Show do
     socket =
       socket
       |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :all)
       |> assign(:pending_scans, 4)
 
     start_scan_tasks(liveview_pid, domain_id)
@@ -95,6 +98,7 @@ defmodule RavnerWeb.DomainLive.Show do
         socket =
           socket
           |> assign(:scanning, true)
+          |> assign(:active_scan_kind, :all_subdomains)
           |> assign(:pending_scans, subdomain_count * 4)
 
         Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id))
@@ -111,7 +115,11 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_subdomains", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
+
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :subdomains)
 
     start_background_scan(fn ->
       result = Scans.run_subdomain_scan(domain_id)
@@ -129,7 +137,11 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_httpx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
+
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :httpx)
 
     start_background_scan(fn ->
       result = Scans.run_httpx_scan(domain_id)
@@ -147,7 +159,11 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_deep_tech", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
+
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :deep_tech)
 
     start_background_scan(fn ->
       result = Scans.run_deep_tech_scan(domain_id)
@@ -165,7 +181,11 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_dnsx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
+
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :dnsx)
 
     start_background_scan(fn ->
       result = Scans.run_dnsx_scan(domain_id)
@@ -183,7 +203,11 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_rdap", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
+
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :rdap)
 
     start_background_scan(fn ->
       result = Scans.run_rdap_scan(domain_id)
@@ -229,6 +253,7 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply,
      socket
      |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
      |> refresh_security_scan_assigns()
      |> put_flash(:info, "Running scans cleared.")}
   end
@@ -536,7 +561,9 @@ defmodule RavnerWeb.DomainLive.Show do
     socket = assign(socket, :pending_scans, pending)
 
     if pending == 0 do
-      assign(socket, :scanning, false)
+      socket
+      |> assign(:scanning, false)
+      |> assign(:active_scan_kind, nil)
     else
       socket
     end

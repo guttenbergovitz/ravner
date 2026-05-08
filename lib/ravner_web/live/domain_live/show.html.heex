@@ -782,16 +782,16 @@
             <div class="space-y-2">
               <button
                 phx-click="scan_all"
-                disabled={@scanning}
+                disabled={@scanning || @running_security_scan}
                 class={[
                   "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-                  @scanning &&
+                  (@scanning || @running_security_scan) &&
                     "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                  !@scanning &&
+                  !(@scanning || @running_security_scan) &&
                     "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
                 ]}
               >
-                <%= if @scanning do %>
+                <%= if @scanning && @active_scan_kind == :all do %>
                   <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
                   </span>
                   Scanning<span class="animate-pulse">…</span>
@@ -803,16 +803,16 @@
               <button
                 id="scan-deep-tech"
                 phx-click="scan_deep_tech"
-                disabled={@scanning}
+                disabled={@scanning || @running_security_scan}
                 class={[
                   "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-                  @scanning &&
+                  (@scanning || @running_security_scan) &&
                     "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                  !@scanning &&
+                  !(@scanning || @running_security_scan) &&
                     "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
                 ]}
               >
-                <%= if @scanning do %>
+                <%= if @scanning && @active_scan_kind == :deep_tech do %>
                   <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
                   </span>
                   Scanning<span class="animate-pulse">…</span>
@@ -832,16 +832,16 @@
               <%= if @domain.subdomains != [] do %>
                 <button
                   phx-click="scan_all_subdomains"
-                  disabled={@scanning}
+                  disabled={@scanning || @running_security_scan}
                   class={[
                     "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-                    @scanning &&
+                    (@scanning || @running_security_scan) &&
                       "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                    !@scanning &&
+                    !(@scanning || @running_security_scan) &&
                       "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
                   ]}
                 >
-                  <%= if @scanning do %>
+                  <%= if @scanning && @active_scan_kind == :all_subdomains do %>
                     <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
                     </span>
                     Scanning subdomains<span class="animate-pulse">…</span>
@@ -865,13 +865,19 @@
               <div class="mt-4 space-y-3">
                 <button
                   phx-click="scan_subdomains"
-                  disabled={@scanning}
+                  disabled={@scanning || @running_security_scan}
                   class={[
                     "btn-line w-full justify-center text-xs",
-                    @scanning && "opacity-50 cursor-not-allowed"
+                    (@scanning || @running_security_scan) && "opacity-50 cursor-not-allowed"
                   ]}
                 >
-                  <.icon name="hero-magnifying-glass" class="w-4 h-4" /> Discover subdomains
+                  <%= if @scanning && @active_scan_kind == :subdomains do %>
+                    <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                    </span>
+                    Discovering<span class="animate-pulse">…</span>
+                  <% else %>
+                    <.icon name="hero-magnifying-glass" class="w-4 h-4" /> Discover subdomains
+                  <% end %>
                 </button>
                 <%= if @domain.domain_metadata && @domain.domain_metadata.subdomains_scanned_at do %>
                   <p class="text-[10px] text-neutral-400 text-center -mt-1">
@@ -884,13 +890,19 @@
 
                 <button
                   phx-click="scan_httpx"
-                  disabled={@scanning}
+                  disabled={@scanning || @running_security_scan}
                   class={[
                     "btn-line w-full justify-center text-xs",
-                    @scanning && "opacity-50 cursor-not-allowed"
+                    (@scanning || @running_security_scan) && "opacity-50 cursor-not-allowed"
                   ]}
                 >
-                  <.icon name="hero-globe-alt" class="w-4 h-4" /> HTTP scan
+                  <%= if @scanning && @active_scan_kind == :httpx do %>
+                    <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                    </span>
+                    Scanning HTTP<span class="animate-pulse">…</span>
+                  <% else %>
+                    <.icon name="hero-globe-alt" class="w-4 h-4" /> HTTP scan
+                  <% end %>
                 </button>
                 <%= if @domain.domain_metadata && @domain.domain_metadata.http_scanned_at do %>
                   <p class="text-[10px] text-neutral-400 text-center -mt-1">
@@ -903,13 +915,19 @@
 
                 <button
                   phx-click="scan_dnsx"
-                  disabled={@scanning}
+                  disabled={@scanning || @running_security_scan}
                   class={[
                     "btn-line w-full justify-center text-xs",
-                    @scanning && "opacity-50 cursor-not-allowed"
+                    (@scanning || @running_security_scan) && "opacity-50 cursor-not-allowed"
                   ]}
                 >
-                  <.icon name="hero-server-stack" class="w-4 h-4" /> DNS scan
+                  <%= if @scanning && @active_scan_kind == :dnsx do %>
+                    <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                    </span>
+                    Scanning DNS<span class="animate-pulse">…</span>
+                  <% else %>
+                    <.icon name="hero-server-stack" class="w-4 h-4" /> DNS scan
+                  <% end %>
                 </button>
                 <%= if @domain.domain_metadata && @domain.domain_metadata.dns_scanned_at do %>
                   <p class="text-[10px] text-neutral-400 text-center -mt-1">
@@ -922,13 +940,19 @@
 
                 <button
                   phx-click="scan_rdap"
-                  disabled={@scanning}
+                  disabled={@scanning || @running_security_scan}
                   class={[
                     "btn-line w-full justify-center text-xs",
-                    @scanning && "opacity-50 cursor-not-allowed"
+                    (@scanning || @running_security_scan) && "opacity-50 cursor-not-allowed"
                   ]}
                 >
-                  <.icon name="hero-identification" class="w-4 h-4" /> Registration scan
+                  <%= if @scanning && @active_scan_kind == :rdap do %>
+                    <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                    </span>
+                    Scanning RDAP<span class="animate-pulse">…</span>
+                  <% else %>
+                    <.icon name="hero-identification" class="w-4 h-4" /> Registration scan
+                  <% end %>
                 </button>
                 <%= if @domain.domain_metadata && @domain.domain_metadata.rdap_scanned_at do %>
                   <p class="text-[10px] text-neutral-400 text-center -mt-1">
@@ -977,9 +1001,9 @@
                 id="run-security-scan"
                 class={[
                   "btn-line w-full justify-center text-xs",
-                  @running_security_scan && "opacity-50 cursor-not-allowed"
+                  (@running_security_scan || @scanning) && "opacity-50 cursor-not-allowed"
                 ]}
-                disabled={!is_nil(@running_security_scan)}
+                disabled={!is_nil(@running_security_scan) || @scanning}
               >
                 <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Security Scan
               </button>
