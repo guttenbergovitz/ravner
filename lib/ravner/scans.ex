@@ -380,6 +380,7 @@ defmodule Ravner.Scans do
         meta = maybe_enrich_with_ssl(meta, domain.name, data.final_url)
 
         Domains.upsert_domain_metadata(domain_id, meta)
+        maybe_update_domain_url(domain, data.final_url)
         maybe_update_lifecycle_from_http(domain, data)
         {:ok, data}
 
@@ -608,6 +609,14 @@ defmodule Ravner.Scans do
       end
     end
   end
+
+  defp maybe_update_domain_url(domain, final_url) when is_binary(final_url) and final_url != "" do
+    if domain.url != final_url do
+      Domains.update_domain(domain, %{url: final_url})
+    end
+  end
+
+  defp maybe_update_domain_url(_domain, _final_url), do: :ok
 
   defp maybe_set_error_lifecycle(domain) do
     if domain.lifecycle_state in @auto_eligible_states do
