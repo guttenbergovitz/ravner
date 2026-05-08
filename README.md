@@ -1,29 +1,63 @@
 # Ravner
 
-Domain and infrastructure inventory management system.
+Domain and infrastructure inventory management system. Built for speed, precision, and zero-nonsense visibility.
 
-## Setup
+## Overview
 
-To start your Phoenix server:
+Ravner is an automated discovery and security auditing engine designed to map infrastructure and surface risks without the bloat. It handles everything from DNS/RDAP lookups to deep technology stack detection and port-level vulnerability scanning.
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+## Core Discovery Pipeline
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+The system operates on a multi-stage discovery model:
+
+1.  **Identity**: DNS resolution (`dnsx`) and registration details (`rdap/whois`).
+2.  **Reachability**: HTTP probing (`httpx`) to determine status, final URLs, and server headers.
+3.  **Topology**: Subdomain enumeration via passive and active sources (Chaos, HackerTarget, crt.sh).
+4.  **Security**: Port discovery (`naabu`) and targeted vulnerability scanning (`nuclei`) scoped to high-impact findings.
+5.  **Intelligence**: Technology stack fingerprints via `webanalyze` (Wappalyzer) and deep crawling via `katana`.
 
 ## Engineering Standards
 
 The project follows strict Elixir/Phoenix idiomatic patterns:
 
-- **Strict Typing**: All public context functions must have `@spec` annotations. Core data structures are defined via `@type t`. Dialyzer is used for static analysis (`mix dialyzer`).
-- **Code Quality**: Cyclomatic complexity is kept low. Credo is used to enforce style and refactoring standards (`mix credo --strict`).
-- **Functional Pipelines**: Ecto queries and data transformations prefer composable functions and pattern matching over nested conditionals.
-- **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for onboarding both human developers and LLM-based agents.
+- **Strict Typing**: All public context functions must have `@spec` annotations. Core data structures are defined via `@type t`.
+- **Logic Placement**: Thin controllers/LiveViews. All business logic and orchestration reside in the core contexts (e.g., `Ravner.Domains`, `Ravner.Scans`).
+- **Clean Execution**: External tools are wrapped by `Ravner.SystemCommand` to ensure proper process group cleanup and timeout management.
+- **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for both developers and LLM-based agents.
 
-## Development Tools
+## Development
 
-- `mix test` - Run the test suite (94+ tests)
-- `mix credo --strict` - Run code quality analysis
-- `mix dialyzer` - Run static type checking
-- `mix format` - Enforce consistent code formatting
+### Prerequisites
 
+- Elixir 1.16+
+- PostgreSQL
+- External tools (must be in `$PATH`):
+  - `dnsx`
+  - `httpx`
+  - `naabu`
+  - `nuclei`
+  - `katana`
+  - `webanalyze`
+  - `whois`
+
+### Setup
+
+```bash
+mix setup
+mix phx.server
+```
+
+### Tooling
+
+- `mix test` — Run the suite.
+- `mix credo --strict` — Style and code quality.
+- `mix dialyzer` — Static analysis.
+- `mix format` — Enforce formatting.
+
+## Documentation
+
+Detailed specifications and architectural notes are kept in the `/documentation` directory:
+
+- `/documentation/features` — Specific feature designs (Bulk ops, Security scans).
+- `/documentation/architecture` — System design and command execution.
+- `/documentation/heuristics` — Rules for classification and discovery logic.
