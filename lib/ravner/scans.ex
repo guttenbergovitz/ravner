@@ -17,6 +17,8 @@ defmodule Ravner.Scans do
   @crtsh_api "https://crt.sh"
   @rdap_api "https://rdap.org/domain"
   @iana_bootstrap "https://data.iana.org/rdap/dns.json"
+  @dnsx_timeout 30_000
+  @whois_timeout 30_000
 
   defp heuristics(key, default),
     do: Application.get_env(:ravner, :heuristics, %{})[key] || default
@@ -789,27 +791,33 @@ defmodule Ravner.Scans do
   end
 
   defp do_dnsx_scan(domain_name) do
-    # Use -l (list mode) for DNS resolution instead of -d (brute force mode).
-    # Pipe domain via stdin to avoid shell injection.
-    escaped = String.replace(domain_name, "'", "'\"'\"'")
-    shell_cmd = "echo '#{escaped}' | dnsx -l - -a -aaaa -cname -mx -ns -txt -json -silent"
+    tmp_path =
+      Path.join(System.tmp_dir!(), "ravner_dnsx_#{System.unique_integer([:positive])}.txt")
 
-    case System.cmd(
-           "bash",
-           ["-c", shell_cmd],
-           stderr_to_stdout: false
-         ) do
-      {output, 0} ->
-        case Jason.decode(output) do
-          {:ok, data} -> {:ok, data}
-          {:error, _} -> {:error, "Failed to parse dnsx output"}
-        end
+    File.write!(tmp_path, domain_name <> "\n")
 
-      {output, code} ->
-        {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+    args = ["-l", tmp_path, "-a", "-aaaa", "-cname", "-mx", "-ns", "-txt", "-json", "-silent"]
+
+    try do
+      case cmd_with_timeout("dnsx", args, @dnsx_timeout) do
+        {output, 0} ->
+          case Jason.decode(output) do
+            {:ok, data} -> {:ok, data}
+            {:error, _} -> {:error, "Failed to parse dnsx output"}
+          end
+
+        {:error, :timeout} ->
+          {:error, "dnsx timed out after #{@dnsx_timeout}ms"}
+
+        {:error, reason} ->
+          {:error, reason}
+
+        {output, code} ->
+          {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+      end
+    after
+      File.rm(tmp_path)
     end
-  rescue
-    ErlangError -> {:error, "dnsx executable not found"}
   end
 
   # ---------------------------------------------------------------------------
@@ -951,10 +959,11 @@ defmodule Ravner.Scans do
             _ -> nil
           end)
 
-        contact_info = %{}
-        |> (fn m -> if name, do: Map.put(m, "name", name), else: m end).()
-        |> (fn m -> if email, do: Map.put(m, "email", email), else: m end).()
-        |> (fn m -> if phone, do: Map.put(m, "phone", phone), else: m end).()
+        contact_info =
+          %{}
+          |> (fn m -> if name, do: Map.put(m, "name", name), else: m end).()
+          |> (fn m -> if email, do: Map.put(m, "email", email), else: m end).()
+          |> (fn m -> if phone, do: Map.put(m, "phone", phone), else: m end).()
 
         Enum.reduce(roles, acc, fn role, acc2 ->
           if contact_info != %{}, do: Map.put(acc2, role, contact_info), else: acc2
@@ -1007,7 +1016,7 @@ defmodule Ravner.Scans do
 
   # Step 2: WHOIS via CLI
   defp do_whois_scan(domain_name) do
-    case System.cmd("whois", [domain_name], stderr_to_stdout: true) do
+    case cmd_with_timeout("whois", [domain_name], @whois_timeout) do
       {output, 0} ->
         result = parse_whois_output(output)
 
@@ -1016,6 +1025,12 @@ defmodule Ravner.Scans do
         else
           {:ok, Map.put(result, :whois_raw, String.slice(output, 0, 4000))}
         end
+
+      {:error, :timeout} ->
+        {:error, "whois timed out after #{@whois_timeout}ms"}
+
+      {:error, reason} ->
+        {:error, reason}
 
       {_output, _code} ->
         {:error, "whois command failed"}
@@ -1114,5 +1129,53 @@ defmodule Ravner.Scans do
         |> Enum.map(fn r -> r["value"] end)
         |> Enum.reject(&is_nil/1)
     end
+  end
+
+  @spec cmd_with_timeout(String.t(), [String.t()], non_neg_integer()) ::
+          {String.t(), non_neg_integer()} | {:error, :timeout} | {:error, String.t()}
+  defp cmd_with_timeout(cmd, args, timeout) do
+    case System.find_executable(cmd) do
+      nil ->
+        {:error, "#{cmd} executable not found"}
+
+      executable ->
+        port =
+          Port.open(
+            {:spawn_executable, executable},
+            [:binary, :exit_status, :stderr_to_stdout, args: args]
+          )
+
+        deadline = System.monotonic_time(:millisecond) + timeout
+
+        case collect_port_output(port, deadline, "") do
+          {:ok, output, status} ->
+            {output, status}
+
+          :timeout ->
+            close_port(port)
+            {:error, :timeout}
+        end
+    end
+  end
+
+  defp collect_port_output(port, deadline, acc) do
+    remaining = max(deadline - System.monotonic_time(:millisecond), 0)
+
+    receive do
+      {^port, {:data, data}} ->
+        collect_port_output(port, deadline, acc <> data)
+
+      {^port, {:exit_status, status}} ->
+        {:ok, acc, status}
+    after
+      remaining ->
+        :timeout
+    end
+  end
+
+  defp close_port(port) do
+    Port.close(port)
+  rescue
+    ArgumentError -> :ok
   end
 end

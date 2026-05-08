@@ -61,7 +61,7 @@ defmodule Ravner.Scans.SecurityRunner do
          {:ok, scan} <- create_security_scan(domain_id, "security_scan", domain.name) do
       send_progress(scan.id, 5, liveview_pid)
 
-      Task.start(fn ->
+      Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
         do_security_scan(scan, domain.name, liveview_pid)
       end)
 
