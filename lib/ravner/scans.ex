@@ -29,6 +29,24 @@ defmodule Ravner.Scans do
   defp server_tech_map, do: heuristics(:server_tech_map, %{})
   defp hosting_platform_headers, do: heuristics(:hosting_platform_headers, [])
 
+  @spec run_quick_scan(integer()) :: %{atom() => {:ok, term()} | {:error, term()}}
+  def run_quick_scan(domain_id) do
+    %{
+      dnsx: run_dnsx_scan(domain_id),
+      httpx: run_httpx_scan(domain_id),
+      rdap: run_rdap_scan(domain_id),
+      subdomains: run_subdomain_scan(domain_id)
+    }
+  end
+
+  @spec scan_max_concurrency() :: pos_integer()
+  def scan_max_concurrency do
+    case Application.get_env(:ravner, :scan_max_concurrency, 5) do
+      value when is_integer(value) and value > 0 -> value
+      _ -> 5
+    end
+  end
+
   @doc """
   Runs a subdomain discovery scan for a domain.
 

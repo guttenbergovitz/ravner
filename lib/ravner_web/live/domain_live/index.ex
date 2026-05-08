@@ -343,10 +343,7 @@ defmodule RavnerWeb.DomainLive.Index do
     liveview_pid = self()
 
     start_background_scan(fn ->
-      Scans.run_dnsx_scan(domain_id)
-      Scans.run_httpx_scan(domain_id)
-      Scans.run_rdap_scan(domain_id)
-      Scans.run_subdomain_scan(domain_id)
+      Scans.run_quick_scan(domain_id)
       send(liveview_pid, {:quick_scan_done, domain_id})
     end)
 
@@ -620,13 +617,10 @@ defmodule RavnerWeb.DomainLive.Index do
       Task.async_stream(
         scan_targets,
         fn domain ->
-          Scans.run_dnsx_scan(domain.id)
-          Scans.run_httpx_scan(domain.id)
-          Scans.run_rdap_scan(domain.id)
-          Scans.run_subdomain_scan(domain.id)
+          Scans.run_quick_scan(domain.id)
           send(liveview_pid, {:quick_scan_done, domain.id})
         end,
-        max_concurrency: 10,
+        max_concurrency: Scans.scan_max_concurrency(),
         ordered: false,
         timeout: :infinity
       )

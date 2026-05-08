@@ -128,4 +128,8 @@ if config_env() == :prod do
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
 
-config :ravner, :chaos_api_key, System.get_env("CHAOS_API_KEY")
+config :ravner,
+  chaos_api_key: System.get_env("CHAOS_API_KEY"),
+  scan_max_concurrency:
+    System.get_env("SCAN_MAX_CONCURRENCY", "5")
+    |> String.to_integer()
