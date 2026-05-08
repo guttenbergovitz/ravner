@@ -62,6 +62,25 @@ config :ravner, RavnerWeb.Endpoint,
 # at the `config/runtime.exs`.
 config :ravner, Ravner.Mailer, adapter: Swoosh.Adapters.Local
 
+# Configure Oban
+config :ravner, Oban,
+  repo: Ravner.Repo,
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", Ravner.Workers.HeartbeatDispatcher},
+       {"0 * * * *", Ravner.Workers.SecurityScanDispatcher},
+       {"0 3 * * *", Ravner.Workers.SslCheckDispatcher}
+     ]}
+  ],
+  queues: [
+    heartbeats: 50,
+    ssl_checks: 20,
+    scans: 5,
+    deep_tech: 2,
+    default: 10
+  ]
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",

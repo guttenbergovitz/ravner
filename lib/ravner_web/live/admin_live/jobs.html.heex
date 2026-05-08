@@ -1,0 +1,89 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="mb-8">
+      <h1 class="text-2xl font-light tracking-tight">Background Jobs</h1>
+      <p class="text-sm font-light text-neutral-500 mt-1">Oban queue inspection and management.</p>
+    </div>
+
+    <div class="grid grid-cols-4 gap-4 mb-8">
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Executing</p>
+        <p class="text-2xl font-light text-blue-600">{@stats["executing"] || 0}</p>
+      </div>
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Available</p>
+        <p class="text-2xl font-light text-green-600">{@stats["available"] || 0}</p>
+      </div>
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Scheduled</p>
+        <p class="text-2xl font-light text-yellow-600">{@stats["scheduled"] || 0}</p>
+      </div>
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Retryable / Discarded</p>
+        <p class="text-2xl font-light text-red-600">
+          {@stats["retryable"] || 0} / {@stats["discarded"] || 0}
+        </p>
+      </div>
+    </div>
+
+    <div class="card-line">
+      <h2 class="text-sm font-normal tracking-wide uppercase mb-4">Recent Jobs</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm whitespace-nowrap">
+          <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100">
+            <tr>
+              <th class="px-4 py-3 font-normal">ID</th>
+              <th class="px-4 py-3 font-normal">Queue</th>
+              <th class="px-4 py-3 font-normal">Worker</th>
+              <th class="px-4 py-3 font-normal">Args</th>
+              <th class="px-4 py-3 font-normal">State</th>
+              <th class="px-4 py-3 font-normal text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-50 text-neutral-600 font-light">
+            <%= for job <- @jobs do %>
+              <tr class="hover:bg-neutral-50/50 transition-colors">
+                <td class="px-4 py-3 font-mono text-xs">{job.id}</td>
+                <td class="px-4 py-3">{job.queue}</td>
+                <td class="px-4 py-3 font-mono text-[10px]">{job.worker}</td>
+                <td class="px-4 py-3 font-mono text-[10px] text-neutral-400">
+                  {inspect(job.args)}
+                </td>
+                <td class="px-4 py-3">
+                  <span class={[
+                    "inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium",
+                    job.state == "completed" && "bg-green-50 text-green-700",
+                    job.state == "executing" && "bg-blue-50 text-blue-700",
+                    job.state in ["retryable", "discarded", "cancelled"] &&
+                      "bg-red-50 text-red-700",
+                    job.state in ["available", "scheduled"] && "bg-yellow-50 text-yellow-700"
+                  ]}>
+                    {job.state}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button
+                    phx-click="delete_job"
+                    phx-value-id={job.id}
+                    data-confirm="Delete this job?"
+                    class="text-neutral-400 hover:text-red-600 transition-colors"
+                    title="Delete"
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            <% end %>
+            <%= if @jobs == [] do %>
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-neutral-400">
+                  No jobs found.
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</Layouts.app>
