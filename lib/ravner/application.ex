@@ -21,6 +21,7 @@ defmodule Ravner.Application do
       {DNSCluster, query: Application.get_env(:ravner, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ravner.PubSub},
       {Task.Supervisor, name: Ravner.ScanTaskSupervisor},
+      {Oban, Application.fetch_env!(:ravner, Oban)},
       # Start a worker by calling: Ravner.Worker.start_link(arg)
       # {Ravner.Worker, arg},
       # Start to serve requests, typically the last entry
