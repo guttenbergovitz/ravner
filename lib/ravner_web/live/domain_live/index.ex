@@ -560,10 +560,17 @@ defmodule RavnerWeb.DomainLive.Index do
       if domain.id == updated_domain.id do
         merge_listing_associations(domain, updated_domain)
       else
-        domain
+        replace_subdomain(domain, updated_domain)
       end
     end)
   end
+
+  defp replace_subdomain(%{subdomains: subdomains} = domain, updated_domain)
+       when is_list(subdomains) do
+    %{domain | subdomains: replace_domain(subdomains, updated_domain)}
+  end
+
+  defp replace_subdomain(domain, _updated_domain), do: domain
 
   defp merge_listing_associations(current_domain, updated_domain) do
     %{
@@ -790,6 +797,33 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def external_redirect?(_domain_name, _final_url), do: false
+
+  defp open_url(domain, nil), do: preferred_domain_url(domain, nil)
+  defp open_url(domain, metadata), do: preferred_domain_url(domain, metadata.final_url)
+
+  defp preferred_domain_url(_domain, url) when is_binary(url) and url != "", do: url
+
+  defp preferred_domain_url(%{url: url}, _fallback) when is_binary(url) and url != "" do
+    normalize_url(url)
+  end
+
+  defp preferred_domain_url(%{name: name}, _fallback), do: "https://#{name}"
+
+  defp normalize_url(url) do
+    if String.starts_with?(url, ["http://", "https://"]), do: url, else: "https://#{url}"
+  end
+
+  defp url_host(url) when is_binary(url) do
+    case URI.parse(url) do
+      %{host: host} when is_binary(host) -> String.replace_leading(host, "www.", "")
+      _ -> url
+    end
+  end
+
+  defp landing_label(domain, nil), do: domain.name
+
+  defp landing_label(domain, metadata),
+    do: metadata.final_url |> Kernel.||(open_url(domain, metadata)) |> url_host()
 
   defp page_range(_current, total) when total <= 7 do
     Enum.to_list(1..total)

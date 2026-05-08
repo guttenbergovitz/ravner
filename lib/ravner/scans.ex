@@ -31,12 +31,62 @@ defmodule Ravner.Scans do
 
   @spec run_quick_scan(integer()) :: %{atom() => {:ok, term()} | {:error, term()}}
   def run_quick_scan(domain_id) do
-    %{
-      dnsx: run_dnsx_scan(domain_id),
-      httpx: run_httpx_scan(domain_id),
-      rdap: run_rdap_scan(domain_id),
-      subdomains: run_subdomain_scan(domain_id)
-    }
+    domain = Domains.get_domain!(domain_id)
+    dnsx = run_dnsx_scan(domain_id)
+
+    if dns_scan_allows_network_steps?(dnsx) do
+      %{
+        dnsx: dnsx,
+        httpx: run_httpx_scan(domain_id),
+        rdap: run_rdap_scan(domain_id),
+        subdomains: maybe_run_subdomain_scan(domain)
+      }
+    else
+      skipped = mark_unreachable_after_dns(domain)
+
+      %{
+        dnsx: dnsx,
+        httpx: skipped,
+        rdap: skipped,
+        subdomains: skipped
+      }
+    end
+  end
+
+  defp maybe_run_subdomain_scan(%Domain{type: :domain, id: id}), do: run_subdomain_scan(id)
+
+  defp maybe_run_subdomain_scan(%Domain{type: :subdomain}) do
+    {:error, "Subdomain scan only supported for apex domains"}
+  end
+
+  defp dns_scan_allows_network_steps?({:ok, metadata}) do
+    metadata_has_ips?(metadata)
+  end
+
+  defp dns_scan_allows_network_steps?({:error, reason}) when is_binary(reason) do
+    String.contains?(reason, "executable not found")
+  end
+
+  defp dns_scan_allows_network_steps?(_), do: false
+
+  defp metadata_has_ips?(%{ip_v4: ip_v4, ip_v6: ip_v6}) do
+    ip_v4 != [] or ip_v6 != []
+  end
+
+  defp metadata_has_ips?(_), do: false
+
+  defp mark_unreachable_after_dns(domain) do
+    now = DateTime.utc_now()
+
+    Domains.upsert_domain_metadata(domain.id, %{
+      http_status: 0,
+      scanned_at: now,
+      http_scanned_at: now
+    })
+
+    maybe_set_error_lifecycle(domain)
+
+    {:error, :dns_unresolved}
   end
 
   @spec scan_max_concurrency() :: pos_integer()
@@ -820,9 +870,17 @@ defmodule Ravner.Scans do
     try do
       case SystemCommand.run_with_timeout("dnsx", args, @dnsx_timeout) do
         {output, 0} ->
-          case Jason.decode(output) do
-            {:ok, data} -> {:ok, data}
-            {:error, _} -> {:error, "Failed to parse dnsx output"}
+          output = String.trim(output)
+
+          cond do
+            output == "" ->
+              {:ok, %{}}
+
+            true ->
+              case Jason.decode(output) do
+                {:ok, data} -> {:ok, data}
+                {:error, _} -> {:error, "Failed to parse dnsx output"}
+              end
           end
 
         {:error, :timeout} ->
