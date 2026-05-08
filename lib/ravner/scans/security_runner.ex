@@ -364,5 +364,4 @@ defmodule Ravner.Scans.SecurityRunner do
 
     send(liveview_pid, {:scan_done, :security_scan, {:error, message}})
   end
-
 end
