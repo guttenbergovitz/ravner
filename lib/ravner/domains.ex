@@ -12,6 +12,15 @@ defmodule Ravner.Domains do
   # Domains
 
   @page_size 25
+  @domain_listing_preloads [
+    :parent_domain,
+    :domain_tags,
+    :domain_metadata,
+    :subdomains,
+    :project,
+    :brand,
+    :organization
+  ]
 
   @doc """
   Returns paginated, filtered domains.
@@ -32,10 +41,13 @@ defmodule Ravner.Domains do
   """
   @spec bulk_update([integer()], map()) :: {:ok, integer()}
   def bulk_update(ids, attrs) when is_list(ids) and is_map(attrs) do
+    now = DateTime.utc_now(:second)
+    updates = attrs |> Map.put(:updated_at, now) |> Map.to_list()
+
     {count, _} =
       Domain
       |> where([d], d.id in ^ids)
-      |> Repo.update_all(set: Map.to_list(attrs))
+      |> Repo.update_all(set: updates)
 
     {:ok, count}
   end
@@ -181,16 +193,8 @@ defmodule Ravner.Domains do
       |> order_by([d], asc: d.name)
       |> limit(@page_size)
       |> offset(^offset)
-      |> preload([
-        :parent_domain,
-        :domain_tags,
-        :domain_metadata,
-        :subdomains,
-        :project,
-        :brand,
-        :organization
-      ])
       |> Repo.all()
+      |> Repo.preload(@domain_listing_preloads, in_parallel: false)
 
     %{
       domains: domains,
@@ -207,16 +211,8 @@ defmodule Ravner.Domains do
   def list_domains_filtered_all(opts \\ []) do
     filtered_query(opts)
     |> order_by([d], asc: d.name)
-    |> preload([
-      :parent_domain,
-      :domain_tags,
-      :domain_metadata,
-      :subdomains,
-      :project,
-      :brand,
-      :organization
-    ])
     |> Repo.all()
+    |> Repo.preload(@domain_listing_preloads, in_parallel: false)
   end
 
   defp filtered_query(opts) do
@@ -315,8 +311,10 @@ defmodule Ravner.Domains do
   def list_domains_with_preloads do
     Domain
     |> where(type: :domain)
-    |> preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata])
     |> Repo.all()
+    |> Repo.preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata],
+      in_parallel: false
+    )
   end
 
   @spec get_domain!(integer() | String.t()) :: Domain.t()
@@ -325,16 +323,49 @@ defmodule Ravner.Domains do
   @spec get_domain_with_preloads!(integer() | String.t()) :: Domain.t()
   def get_domain_with_preloads!(id) do
     Domain
-    |> preload([
-      :parent_domain,
-      :domain_tags,
-      :domain_metadata,
-      :project,
-      :brand,
-      :organization,
-      subdomains: :domain_metadata
-    ])
     |> Repo.get!(id)
+    |> Repo.preload(
+      [
+        :parent_domain,
+        :domain_tags,
+        :domain_metadata,
+        :project,
+        :brand,
+        :organization,
+        subdomains: :domain_metadata
+      ],
+      in_parallel: false
+    )
+  end
+
+  def get_domain_with_subdomains!(id) do
+    Domain
+    |> Repo.get!(id)
+    |> Repo.preload(
+      [
+        subdomains: :domain_metadata
+      ],
+      in_parallel: false
+    )
+  end
+
+  def list_domains_by_ids(ids) when is_list(ids) do
+    Domain
+    |> where([d], d.id in ^ids)
+    |> Repo.all()
+  end
+
+  def list_domains_with_subdomains(ids) when is_list(ids) do
+    Domain
+    |> where([d], d.id in ^ids)
+    |> Repo.all()
+    |> Repo.preload(
+      [
+        :parent_domain,
+        subdomains: :domain_metadata
+      ],
+      in_parallel: false
+    )
   end
 
   @doc """
