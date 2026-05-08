@@ -3,6 +3,7 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   alias Ravner.ApiKeys
   alias Ravner.ApiKeys.ApiKey
+  alias Ravner.SystemCommand
 
   @nuclei_template_update_timeout 120_000
 
@@ -157,52 +158,10 @@ defmodule RavnerWeb.AdminLive.Settings do
   end
 
   defp update_nuclei_templates do
-    cmd_with_timeout("nuclei", ["-update-templates"], @nuclei_template_update_timeout)
-  end
-
-  defp cmd_with_timeout(cmd, args, timeout) do
-    case System.find_executable(cmd) do
-      nil ->
-        {:error, "#{cmd} executable not found"}
-
-      executable ->
-        port =
-          Port.open(
-            {:spawn_executable, executable},
-            [:binary, :exit_status, :stderr_to_stdout, args: args]
-          )
-
-        deadline = System.monotonic_time(:millisecond) + timeout
-
-        case collect_port_output(port, deadline, "") do
-          {:ok, output, status} ->
-            {output, status}
-
-          :timeout ->
-            close_port(port)
-            {:error, :timeout}
-        end
-    end
-  end
-
-  defp collect_port_output(port, deadline, acc) do
-    remaining = max(deadline - System.monotonic_time(:millisecond), 0)
-
-    receive do
-      {^port, {:data, data}} ->
-        collect_port_output(port, deadline, acc <> data)
-
-      {^port, {:exit_status, status}} ->
-        {:ok, acc, status}
-    after
-      remaining ->
-        :timeout
-    end
-  end
-
-  defp close_port(port) do
-    Port.close(port)
-  rescue
-    ArgumentError -> :ok
+    SystemCommand.run_with_timeout(
+      "nuclei",
+      ["-update-templates"],
+      @nuclei_template_update_timeout
+    )
   end
 end
