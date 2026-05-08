@@ -750,6 +750,49 @@
           latest_failed_security_scan={@latest_failed_security_scan}
         />
 
+        <%!-- Scheduling & Automation --%>
+        <div class="card-line">
+          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Scheduling & Automation</h2>
+          
+          <form phx-change="update_scheduling" class="space-y-4 text-sm font-light">
+            <div>
+              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+                Uptime Heartbeat
+              </label>
+              <select 
+                name="heartbeat_interval_minutes" 
+                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
+                disabled={is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+              >
+                <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes)}>Disabled</option>
+                <option value="5" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 5}>Every 5 minutes</option>
+                <option value="15" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 15}>Every 15 minutes</option>
+                <option value="60" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 60}>Hourly</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+                Security Scan
+              </label>
+              <select 
+                name="scan_interval_days" 
+                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
+                disabled={is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+              >
+                <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.scan_interval_days)}>Manual only</option>
+                <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 1}>Daily</option>
+                <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 7}>Weekly</option>
+                <option value="30" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 30}>Monthly</option>
+              </select>
+            </div>
+            
+            <p class="text-[10px] text-neutral-400 mt-2">
+              Background jobs are queued automatically by Oban dispatchers based on the selected intervals.
+            </p>
+          </form>
+        </div>
+
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Tags</h2>
           <%= if @domain.domain_tags == [] do %>
