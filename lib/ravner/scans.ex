@@ -499,7 +499,7 @@ defmodule Ravner.Scans do
   defp valid_url?(_), do: false
 
   defp run_katana(target_url) do
-    args = ["-u", target_url, "-j", "-silent", "-d", "2", "-jc", "-fx"]
+    args = ["-u", target_url, "-jsonl", "-silent", "-d", "2", "-jc", "-fx"]
 
     case SystemCommand.run_with_timeout("katana", args, @katana_timeout) do
       {output, 0} ->

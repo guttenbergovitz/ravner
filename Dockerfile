@@ -29,9 +29,8 @@ ARG NAABU_VERSION=2.6.0
 ARG NUCLEI_VERSION=3.8.0
 ARG NUCLEI_TEMPLATES_VERSION=10.4.3
 ARG HTTPX_VERSION=1.9.0
-ARG KATANA_VERSION=1.5.0
-ARG WEBANALYZE_VERSION=0.3.8
-ARG GO_VERSION=1.24
+ARG KATANA_VERSION=1.6.1
+ARG WEBANALYZE_VERSION=0.4.3
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -143,12 +142,28 @@ RUN apt-get update -y \
  && install -m 0755 /tmp/katana/katana /usr/local/bin/katana \
  && rm -rf /var/lib/apt/lists/* /tmp/katana /tmp/katana.zip
 
-# ─── Build webanalyze and bundle app definitions ─────────────────────────────
-FROM golang:${GO_VERSION}-bookworm AS webanalyze
+# ─── Fetch webanalyze + pinned technologies.json ─────────────────────────────
+# Upstream `webanalyze -update` is broken against the current Wappalyzer
+# schema, so we pull the technologies.json file shipped in the same release
+# tag — that guarantees the binary and its app definitions stay in sync.
+FROM debian:${DEBIAN_VERSION} AS webanalyze
 ARG WEBANALYZE_VERSION
-RUN go install -v "github.com/rverton/webanalyze/cmd/webanalyze@v${WEBANALYZE_VERSION}"
-WORKDIR /tmp/webanalyze
-RUN /go/bin/webanalyze -update -silent
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && case "${TARGETARCH}" in \
+      amd64) wa_arch=x86_64 ;; \
+      arm64) wa_arch=arm64  ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/webanalyze.tgz \
+      "https://github.com/rverton/webanalyze/releases/download/v${WEBANALYZE_VERSION}/webanalyze_Linux_${wa_arch}.tar.gz" \
+ && tar -xzf /tmp/webanalyze.tgz -C /tmp \
+ && install -m 0755 /tmp/webanalyze /usr/local/bin/webanalyze \
+ && install -d /usr/local/share/webanalyze \
+ && curl -fsSL -o /usr/local/share/webanalyze/technologies.json \
+      "https://raw.githubusercontent.com/rverton/webanalyze/v${WEBANALYZE_VERSION}/technologies.json" \
+ && rm -rf /var/lib/apt/lists/* /tmp/webanalyze /tmp/webanalyze.tgz
 
 # ─── Runtime ─────────────────────────────────────────────────────────────────
 FROM ${RUNNER_IMAGE} AS runner
@@ -198,8 +213,8 @@ COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
 COPY --from=nuclei  /root/.nuclei-templates          /home/ravner/.nuclei-templates
 COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=katana  /usr/local/bin/katana            /usr/local/bin/katana
-COPY --from=webanalyze /go/bin/webanalyze            /usr/local/bin/webanalyze
-COPY --from=webanalyze /tmp/webanalyze/technologies.json /usr/local/share/webanalyze/technologies.json
+COPY --from=webanalyze /usr/local/bin/webanalyze     /usr/local/bin/webanalyze
+COPY --from=webanalyze /usr/local/share/webanalyze/technologies.json /usr/local/share/webanalyze/technologies.json
 COPY --from=builder --chown=ravner:ravner /app/_build/prod/rel/ravner ./
 
 EXPOSE 4000
