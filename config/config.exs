@@ -39,7 +39,8 @@ end
 
 config :ravner,
   ecto_repos: [Ravner.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  scan_max_concurrency: 5
 
 # Configure the endpoint
 config :ravner, RavnerWeb.Endpoint,

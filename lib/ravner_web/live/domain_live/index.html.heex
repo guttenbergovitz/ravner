@@ -780,11 +780,28 @@
                             </a>
                           </span>
                         <% meta.http_status == 200 -> %>
-                          <span class="text-green-600 font-normal">200 OK</span>
+                          <span class="flex items-center gap-1 text-green-600">
+                            <span class="font-normal">200</span>
+                            <.icon name="hero-arrow-right" class="w-3 h-3" />
+                            <a
+                              href={open_url(domain, meta)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              phx-stop
+                              class="max-w-[120px] truncate hover:underline"
+                            >
+                              {landing_label(domain, meta)}
+                            </a>
+                          </span>
                         <% meta.http_status && meta.http_status > 0 -> %>
                           <span class="text-red-500 font-normal">{meta.http_status}</span>
                         <% meta.http_scanned_at != nil -> %>
-                          <span class="text-neutral-300">timeout</span>
+                          <span
+                            class="text-red-400 font-normal"
+                            title="Unreachable or scan failed"
+                          >
+                            ERR
+                          </span>
                         <% true -> %>
                           <span class="text-neutral-300">–</span>
                       <% end %>
@@ -839,6 +856,16 @@
 
                     <%= if not @selection_mode do %>
                       <div class="flex items-center gap-2">
+                        <a
+                          href={open_url(domain, domain.domain_metadata)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          phx-stop
+                          class="text-neutral-400 hover:text-neutral-700 transition-colors"
+                          title="Open in new window"
+                        >
+                          <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
+                        </a>
                         <button
                           phx-click="quick_scan"
                           phx-value-id={domain.id}
@@ -876,10 +903,40 @@
                         sub_scanning && "opacity-50"
                       ]}>
                         <div class="flex items-center gap-3">
-                          <div class={[
-                            "w-1.5 h-1.5 rounded-full",
-                            lifecycle_color(sub.lifecycle_state)
-                          ]}>
+                          <div class="relative" id={"lifecycle-menu-#{sub.id}"}>
+                            <button
+                              phx-click="open_lifecycle_menu"
+                              phx-value-id={sub.id}
+                              phx-stop
+                              class={[
+                                "w-1.5 h-1.5 rounded-full transition-transform hover:scale-150 cursor-pointer",
+                                lifecycle_color(sub.lifecycle_state)
+                              ]}
+                              title={sub.lifecycle_state}
+                            >
+                            </button>
+                            <%= if @lifecycle_menu_open == "#{sub.id}" do %>
+                              <div
+                                class="absolute left-0 top-5 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+                                phx-click-away="close_lifecycle_menu"
+                              >
+                                <%= for {state, label, color} <- lifecycle_options() do %>
+                                  <button
+                                    phx-click="set_lifecycle"
+                                    phx-value-id={sub.id}
+                                    phx-value-state={state}
+                                    class={[
+                                      "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors",
+                                      sub.lifecycle_state == state && "font-medium"
+                                    ]}
+                                  >
+                                    <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}>
+                                    </span>
+                                    {label}
+                                  </button>
+                                <% end %>
+                              </div>
+                            <% end %>
                           </div>
                           <.link
                             navigate={~p"/domains/#{sub.id}"}
@@ -911,13 +968,30 @@
                                   </a>
                                 </span>
                               <% sub_meta.http_status == 200 -> %>
-                                <span class="text-green-600 font-normal">200 OK</span>
+                                <span class="flex items-center gap-1 text-green-600">
+                                  <span class="font-normal">200</span>
+                                  <.icon name="hero-arrow-right" class="w-3 h-3" />
+                                  <a
+                                    href={open_url(sub, sub_meta)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    phx-stop
+                                    class="max-w-[100px] truncate hover:underline"
+                                  >
+                                    {landing_label(sub, sub_meta)}
+                                  </a>
+                                </span>
                               <% sub_meta.http_status && sub_meta.http_status > 0 -> %>
                                 <span class="text-red-500 font-normal">
                                   {sub_meta.http_status}
                                 </span>
                               <% sub_meta.http_scanned_at != nil -> %>
-                                <span class="text-neutral-300">timeout</span>
+                                <span
+                                  class="text-red-400 font-normal"
+                                  title="Unreachable or scan failed"
+                                >
+                                  ERR
+                                </span>
                               <% true -> %>
                                 <span class="text-neutral-300">–</span>
                             <% end %>
@@ -973,6 +1047,16 @@
                             <span class="text-neutral-300 italic text-[10px]">never scanned</span>
                           <% end %>
 
+                          <a
+                            href={open_url(sub, sub.domain_metadata)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            phx-stop
+                            class="text-neutral-400 hover:text-neutral-700 transition-colors"
+                            title="Open in new window"
+                          >
+                            <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                          </a>
                           <button
                             phx-click="quick_scan"
                             phx-value-id={sub.id}

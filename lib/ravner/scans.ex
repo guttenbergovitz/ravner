@@ -11,12 +11,20 @@ defmodule Ravner.Scans do
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Repo
+  alias Ravner.SystemCommand
 
   @chaos_api "https://dns.projectdiscovery.io"
   @hackertarget_api "https://api.hackertarget.com/hostsearch"
   @crtsh_api "https://crt.sh"
   @rdap_api "https://rdap.org/domain"
   @iana_bootstrap "https://data.iana.org/rdap/dns.json"
+  @dnsx_timeout 30_000
+  @whois_timeout 30_000
+  @katana_timeout 60_000
+  @webanalyze_timeout 60_000
+  @deep_url_limit 100
+  @deep_js_limit 50
+  @deep_evidence_limit 80
 
   defp heuristics(key, default),
     do: Application.get_env(:ravner, :heuristics, %{})[key] || default
@@ -25,6 +33,74 @@ defmodule Ravner.Scans do
   defp tech_stack_patterns, do: heuristics(:tech_stack_patterns, [])
   defp server_tech_map, do: heuristics(:server_tech_map, %{})
   defp hosting_platform_headers, do: heuristics(:hosting_platform_headers, [])
+
+  @spec run_quick_scan(integer()) :: %{atom() => {:ok, term()} | {:error, term()}}
+  def run_quick_scan(domain_id) do
+    domain = Domains.get_domain!(domain_id)
+    dnsx = run_dnsx_scan(domain_id)
+
+    if dns_scan_allows_network_steps?(dnsx) do
+      %{
+        dnsx: dnsx,
+        httpx: run_httpx_scan(domain_id),
+        rdap: run_rdap_scan(domain_id),
+        subdomains: maybe_run_subdomain_scan(domain)
+      }
+    else
+      skipped = mark_unreachable_after_dns(domain)
+
+      %{
+        dnsx: dnsx,
+        httpx: skipped,
+        rdap: skipped,
+        subdomains: skipped
+      }
+    end
+  end
+
+  defp maybe_run_subdomain_scan(%Domain{type: :domain, id: id}), do: run_subdomain_scan(id)
+
+  defp maybe_run_subdomain_scan(%Domain{type: :subdomain}) do
+    {:error, "Subdomain scan only supported for apex domains"}
+  end
+
+  defp dns_scan_allows_network_steps?({:ok, metadata}) do
+    metadata_has_ips?(metadata)
+  end
+
+  defp dns_scan_allows_network_steps?({:error, reason}) when is_binary(reason) do
+    String.contains?(reason, "executable not found")
+  end
+
+  defp dns_scan_allows_network_steps?(_), do: false
+
+  defp metadata_has_ips?(%{ip_v4: ip_v4, ip_v6: ip_v6}) do
+    ip_v4 != [] or ip_v6 != []
+  end
+
+  defp metadata_has_ips?(_), do: false
+
+  defp mark_unreachable_after_dns(domain) do
+    now = DateTime.utc_now()
+
+    Domains.upsert_domain_metadata(domain.id, %{
+      http_status: 0,
+      scanned_at: now,
+      http_scanned_at: now
+    })
+
+    maybe_set_error_lifecycle(domain)
+
+    {:error, :dns_unresolved}
+  end
+
+  @spec scan_max_concurrency() :: pos_integer()
+  def scan_max_concurrency do
+    case Application.get_env(:ravner, :scan_max_concurrency, 5) do
+      value when is_integer(value) and value > 0 -> value
+      _ -> 5
+    end
+  end
 
   @doc """
   Runs a subdomain discovery scan for a domain.
@@ -309,6 +385,7 @@ defmodule Ravner.Scans do
         meta = maybe_enrich_with_ssl(meta, domain.name, data.final_url)
 
         Domains.upsert_domain_metadata(domain_id, meta)
+        maybe_update_domain_url(domain, data.final_url)
         maybe_update_lifecycle_from_http(domain, data)
         {:ok, data}
 
@@ -326,6 +403,312 @@ defmodule Ravner.Scans do
           {:error, reason}
         end
     end
+  end
+
+  @doc """
+  Runs a deeper technology scan using the already stored/fresh landing URL.
+
+  This scan is deliberately additive: `httpx` refreshes the canonical URL and
+  lightweight fingerprints, `katana` contributes crawled URLs/assets, and
+  `webanalyze` contributes Wappalyzer-style technology evidence when available.
+  Missing optional CLIs are recorded in metadata instead of making the whole
+  scan fail.
+  """
+  @spec run_deep_tech_scan(integer()) :: {:ok, map()} | {:error, term()}
+  def run_deep_tech_scan(domain_id) do
+    started_at = System.monotonic_time(:millisecond)
+    domain = Domains.get_domain!(domain_id)
+    http_result = run_httpx_scan(domain_id)
+
+    target_url = deep_scan_target_url(domain_id, domain)
+
+    {crawl_data, crawl_errors, tech_evidence, webanalyze_errors} =
+      if deep_http_allows_tools?(http_result) do
+        {crawl_data, crawl_errors} =
+          case run_katana(target_url) do
+            {:ok, data} -> {data, []}
+            {:error, reason} -> {%{urls: [], js_assets: [], forms: []}, [to_string(reason)]}
+          end
+
+        {tech_evidence, webanalyze_errors} =
+          case run_webanalyze(target_url) do
+            {:ok, evidence} -> {evidence, []}
+            {:error, reason} -> {[], [to_string(reason)]}
+          end
+
+        {crawl_data, crawl_errors, tech_evidence, webanalyze_errors}
+      else
+        {%{urls: [], js_assets: [], forms: []}, ["HTTP probe failed; skipped deep tools"], [], []}
+      end
+
+    previous_metadata = Domains.get_domain_metadata(domain_id)
+    previous_tech_stack = if previous_metadata, do: previous_metadata.tech_stack || [], else: []
+    now = DateTime.utc_now()
+
+    tech_stack =
+      previous_tech_stack
+      |> Kernel.++(Enum.map(tech_evidence, & &1["name"]))
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    duration_ms = System.monotonic_time(:millisecond) - started_at
+    errors = crawl_errors ++ webanalyze_errors
+
+    metadata = %{
+      tech_stack: tech_stack,
+      tech_evidence: Enum.take(tech_evidence, @deep_evidence_limit),
+      discovered_urls: Enum.take(crawl_data.urls, @deep_url_limit),
+      js_assets: Enum.take(crawl_data.js_assets, @deep_js_limit),
+      forms: crawl_data.forms,
+      deep_scan_errors: errors,
+      scanned_at: now,
+      deep_tech_scanned_at: now,
+      scan_duration_ms: duration_ms
+    }
+
+    with {:ok, _metadata} <- Domains.upsert_domain_metadata(domain_id, metadata) do
+      {:ok,
+       %{
+         target_url: target_url,
+         technologies: length(tech_stack),
+         evidence: length(tech_evidence),
+         urls: length(crawl_data.urls),
+         js_assets: length(crawl_data.js_assets),
+         errors: errors
+       }}
+    end
+  end
+
+  defp deep_http_allows_tools?({:ok, %{error: _}}), do: false
+  defp deep_http_allows_tools?({:ok, _}), do: true
+  defp deep_http_allows_tools?(_), do: false
+
+  defp deep_scan_target_url(domain_id, domain) do
+    metadata = Domains.get_domain_metadata(domain_id)
+
+    [metadata && metadata.final_url, domain.url, "https://#{domain.name}"]
+    |> Enum.find(&valid_url?/1)
+  end
+
+  defp valid_url?(url) when is_binary(url) do
+    uri = URI.parse(url)
+    uri.scheme in ["http", "https"] && is_binary(uri.host) && uri.host != ""
+  end
+
+  defp valid_url?(_), do: false
+
+  defp run_katana(target_url) do
+    args = ["-u", target_url, "-jsonl", "-silent", "-d", "2", "-jc", "-fx"]
+
+    case SystemCommand.run_with_timeout("katana", args, @katana_timeout) do
+      {output, 0} ->
+        {:ok, parse_katana_output(output)}
+
+      {:error, :timeout} ->
+        {:error, "katana timed out after #{@katana_timeout}ms"}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      {output, code} ->
+        {:error, "katana failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+    end
+  end
+
+  defp run_webanalyze(target_url) do
+    args =
+      ["-host", target_url, "-crawl", "1", "-output", "json", "-silent"]
+      |> maybe_add_webanalyze_apps_path()
+
+    case SystemCommand.run_with_timeout("webanalyze", args, @webanalyze_timeout) do
+      {output, 0} ->
+        {:ok, parse_webanalyze_output(output)}
+
+      {:error, :timeout} ->
+        {:error, "webanalyze timed out after #{@webanalyze_timeout}ms"}
+
+      {:error, reason} ->
+        {:error, reason}
+
+      {output, code} ->
+        {:error, "webanalyze failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+    end
+  end
+
+  defp maybe_add_webanalyze_apps_path(args) do
+    case webanalyze_apps_path() do
+      nil -> args
+      path -> args ++ ["-apps", path]
+    end
+  end
+
+  defp webanalyze_apps_path do
+    env_path = System.get_env("WEBANALYZE_APPS_PATH")
+    app_path = Application.get_env(:ravner, :webanalyze_apps_path)
+
+    Enum.find([env_path, app_path, "/usr/local/share/webanalyze/technologies.json"], fn
+      path when is_binary(path) -> File.exists?(path)
+      _ -> false
+    end)
+  end
+
+  @doc false
+  @spec parse_katana_output(String.t()) :: %{
+          urls: [map()],
+          js_assets: [String.t()],
+          forms: [map()]
+        }
+  def parse_katana_output(output) when is_binary(output) do
+    {entries, plain_urls} =
+      output
+      |> String.split("\n", trim: true)
+      |> Enum.reduce({[], []}, fn line, {entries, plain_urls} ->
+        case Jason.decode(line) do
+          {:ok, data} when is_map(data) ->
+            {[data | entries], plain_urls}
+
+          _ ->
+            if valid_url?(line), do: {entries, [line | plain_urls]}, else: {entries, plain_urls}
+        end
+      end)
+
+    urls =
+      Enum.reverse(entries)
+      |> Enum.flat_map(&katana_url_entries/1)
+      |> Kernel.++(Enum.reverse(plain_urls) |> Enum.map(&%{"url" => &1, "source" => "katana"}))
+      |> dedupe_maps_by("url")
+      |> Enum.take(@deep_url_limit)
+
+    js_assets =
+      urls
+      |> Enum.map(& &1["url"])
+      |> Enum.filter(&js_asset_url?/1)
+      |> Enum.uniq()
+      |> Enum.take(@deep_js_limit)
+
+    forms =
+      entries
+      |> Enum.reverse()
+      |> Enum.flat_map(&katana_form_entries/1)
+      |> dedupe_maps_by("url")
+
+    %{urls: urls, js_assets: js_assets, forms: forms}
+  end
+
+  @doc false
+  @spec parse_webanalyze_output(String.t()) :: [map()]
+  def parse_webanalyze_output(output) when is_binary(output) do
+    output
+    |> String.split("\n", trim: true)
+    |> Enum.flat_map(fn line ->
+      case Jason.decode(line) do
+        {:ok, %{"hostname" => hostname, "matches" => matches}} when is_list(matches) ->
+          Enum.map(matches, &webanalyze_match_to_evidence(&1, hostname))
+
+        {:ok, data} ->
+          extract_webanalyze_evidence(data, nil)
+
+        _ ->
+          []
+      end
+    end)
+    |> Enum.reject(&is_nil(&1["name"]))
+    |> dedupe_maps_by("name")
+    |> Enum.take(@deep_evidence_limit)
+  end
+
+  defp katana_url_entries(data) do
+    data
+    |> extract_urls()
+    |> Enum.map(fn url ->
+      %{
+        "url" => url,
+        "source" => to_string(data["source"] || data["tag"] || "katana")
+      }
+    end)
+  end
+
+  defp extract_urls(value) when is_binary(value) do
+    if valid_url?(value), do: [value], else: []
+  end
+
+  defp extract_urls(value) when is_list(value), do: Enum.flat_map(value, &extract_urls/1)
+
+  defp extract_urls(value) when is_map(value) do
+    value
+    |> Enum.flat_map(fn {key, nested} ->
+      key = to_string(key)
+
+      cond do
+        key in ["url", "endpoint", "href", "src", "action"] -> extract_urls(nested)
+        is_map(nested) or is_list(nested) -> extract_urls(nested)
+        true -> []
+      end
+    end)
+  end
+
+  defp extract_urls(_), do: []
+
+  defp katana_form_entries(data) do
+    for action <- extract_form_actions(data) do
+      %{
+        "url" => action,
+        "method" => to_string(data["method"] || "GET"),
+        "source" => "katana"
+      }
+    end
+  end
+
+  defp extract_form_actions(%{"tag" => "form"} = data),
+    do: extract_urls(data["attribute"] || data)
+
+  defp extract_form_actions(_), do: []
+
+  defp js_asset_url?(url) when is_binary(url) do
+    uri = URI.parse(url)
+    path = uri.path || ""
+    String.ends_with?(String.downcase(path), ".js")
+  end
+
+  defp js_asset_url?(_), do: false
+
+  defp webanalyze_match_to_evidence(match, hostname) when is_map(match) do
+    name = match["app_name"] || match["appName"] || match["name"] || match["app"]
+
+    %{
+      "name" => name,
+      "version" => match["version"],
+      "categories" => match["cat_names"] || match["catNames"] || match["categories"] || [],
+      "confidence" => match["confidence"],
+      "source" => "webanalyze",
+      "url" => hostname
+    }
+  end
+
+  defp extract_webanalyze_evidence(value, hostname) when is_list(value) do
+    Enum.flat_map(value, &extract_webanalyze_evidence(&1, hostname))
+  end
+
+  defp extract_webanalyze_evidence(%{"hostname" => hostname, "matches" => matches}, _)
+       when is_list(matches) do
+    Enum.map(matches, &webanalyze_match_to_evidence(&1, hostname))
+  end
+
+  defp extract_webanalyze_evidence(value, hostname) when is_map(value) do
+    if value["app_name"] || value["appName"] do
+      [webanalyze_match_to_evidence(value, hostname)]
+    else
+      Enum.flat_map(value, fn {_key, nested} -> extract_webanalyze_evidence(nested, hostname) end)
+    end
+  end
+
+  defp extract_webanalyze_evidence(_, _), do: []
+
+  defp dedupe_maps_by(maps, key) do
+    maps
+    |> Enum.reject(&(Map.get(&1, key) in [nil, ""]))
+    |> Enum.uniq_by(&Map.get(&1, key))
   end
 
   defp maybe_enrich_with_ssl(meta, domain_name, _final_url) do
@@ -537,6 +920,14 @@ defmodule Ravner.Scans do
       end
     end
   end
+
+  defp maybe_update_domain_url(domain, final_url) when is_binary(final_url) and final_url != "" do
+    if domain.url != final_url do
+      Domains.update_domain(domain, %{url: final_url})
+    end
+  end
+
+  defp maybe_update_domain_url(_domain, _final_url), do: :ok
 
   defp maybe_set_error_lifecycle(domain) do
     if domain.lifecycle_state in @auto_eligible_states do
@@ -789,27 +1180,41 @@ defmodule Ravner.Scans do
   end
 
   defp do_dnsx_scan(domain_name) do
-    # Use -l (list mode) for DNS resolution instead of -d (brute force mode).
-    # Pipe domain via stdin to avoid shell injection.
-    escaped = String.replace(domain_name, "'", "'\"'\"'")
-    shell_cmd = "echo '#{escaped}' | dnsx -l - -a -aaaa -cname -mx -ns -txt -json -silent"
+    tmp_path =
+      Path.join(System.tmp_dir!(), "ravner_dnsx_#{System.unique_integer([:positive])}.txt")
 
-    case System.cmd(
-           "bash",
-           ["-c", shell_cmd],
-           stderr_to_stdout: false
-         ) do
-      {output, 0} ->
-        case Jason.decode(output) do
-          {:ok, data} -> {:ok, data}
-          {:error, _} -> {:error, "Failed to parse dnsx output"}
-        end
+    File.write!(tmp_path, domain_name <> "\n")
 
-      {output, code} ->
-        {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+    args = ["-l", tmp_path, "-a", "-aaaa", "-cname", "-mx", "-ns", "-txt", "-json", "-silent"]
+
+    try do
+      case SystemCommand.run_with_timeout("dnsx", args, @dnsx_timeout) do
+        {output, 0} ->
+          output = String.trim(output)
+
+          cond do
+            output == "" ->
+              {:ok, %{}}
+
+            true ->
+              case Jason.decode(output) do
+                {:ok, data} -> {:ok, data}
+                {:error, _} -> {:error, "Failed to parse dnsx output"}
+              end
+          end
+
+        {:error, :timeout} ->
+          {:error, "dnsx timed out after #{@dnsx_timeout}ms"}
+
+        {:error, reason} ->
+          {:error, reason}
+
+        {output, code} ->
+          {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+      end
+    after
+      File.rm(tmp_path)
     end
-  rescue
-    ErlangError -> {:error, "dnsx executable not found"}
   end
 
   # ---------------------------------------------------------------------------
@@ -951,10 +1356,11 @@ defmodule Ravner.Scans do
             _ -> nil
           end)
 
-        contact_info = %{}
-        |> (fn m -> if name, do: Map.put(m, "name", name), else: m end).()
-        |> (fn m -> if email, do: Map.put(m, "email", email), else: m end).()
-        |> (fn m -> if phone, do: Map.put(m, "phone", phone), else: m end).()
+        contact_info =
+          %{}
+          |> (fn m -> if name, do: Map.put(m, "name", name), else: m end).()
+          |> (fn m -> if email, do: Map.put(m, "email", email), else: m end).()
+          |> (fn m -> if phone, do: Map.put(m, "phone", phone), else: m end).()
 
         Enum.reduce(roles, acc, fn role, acc2 ->
           if contact_info != %{}, do: Map.put(acc2, role, contact_info), else: acc2
@@ -1007,7 +1413,7 @@ defmodule Ravner.Scans do
 
   # Step 2: WHOIS via CLI
   defp do_whois_scan(domain_name) do
-    case System.cmd("whois", [domain_name], stderr_to_stdout: true) do
+    case SystemCommand.run_with_timeout("whois", [domain_name], @whois_timeout) do
       {output, 0} ->
         result = parse_whois_output(output)
 
@@ -1016,6 +1422,12 @@ defmodule Ravner.Scans do
         else
           {:ok, Map.put(result, :whois_raw, String.slice(output, 0, 4000))}
         end
+
+      {:error, :timeout} ->
+        {:error, "whois timed out after #{@whois_timeout}ms"}
+
+      {:error, reason} ->
+        {:error, reason}
 
       {_output, _code} ->
         {:error, "whois command failed"}

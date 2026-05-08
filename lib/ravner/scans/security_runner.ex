@@ -24,6 +24,7 @@ defmodule Ravner.Scans.SecurityRunner do
   alias Ravner.Repo
   alias Ravner.SecurityScans
   alias Ravner.SecurityScans.SecurityScan
+  alias Ravner.SystemCommand
 
   @scan_timeout 300_000
   @nuclei_timeout 240_000
@@ -61,7 +62,7 @@ defmodule Ravner.Scans.SecurityRunner do
          {:ok, scan} <- create_security_scan(domain_id, "security_scan", domain.name) do
       send_progress(scan.id, 5, liveview_pid)
 
-      Task.start(fn ->
+      Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
         do_security_scan(scan, domain.name, liveview_pid)
       end)
 
@@ -182,7 +183,7 @@ defmodule Ravner.Scans.SecurityRunner do
       "-location"
     ]
 
-    case cmd_with_timeout("httpx", args, [stderr_to_stdout: true], @scan_timeout) do
+    case SystemCommand.run_with_timeout("httpx", args, @scan_timeout) do
       {output, 0} ->
         {output, extract_httpx_metadata(output)}
 
@@ -202,7 +203,7 @@ defmodule Ravner.Scans.SecurityRunner do
       "100"
     ]
 
-    case cmd_with_timeout("naabu", args, [stderr_to_stdout: true], @scan_timeout) do
+    case SystemCommand.run_with_timeout("naabu", args, @scan_timeout) do
       {output, 0} ->
         {:ok, output, extract_ports_from_naabu(output)}
 
@@ -236,7 +237,7 @@ defmodule Ravner.Scans.SecurityRunner do
         "10"
       ] ++ @nuclei_perf_flags
 
-    case cmd_with_timeout("nuclei", args, [stderr_to_stdout: true], @nuclei_timeout) do
+    case SystemCommand.run_with_timeout("nuclei", args, @nuclei_timeout) do
       {output, 0} ->
         {:ok, SecurityScans.parse_nuclei_output(output)}
 
@@ -362,112 +363,5 @@ defmodule Ravner.Scans.SecurityRunner do
     })
 
     send(liveview_pid, {:scan_done, :security_scan, {:error, message}})
-  end
-
-  # ─── Timeout wrapper for spawned scanner CLIs ─────────────────────────────
-  #
-  # `System.cmd/3` + `Task.shutdown` only kills the BEAM-side Task: the bash
-  # subprocess and any descendants (naabu/nuclei/httpx and their helpers) keep
-  # running as orphans on the host. To avoid leaking processes when we hit a
-  # timeout, we:
-  #
-  #   1. Spawn a Port directly so we know the OS PID we created.
-  #   2. Wrap the command in a Perl one-liner that calls `POSIX::setsid()` and
-  #      then `exec`s into bash. That places the entire command tree in a fresh
-  #      process group whose PGID equals the Port's OS PID (Perl's PID is
-  #      preserved across `exec`).
-  #   3. On timeout, send SIGTERM (then SIGKILL) to the negative PGID so the
-  #      whole group, including grandchildren spawned by the scanner, dies.
-  #
-  # Perl is used instead of `setsid(1)` because the latter is not present on
-  # macOS by default; Perl ships on every supported dev/runtime platform.
-
-  @spec cmd_with_timeout(String.t(), [String.t()], keyword(), non_neg_integer()) ::
-          {String.t(), non_neg_integer()} | {:error, :timeout} | {:error, String.t()}
-  defp cmd_with_timeout(cmd, args, _opts, timeout) do
-    # naabu and other PD tools hang when stdin is a terminal.
-    # `</dev/null` forces immediate EOF on stdin; `exec` drops the bash layer.
-    shell_cmd = "exec #{cmd} #{escape_args(args)} </dev/null"
-
-    perl_script = "use POSIX qw(setsid); setsid(); exec @ARGV"
-
-    case System.find_executable("perl") do
-      nil ->
-        {:error, "perl not found (required for process group isolation)"}
-
-      perl_path ->
-        port =
-          Port.open(
-            {:spawn_executable, perl_path},
-            [
-              :binary,
-              :exit_status,
-              :stderr_to_stdout,
-              args: ["-e", perl_script, "--", "/bin/bash", "-c", shell_cmd]
-            ]
-          )
-
-        os_pid =
-          case Port.info(port, :os_pid) do
-            {:os_pid, pid} -> pid
-            _ -> nil
-          end
-
-        deadline = System.monotonic_time(:millisecond) + timeout
-
-        case collect_port_output(port, deadline, "") do
-          {:ok, output, status} ->
-            {output, status}
-
-          :timeout ->
-            if os_pid, do: kill_process_group(os_pid)
-            close_port(port)
-            {:error, :timeout}
-        end
-    end
-  end
-
-  defp collect_port_output(port, deadline, acc) do
-    remaining = max(deadline - System.monotonic_time(:millisecond), 0)
-
-    receive do
-      {^port, {:data, data}} ->
-        collect_port_output(port, deadline, acc <> data)
-
-      {^port, {:exit_status, status}} ->
-        {:ok, acc, status}
-    after
-      remaining ->
-        :timeout
-    end
-  end
-
-  defp kill_process_group(os_pid) do
-    pgid_arg = "-#{os_pid}"
-    _ = System.cmd("kill", ["-TERM", "--", pgid_arg], stderr_to_stdout: true)
-    Process.sleep(500)
-    _ = System.cmd("kill", ["-KILL", "--", pgid_arg], stderr_to_stdout: true)
-    :ok
-  end
-
-  defp close_port(port) do
-    try do
-      Port.close(port)
-    rescue
-      ArgumentError -> :ok
-    end
-  end
-
-  defp escape_args(args) do
-    args
-    |> Enum.map(fn arg ->
-      if String.match?(arg, ~r/^[a-zA-Z0-9_.~+=@-]+$/) do
-        arg
-      else
-        escaped = String.replace(arg, "'", "'\"'\"'")
-        "'" <> escaped <> "'"
-      end
-    end)
-    |> Enum.join(" ")
   end
 end

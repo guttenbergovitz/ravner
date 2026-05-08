@@ -3,6 +3,9 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   alias Ravner.ApiKeys
   alias Ravner.ApiKeys.ApiKey
+  alias Ravner.SystemCommand
+
+  @nuclei_template_update_timeout 120_000
 
   @impl true
   def mount(_params, _session, socket) do
@@ -114,11 +117,32 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   @impl true
   def handle_event("update_nuclei_templates", _params, socket) do
-    case System.cmd("nuclei", ["-update-templates"], stderr_to_stdout: true) do
+    liveview_pid = self()
+
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+      send(liveview_pid, {:nuclei_templates_updated, update_nuclei_templates()})
+    end)
+
+    {:noreply, put_flash(socket, :info, "Nuclei template update started")}
+  end
+
+  @impl true
+  def handle_info({:nuclei_templates_updated, result}, socket) do
+    case result do
       {_output, 0} ->
         {:noreply,
          socket
          |> put_flash(:info, "Nuclei templates updated successfully")}
+
+      {:error, :timeout} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Nuclei template update timed out")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Nuclei template update failed: #{reason}")}
 
       {output, _code} ->
         {:noreply,
@@ -131,5 +155,13 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   defp admin?(scope) do
     scope.user && scope.user.role == :admin
+  end
+
+  defp update_nuclei_templates do
+    SystemCommand.run_with_timeout(
+      "nuclei",
+      ["-update-templates"],
+      @nuclei_template_update_timeout
+    )
   end
 end

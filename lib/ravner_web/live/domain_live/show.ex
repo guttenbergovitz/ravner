@@ -22,6 +22,7 @@ defmodule RavnerWeb.DomainLive.Show do
     {:ok,
      socket
      |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:lifecycle_menu_open, false)
      |> assign(:show_findings_modal, false)
@@ -47,6 +48,7 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:domain, domain)
      |> assign(:scan_results, nil)
      |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:domain_class, compute_domain_class(domain))
      |> refresh_security_scan_assigns()}
@@ -69,6 +71,7 @@ defmodule RavnerWeb.DomainLive.Show do
     socket =
       socket
       |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :all)
       |> assign(:pending_scans, 4)
 
     start_scan_tasks(liveview_pid, domain_id)
@@ -95,6 +98,7 @@ defmodule RavnerWeb.DomainLive.Show do
         socket =
           socket
           |> assign(:scanning, true)
+          |> assign(:active_scan_kind, :all_subdomains)
           |> assign(:pending_scans, subdomain_count * 4)
 
         Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id))
@@ -111,9 +115,13 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_subdomains", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
 
-    Task.start(fn ->
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :subdomains)
+
+    start_background_scan(fn ->
       result = Scans.run_subdomain_scan(domain_id)
       send(liveview_pid, {:scan_done, :subdomains, result})
     end)
@@ -129,11 +137,37 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_httpx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
 
-    Task.start(fn ->
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :httpx)
+
+    start_background_scan(fn ->
       result = Scans.run_httpx_scan(domain_id)
       send(liveview_pid, {:scan_done, :httpx, result})
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("scan_deep_tech", _, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_deep_tech", _, socket) do
+    domain_id = socket.assigns.domain.id
+    liveview_pid = self()
+
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :deep_tech)
+
+    start_background_scan(fn ->
+      result = Scans.run_deep_tech_scan(domain_id)
+      send(liveview_pid, {:scan_done, :deep_tech, result})
     end)
 
     {:noreply, socket}
@@ -147,9 +181,13 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_dnsx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
 
-    Task.start(fn ->
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :dnsx)
+
+    start_background_scan(fn ->
       result = Scans.run_dnsx_scan(domain_id)
       send(liveview_pid, {:scan_done, :dnsx, result})
     end)
@@ -165,9 +203,13 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_rdap", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
-    socket = assign(socket, :scanning, true)
 
-    Task.start(fn ->
+    socket =
+      socket
+      |> assign(:scanning, true)
+      |> assign(:active_scan_kind, :rdap)
+
+    start_background_scan(fn ->
       result = Scans.run_rdap_scan(domain_id)
       send(liveview_pid, {:scan_done, :rdap, result})
     end)
@@ -211,6 +253,7 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply,
      socket
      |> assign(:scanning, false)
+     |> assign(:active_scan_kind, nil)
      |> refresh_security_scan_assigns()
      |> put_flash(:info, "Running scans cleared.")}
   end
@@ -379,6 +422,27 @@ defmodule RavnerWeb.DomainLive.Show do
      |> put_flash(:info, "HTTP scan completed")}
   end
 
+  def handle_info({:scan_done, :deep_tech, {:ok, results}}, socket) do
+    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+
+    suffix =
+      if results.errors == [] do
+        ""
+      else
+        " (#{length(results.errors)} tool warnings)"
+      end
+
+    {:noreply,
+     socket
+     |> finish_scan()
+     |> assign(:domain, domain)
+     |> assign(:domain_class, compute_domain_class(domain))
+     |> put_flash(
+       :info,
+       "Deep tech scan completed: #{results.evidence} findings, #{results.urls} URLs#{suffix}"
+     )}
+  end
+
   def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
     domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
 
@@ -464,11 +528,31 @@ defmodule RavnerWeb.DomainLive.Show do
   # Private helpers
   # ---------------------------------------------------------------------------
 
+  defp infrastructure_metadata?(metadata) do
+    metadata &&
+      (metadata.hosting_platform || metadata.asn_org ||
+         populated?(metadata.tech_stack) ||
+         populated?(metadata.tech_evidence) ||
+         populated?(metadata.discovered_urls) ||
+         populated?(metadata.js_assets) ||
+         populated?(metadata.open_ports))
+  end
+
+  defp populated?(value), do: is_list(value) && value != []
+
   defp start_scan_tasks(pid, id) do
-    Task.start(fn -> send(pid, {:scan_done, :dnsx, Scans.run_dnsx_scan(id)}) end)
-    Task.start(fn -> send(pid, {:scan_done, :httpx, Scans.run_httpx_scan(id)}) end)
-    Task.start(fn -> send(pid, {:scan_done, :rdap, Scans.run_rdap_scan(id)}) end)
-    Task.start(fn -> send(pid, {:scan_done, :subdomains, Scans.run_subdomain_scan(id)}) end)
+    start_background_scan(fn ->
+      results = Scans.run_quick_scan(id)
+
+      send(pid, {:scan_done, :dnsx, Map.fetch!(results, :dnsx)})
+      send(pid, {:scan_done, :httpx, Map.fetch!(results, :httpx)})
+      send(pid, {:scan_done, :rdap, Map.fetch!(results, :rdap)})
+      send(pid, {:scan_done, :subdomains, Map.fetch!(results, :subdomains)})
+    end)
+  end
+
+  defp start_background_scan(fun) when is_function(fun, 0) do
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fun)
   end
 
   # Decrements the pending scan counter; sets scanning: false when all done
@@ -477,7 +561,9 @@ defmodule RavnerWeb.DomainLive.Show do
     socket = assign(socket, :pending_scans, pending)
 
     if pending == 0 do
-      assign(socket, :scanning, false)
+      socket
+      |> assign(:scanning, false)
+      |> assign(:active_scan_kind, nil)
     else
       socket
     end
@@ -651,10 +737,13 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp scan_phase_label(_), do: "Starting"
 
+  defp lifecycle_color(:priority), do: "bg-teal-600"
   defp lifecycle_color(:active), do: "bg-green-500"
+  defp lifecycle_color(:placeholder), do: "bg-violet-500"
   defp lifecycle_color(:under_review), do: "bg-yellow-500"
   defp lifecycle_color(:insecure), do: "bg-amber-600"
   defp lifecycle_color(:redirect), do: "bg-cyan-500"
+  defp lifecycle_color(:error), do: "bg-red-500"
   defp lifecycle_color(:deprecated), do: "bg-orange-500"
   defp lifecycle_color(:decommissioned), do: "bg-red-500"
   defp lifecycle_color(:abandoned), do: "bg-neutral-400"
@@ -662,10 +751,13 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp lifecycle_options do
     [
+      {:priority, "Priority", "bg-teal-600"},
       {:active, "Active", "bg-green-500"},
       {:under_review, "Under review", "bg-yellow-500"},
+      {:placeholder, "Placeholder", "bg-violet-500"},
       {:insecure, "Insecure HTTP", "bg-amber-600"},
       {:redirect, "Redirect", "bg-cyan-500"},
+      {:error, "Error", "bg-red-500"},
       {:deprecated, "Deprecated", "bg-orange-500"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
       {:abandoned, "Abandoned", "bg-neutral-400"}
