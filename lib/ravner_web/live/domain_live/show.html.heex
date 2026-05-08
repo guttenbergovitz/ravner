@@ -903,7 +903,8 @@
                         <div class="flex items-center gap-2">
                           <span class="w-2 h-2 rounded-full bg-red-500"></span>
                           <span class="text-xs font-light text-neutral-600">
-                            Critical: <span class="font-medium text-neutral-900">{critical_count}</span>
+                            Critical:
+                            <span class="font-medium text-neutral-900">{critical_count}</span>
                           </span>
                         </div>
                         <div class="flex items-center gap-2">
@@ -915,7 +916,8 @@
                         <div class="flex items-center gap-2">
                           <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
                           <span class="text-xs font-light text-neutral-600">
-                            Medium: <span class="font-medium text-neutral-900">{medium_count}</span>
+                            Medium:
+                            <span class="font-medium text-neutral-900">{medium_count}</span>
                           </span>
                         </div>
                         <div class="flex items-center gap-2">
@@ -929,7 +931,8 @@
                         phx-click="toggle_findings_modal"
                         class="btn-line w-full justify-center text-xs mt-3"
                       >
-                        <.icon name="hero-document-magnifying-glass" class="w-3.5 h-3.5" /> View findings
+                        <.icon name="hero-document-magnifying-glass" class="w-3.5 h-3.5" />
+                        View findings
                       </button>
                     </div>
                   <% else %>
@@ -1024,7 +1027,10 @@
                             <%= if finding.detail && is_map(finding.detail) do %>
                               <div class="mt-2 text-xs text-neutral-400 space-y-0.5">
                                 <%= for {key, value} <- Map.to_list(finding.detail) |> Enum.take(3) do %>
-                                  <% display_value = if is_binary(value), do: String.slice(value, 0, 60), else: inspect(value) %>
+                                  <% display_value =
+                                    if is_binary(value),
+                                      do: String.slice(value, 0, 60),
+                                      else: inspect(value) %>
                                   <p><span class="font-medium">{key}:</span> {display_value}</p>
                                 <% end %>
                               </div>
