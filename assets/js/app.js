@@ -27,7 +27,10 @@ import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
-  longPollFallbackMs: 2500,
+  // Only fall back to longpoll after a generous wait — 2.5s was triggering
+  // "Attempting to reconnect" toasts in dev whenever code/asset reload added
+  // any latency to the initial WS handshake.
+  longPollFallbackMs: 30_000,
   params: {_csrf_token: csrfToken},
   hooks: {...colocatedHooks},
 })
