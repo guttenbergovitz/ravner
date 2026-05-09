@@ -37,6 +37,9 @@ defmodule Ravner.Domains.Domain do
     has_many(:subdomains, Ravner.Domains.Domain, foreign_key: :parent_domain_id)
     has_many(:domain_tags, Ravner.Domains.DomainTag)
     has_one(:domain_metadata, Ravner.Domains.DomainMetadata)
+    has_many(:dns_records, Ravner.Domains.DnsRecord)
+    has_many(:tech_evidence, Ravner.Domains.TechEvidence)
+    has_many(:discovered_urls, Ravner.Domains.DiscoveredUrl)
 
     belongs_to(:project, Ravner.Inventory.Project)
     belongs_to(:brand, Ravner.Inventory.Brand)

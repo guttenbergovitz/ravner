@@ -7,6 +7,9 @@ defmodule Ravner.Domains do
   alias Ravner.Domains.Domain
   alias Ravner.Domains.DomainMetadata
   alias Ravner.Domains.DomainTag
+  alias Ravner.Domains.DnsRecord
+  alias Ravner.Domains.TechEvidence
+  alias Ravner.Domains.DiscoveredUrl
   alias Ravner.Repo
 
   # Domains
@@ -332,6 +335,9 @@ defmodule Ravner.Domains do
         :project,
         :brand,
         :organization,
+        :dns_records,
+        :tech_evidence,
+        :discovered_urls,
         subdomains: :domain_metadata
       ],
       in_parallel: false
@@ -703,6 +709,66 @@ defmodule Ravner.Domains do
       conflict_target: :domain_id,
       returning: true
     )
+  end
+
+  @doc """
+  Replaces all DNS records for a domain with a new set.
+  """
+  def sync_dns_records(domain_id, records) when is_list(records) do
+    Repo.transaction(fn ->
+      DnsRecord |> where(domain_id: ^domain_id) |> Repo.delete_all()
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      entries =
+        Enum.map(records, fn r ->
+          r
+          |> Map.take([:type, :value, :ttl])
+          |> Map.merge(%{domain_id: domain_id, inserted_at: now, updated_at: now})
+        end)
+
+      if entries != [], do: Repo.insert_all(DnsRecord, entries)
+    end)
+  end
+
+  @doc """
+  Replaces all tech evidence for a domain with a new set.
+  """
+  def sync_tech_evidence(domain_id, evidence) when is_list(evidence) do
+    Repo.transaction(fn ->
+      TechEvidence |> where(domain_id: ^domain_id) |> Repo.delete_all()
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      entries =
+        Enum.map(evidence, fn e ->
+          e
+          |> Map.take([:name, :version, :source, :confidence])
+          |> Map.merge(%{domain_id: domain_id, inserted_at: now, updated_at: now})
+        end)
+
+      if entries != [], do: Repo.insert_all(TechEvidence, entries)
+    end)
+  end
+
+  @doc """
+  Replaces all discovered URLs for a domain with a new set.
+  """
+  def sync_discovered_urls(domain_id, urls) when is_list(urls) do
+    Repo.transaction(fn ->
+      DiscoveredUrl |> where(domain_id: ^domain_id) |> Repo.delete_all()
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      entries =
+        Enum.map(urls, fn u ->
+          u
+          |> Map.take([:url, :status, :content_type, :source])
+          |> Map.merge(%{domain_id: domain_id, inserted_at: now, updated_at: now})
+        end)
+
+      if entries != [], do: Repo.insert_all(DiscoveredUrl, entries)
+    end)
   end
 
   @doc """

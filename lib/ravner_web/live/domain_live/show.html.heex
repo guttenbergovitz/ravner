@@ -378,7 +378,7 @@
           </div>
         <% end %>
 
-        <%= if @domain.domain_metadata && (@domain.domain_metadata.ip_v4 != [] || @domain.domain_metadata.ip_v6 != [] || @domain.domain_metadata.dns_records != []) do %>
+        <%= if @domain.domain_metadata && (@domain.domain_metadata.ip_v4 != [] || @domain.domain_metadata.ip_v6 != [] || @domain.dns_records != []) do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">DNS</h2>
 
@@ -412,19 +412,19 @@
               </div>
             <% end %>
 
-            <%= if @domain.domain_metadata.dns_records != [] do %>
+            <%= if @domain.dns_records != [] do %>
               <div>
                 <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
                   Records
                 </span>
                 <div class="divide-y divide-neutral-100">
-                  <%= for rec <- @domain.domain_metadata.dns_records do %>
+                  <%= for rec <- @domain.dns_records do %>
                     <div class="py-2 flex items-center gap-3 text-sm font-light">
                       <span class="px-1.5 py-0.5 border border-neutral-200 text-[10px] font-normal uppercase w-12 text-center">
-                        {rec["type"]}
+                        {rec.type}
                       </span>
-                      <span class="truncate">{rec["value"]}</span>
-                      <span class="ml-auto text-[10px] text-neutral-400">TTL:{rec["ttl"]}</span>
+                      <span class="truncate">{rec.value}</span>
+                      <span class="ml-auto text-[10px] text-neutral-400">TTL:{rec.ttl}</span>
                     </div>
                   <% end %>
                 </div>
@@ -442,7 +442,7 @@
           </div>
         <% end %>
 
-        <%= if infrastructure_metadata?(@domain.domain_metadata) do %>
+        <%= if infrastructure_metadata?(@domain) do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
             <div class="grid grid-cols-2 gap-6 text-sm">
@@ -495,28 +495,22 @@
               </div>
             <% end %>
 
-            <%= if @domain.domain_metadata.tech_evidence && @domain.domain_metadata.tech_evidence != [] do %>
+            <%= if @domain.tech_evidence != [] do %>
               <div class="mt-6 pt-5 border-t border-neutral-100">
                 <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
                   Deep Tech Evidence
                 </span>
                 <div class="space-y-2">
-                  <%= for item <- Enum.take(@domain.domain_metadata.tech_evidence, 12) do %>
+                  <%= for item <- Enum.take(@domain.tech_evidence, 12) do %>
                     <div class="flex items-center justify-between gap-3 text-xs">
                       <div class="min-w-0">
-                        <span class="font-light text-neutral-900">{item["name"]}</span>
-                        <span :if={item["version"]} class="font-mono text-[10px] text-neutral-400">
-                          {item["version"]}
+                        <span class="font-light text-neutral-900">{item.name}</span>
+                        <span :if={item.version} class="font-mono text-[10px] text-neutral-400">
+                          {item.version}
                         </span>
-                        <p
-                          :if={item["categories"] && item["categories"] != []}
-                          class="text-[10px] text-neutral-400 truncate"
-                        >
-                          {Enum.join(item["categories"], ", ")}
-                        </p>
                       </div>
                       <span class="shrink-0 text-[10px] uppercase tracking-wide text-neutral-400">
-                        {item["source"] || "scan"}
+                        {item.source || "scan"}
                       </span>
                     </div>
                   <% end %>
@@ -524,25 +518,25 @@
               </div>
             <% end %>
 
-            <%= if @domain.domain_metadata.discovered_urls && @domain.domain_metadata.discovered_urls != [] do %>
+            <%= if @domain.discovered_urls != [] do %>
               <div class="mt-6 pt-5 border-t border-neutral-100">
                 <div class="flex items-center justify-between gap-3 mb-3">
                   <span class="text-xs font-light tracking-wide uppercase text-neutral-500">
                     Crawled URLs
                   </span>
                   <span class="text-[10px] text-neutral-400">
-                    {length(@domain.domain_metadata.discovered_urls)}
+                    {length(@domain.discovered_urls)}
                   </span>
                 </div>
                 <div class="space-y-1.5">
-                  <%= for item <- Enum.take(@domain.domain_metadata.discovered_urls, 10) do %>
+                  <%= for item <- Enum.take(@domain.discovered_urls, 10) do %>
                     <a
-                      href={item["url"]}
+                      href={item.url}
                       target="_blank"
                       rel="noreferrer"
                       class="group flex items-center gap-2 text-xs font-light text-neutral-600 hover:text-neutral-950"
                     >
-                      <span class="truncate">{item["url"]}</span>
+                      <span class="truncate">{item.url}</span>
                       <.icon
                         name="hero-arrow-top-right-on-square"
                         class="w-3 h-3 shrink-0 opacity-40 group-hover:opacity-100"

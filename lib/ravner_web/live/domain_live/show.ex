@@ -501,14 +501,15 @@ defmodule RavnerWeb.DomainLive.Show do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  defp infrastructure_metadata?(metadata) do
-    metadata &&
-      (metadata.hosting_platform || metadata.asn_org ||
+  defp infrastructure_metadata?(domain) do
+    metadata = domain.domain_metadata
+
+    (metadata && (metadata.hosting_platform || metadata.asn_org ||
          populated?(metadata.tech_stack) ||
-         populated?(metadata.tech_evidence) ||
-         populated?(metadata.discovered_urls) ||
          populated?(metadata.js_assets) ||
-         populated?(metadata.open_ports))
+         populated?(metadata.open_ports))) ||
+      populated?(domain.tech_evidence) ||
+      populated?(domain.discovered_urls)
   end
 
   defp populated?(value), do: is_list(value) && value != []

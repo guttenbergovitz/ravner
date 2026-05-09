@@ -21,7 +21,6 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:ssl_days_remaining, :integer)
 
     # DNS snapshot
-    field(:dns_records, {:array, :map}, default: [])
     field(:ip_v4, {:array, :string}, default: [])
     field(:ip_v6, {:array, :string}, default: [])
 
@@ -39,8 +38,6 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:asn_number, :string)
     field(:server_header, :string)
     field(:tech_stack, {:array, :string}, default: [])
-    field(:tech_evidence, {:array, :map}, default: [])
-    field(:discovered_urls, {:array, :map}, default: [])
     field(:js_assets, {:array, :string}, default: [])
     field(:forms, {:array, :map}, default: [])
     field(:deep_scan_errors, {:array, :string}, default: [])
@@ -84,7 +81,6 @@ defmodule Ravner.Domains.DomainMetadata do
       :ssl_valid_from,
       :ssl_valid_until,
       :ssl_days_remaining,
-      :dns_records,
       :ip_v4,
       :ip_v6,
       :registrar,
@@ -98,8 +94,6 @@ defmodule Ravner.Domains.DomainMetadata do
       :asn_number,
       :server_header,
       :tech_stack,
-      :tech_evidence,
-      :discovered_urls,
       :js_assets,
       :forms,
       :deep_scan_errors,

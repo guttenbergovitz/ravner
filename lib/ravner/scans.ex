@@ -457,8 +457,6 @@ defmodule Ravner.Scans do
 
     metadata = %{
       tech_stack: tech_stack,
-      tech_evidence: Enum.take(tech_evidence, @deep_evidence_limit),
-      discovered_urls: Enum.take(crawl_data.urls, @deep_url_limit),
       js_assets: Enum.take(crawl_data.js_assets, @deep_js_limit),
       forms: crawl_data.forms,
       deep_scan_errors: errors,
@@ -467,7 +465,10 @@ defmodule Ravner.Scans do
       scan_duration_ms: duration_ms
     }
 
-    with {:ok, _metadata} <- Domains.upsert_domain_metadata(domain_id, metadata) do
+    with {:ok, _metadata} <- Domains.upsert_domain_metadata(domain_id, metadata),
+         _ <-
+           Domains.sync_tech_evidence(domain_id, Enum.take(tech_evidence, @deep_evidence_limit)),
+         _ <- Domains.sync_discovered_urls(domain_id, Enum.take(crawl_data.urls, @deep_url_limit)) do
       {:ok,
        %{
          target_url: target_url,
@@ -1167,12 +1168,13 @@ defmodule Ravner.Scans do
         meta = %{
           ip_v4: ip_v4,
           ip_v6: ip_v6,
-          dns_records: records,
           scanned_at: DateTime.utc_now(),
           dns_scanned_at: DateTime.utc_now()
         }
 
         Domains.upsert_domain_metadata(domain_id, meta)
+        Domains.sync_dns_records(domain_id, records)
+        {:ok, Map.put(meta, :dns_records, records)}
 
       {:error, reason} ->
         {:error, reason}
@@ -1516,15 +1518,10 @@ defmodule Ravner.Scans do
   end
 
   defp get_stored_ns_records(domain_id) do
-    case Domains.get_domain_metadata(domain_id) do
-      nil ->
-        []
-
-      meta ->
-        (meta.dns_records || [])
-        |> Enum.filter(fn r -> r["type"] == "NS" end)
-        |> Enum.map(fn r -> r["value"] end)
-        |> Enum.reject(&is_nil/1)
-    end
+    Ravner.Domains.DnsRecord
+    |> where(domain_id: ^domain_id, type: "NS")
+    |> select([r], r.value)
+    |> Repo.all()
+    |> Enum.reject(&is_nil/1)
   end
 end
