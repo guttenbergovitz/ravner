@@ -220,6 +220,31 @@ defmodule RavnerWeb.DomainLive.Show do
 
   # ─── Security scan events have been moved to SecurityPostureComponent ─────
 
+  def handle_event("update_scheduling", _params, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("update_scheduling", params, socket) do
+    domain = socket.assigns.domain
+
+    attrs = %{
+      scan_interval_days: parse_interval(params["scan_interval_days"]),
+      heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
+      http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
+      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"])
+    }
+
+    case Domains.upsert_domain_metadata(domain.id, attrs) do
+      {:ok, _metadata} ->
+        domain = Domains.get_domain_with_preloads!(domain.id)
+        {:noreply, assign(socket, :domain, domain) |> put_flash(:info, "Scheduling updated")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update scheduling")}
+    end
+  end
+
   def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
       when is_nil(scope) or scope.user.role not in [:admin, :editor] do
     {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
@@ -516,6 +541,15 @@ defmodule RavnerWeb.DomainLive.Show do
       socket
     end
   end
+
+  defp parse_interval(""), do: nil
+  defp parse_interval(val) when is_binary(val) do
+    case Integer.parse(val) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+  defp parse_interval(_), do: nil
 
   # Compute domain classification from stored metadata (Balebos-style)
   defp compute_domain_class(domain) do

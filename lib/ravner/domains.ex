@@ -684,12 +684,16 @@ defmodule Ravner.Domains do
     attrs_with_id = Map.put(attrs, :domain_id, domain_id)
     changeset = DomainMetadata.changeset(%DomainMetadata{}, attrs_with_id)
 
-    # Only replace the columns the caller is actually setting.
-    # `:updated_at` is bumped unconditionally so the row reflects the
-    # latest write.
+    # `changeset.changes` omits fields if the provided value equals the struct's default (e.g. `nil`).
+    # To ensure `ON CONFLICT DO UPDATE` replaces these fields in the database, we must explicitly
+    # include all keys from `attrs` that are valid schema fields in `fields_to_replace`.
+    provided_fields =
+      Enum.filter(DomainMetadata.__schema__(:fields), fn field ->
+        Map.has_key?(attrs, field) or Map.has_key?(attrs, to_string(field))
+      end)
+
     fields_to_replace =
-      changeset.changes
-      |> Map.keys()
+      provided_fields
       |> List.delete(:domain_id)
       |> then(&[:updated_at | &1])
       |> Enum.uniq()

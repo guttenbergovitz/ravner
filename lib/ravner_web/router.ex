@@ -122,6 +122,7 @@ defmodule RavnerWeb.Router do
       live("/projects/new", AdminLive.ProjectLive.Index, :new)
       live("/projects/:id", AdminLive.ProjectLive.Show, :show)
       live("/projects/:id/edit", AdminLive.ProjectLive.Index, :edit)
+      live("/jobs", AdminLive.Jobs, :index)
     end
 
     get("/settings/backup/download", BackupController, :download)

@@ -58,6 +58,16 @@ defmodule Ravner.Domains.DomainMetadata do
     # Security scan results
     field(:open_ports, {:array, :integer}, default: [])
 
+    # Scheduling & Heartbeats
+    field(:scan_interval_days, :integer)
+    field(:heartbeat_interval_minutes, :integer)
+    field(:ssl_check_interval_days, :integer)
+    field(:tech_discovery_interval_days, :integer)
+    field(:http_scan_interval_days, :integer)
+    field(:dns_scan_interval_days, :integer)
+    field(:is_up, :boolean)
+    field(:last_heartbeat_at, :utc_datetime)
+
     timestamps(type: :utc_datetime)
   end
 
@@ -101,7 +111,15 @@ defmodule Ravner.Domains.DomainMetadata do
       :rdap_scanned_at,
       :deep_tech_scanned_at,
       :last_security_scan_at,
-      :open_ports
+      :open_ports,
+      :scan_interval_days,
+      :heartbeat_interval_minutes,
+      :ssl_check_interval_days,
+      :tech_discovery_interval_days,
+      :http_scan_interval_days,
+      :dns_scan_interval_days,
+      :is_up,
+      :last_heartbeat_at
     ])
     |> validate_required([:domain_id])
     |> foreign_key_constraint(:domain_id)
