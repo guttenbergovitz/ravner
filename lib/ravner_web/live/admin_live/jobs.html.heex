@@ -54,7 +54,18 @@
       </div>
 
       <div class="card-line">
-        <h2 class="text-sm font-normal tracking-wide uppercase mb-4">Recent Jobs</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-normal tracking-wide uppercase">Recent Jobs</h2>
+          <label class="flex items-center gap-2 text-xs font-light text-neutral-500 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={@show_dispatchers}
+              phx-click="toggle_dispatchers"
+              class="w-3.5 h-3.5 border-neutral-300 rounded text-neutral-900 focus:ring-0"
+            />
+            Show Dispatchers
+          </label>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100">

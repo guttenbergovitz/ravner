@@ -15,6 +15,7 @@ defmodule RavnerWeb.AdminLive.Jobs do
     socket =
       socket
       |> assign(:active_tab, :queue)
+      |> assign(:show_dispatchers, false)
       |> fetch_jobs()
       |> fetch_schedules()
 
@@ -39,6 +40,16 @@ defmodule RavnerWeb.AdminLive.Jobs do
   end
 
   @impl true
+  def handle_event("toggle_dispatchers", _, socket) do
+    socket = 
+      socket
+      |> assign(:show_dispatchers, !socket.assigns.show_dispatchers)
+      |> fetch_jobs()
+      
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("delete_job", %{"id" => id}, socket) do
     Oban.Job
     |> Repo.get!(id)
@@ -60,8 +71,17 @@ defmodule RavnerWeb.AdminLive.Jobs do
   end
 
   defp fetch_jobs(socket) do
+    query = Oban.Job
+    
+    query = 
+      if socket.assigns.show_dispatchers do
+        query
+      else
+        where(query, [j], not like(j.worker, "%Dispatcher"))
+      end
+
     jobs =
-      Oban.Job
+      query
       |> order_by([j], desc: j.id)
       |> limit(50)
       |> Repo.all()
