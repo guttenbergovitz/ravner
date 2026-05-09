@@ -66,5 +66,6 @@ mix phx.server
 Detailed specifications and architectural notes are kept in the `/documentation` directory:
 
 - `/documentation/features` — Specific feature designs (Bulk ops, Security scans).
-- `/documentation/architecture` — System design and command execution.
+- `/documentation/architecture` — System design, command execution, and scheduling.
+- `/documentation/architecture/roadmap.md` — Identified bottlenecks and future scaling plans.
 - `/documentation/heuristics` — Rules for classification and discovery logic.
