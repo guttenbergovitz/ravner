@@ -786,6 +786,37 @@
                 <option value="30" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 30}>Monthly</option>
               </select>
             </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+                  HTTP Scan
+                </label>
+                <select 
+                  name="http_scan_interval_days" 
+                  class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
+                  disabled={is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+                >
+                  <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days)}>Manual only</option>
+                  <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days == 1}>Daily</option>
+                  <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days == 7}>Weekly</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+                  DNS Scan
+                </label>
+                <select 
+                  name="dns_scan_interval_days" 
+                  class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
+                  disabled={is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+                >
+                  <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days)}>Manual only</option>
+                  <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days == 1}>Daily</option>
+                  <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days == 7}>Weekly</option>
+                </select>
+              </div>
+            </div>
             
             <p class="text-[10px] text-neutral-400 mt-2">
               Background jobs are queued automatically by Oban dispatchers based on the selected intervals.

@@ -62,7 +62,14 @@ defmodule RavnerWeb.AdminLive.Jobs do
   def handle_event("disable_schedule", %{"domain_id" => id}, socket) do
     id = String.to_integer(id)
     
-    case Domains.upsert_domain_metadata(id, %{scan_interval_days: nil, heartbeat_interval_minutes: nil}) do
+    attrs = %{
+      scan_interval_days: nil, 
+      heartbeat_interval_minutes: nil,
+      http_scan_interval_days: nil,
+      dns_scan_interval_days: nil
+    }
+    
+    case Domains.upsert_domain_metadata(id, attrs) do
       {:ok, _} ->
         {:noreply, fetch_schedules(socket) |> put_flash(:info, "Schedules disabled for domain.")}
       {:error, _} ->
@@ -103,7 +110,11 @@ defmodule RavnerWeb.AdminLive.Jobs do
     schedules =
       from(m in DomainMetadata,
         join: d in assoc(m, :domain),
-        where: not is_nil(m.scan_interval_days) or not is_nil(m.heartbeat_interval_minutes),
+        where:
+          not is_nil(m.scan_interval_days) or 
+          not is_nil(m.heartbeat_interval_minutes) or
+          not is_nil(m.http_scan_interval_days) or
+          not is_nil(m.dns_scan_interval_days),
         order_by: [asc: d.name],
         preload: [domain: d]
       )

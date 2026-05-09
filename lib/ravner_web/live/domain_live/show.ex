@@ -230,7 +230,9 @@ defmodule RavnerWeb.DomainLive.Show do
 
     attrs = %{
       scan_interval_days: parse_interval(params["scan_interval_days"]),
-      heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"])
+      heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
+      http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
+      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"])
     }
 
     case Domains.upsert_domain_metadata(domain.id, attrs) do

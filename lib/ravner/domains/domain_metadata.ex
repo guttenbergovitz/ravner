@@ -63,6 +63,8 @@ defmodule Ravner.Domains.DomainMetadata do
     field(:heartbeat_interval_minutes, :integer)
     field(:ssl_check_interval_days, :integer)
     field(:tech_discovery_interval_days, :integer)
+    field(:http_scan_interval_days, :integer)
+    field(:dns_scan_interval_days, :integer)
     field(:is_up, :boolean)
     field(:last_heartbeat_at, :utc_datetime)
 
@@ -114,6 +116,8 @@ defmodule Ravner.Domains.DomainMetadata do
       :heartbeat_interval_minutes,
       :ssl_check_interval_days,
       :tech_discovery_interval_days,
+      :http_scan_interval_days,
+      :dns_scan_interval_days,
       :is_up,
       :last_heartbeat_at
     ])

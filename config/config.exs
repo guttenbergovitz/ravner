@@ -70,7 +70,9 @@ config :ravner, Oban,
      crontab: [
        {"* * * * *", Ravner.Workers.HeartbeatDispatcher},
        {"0 * * * *", Ravner.Workers.SecurityScanDispatcher},
-       {"0 3 * * *", Ravner.Workers.SslCheckDispatcher}
+       {"0 3 * * *", Ravner.Workers.SslCheckDispatcher},
+       {"30 * * * *", Ravner.Workers.HttpxScanDispatcher},
+       {"45 * * * *", Ravner.Workers.DnsxScanDispatcher}
      ]}
   ],
   queues: [

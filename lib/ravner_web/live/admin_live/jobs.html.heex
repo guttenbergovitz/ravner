@@ -134,6 +134,8 @@
               <tr>
                 <th class="px-4 py-3 font-normal">Domain</th>
                 <th class="px-4 py-3 font-normal">Heartbeat</th>
+                <th class="px-4 py-3 font-normal">HTTP</th>
+                <th class="px-4 py-3 font-normal">DNS</th>
                 <th class="px-4 py-3 font-normal">Security Scan</th>
                 <th class="px-4 py-3 font-normal text-right">Actions</th>
               </tr>
@@ -149,7 +151,25 @@
                   <td class="px-4 py-3">
                     <%= if meta.heartbeat_interval_minutes do %>
                       <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-blue-50 text-blue-700">
-                        Every {meta.heartbeat_interval_minutes} min
+                        {meta.heartbeat_interval_minutes} min
+                      </span>
+                    <% else %>
+                      <span class="text-neutral-400">—</span>
+                    <% end %>
+                  </td>
+                  <td class="px-4 py-3">
+                    <%= if meta.http_scan_interval_days do %>
+                      <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-emerald-50 text-emerald-700">
+                        {meta.http_scan_interval_days} d
+                      </span>
+                    <% else %>
+                      <span class="text-neutral-400">—</span>
+                    <% end %>
+                  </td>
+                  <td class="px-4 py-3">
+                    <%= if meta.dns_scan_interval_days do %>
+                      <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-indigo-50 text-indigo-700">
+                        {meta.dns_scan_interval_days} d
                       </span>
                     <% else %>
                       <span class="text-neutral-400">—</span>
@@ -158,7 +178,7 @@
                   <td class="px-4 py-3">
                     <%= if meta.scan_interval_days do %>
                       <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-purple-50 text-purple-700">
-                        Every {meta.scan_interval_days} days
+                        {meta.scan_interval_days} d
                       </span>
                     <% else %>
                       <span class="text-neutral-400">—</span>
