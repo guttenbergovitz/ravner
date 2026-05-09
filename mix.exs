@@ -4,8 +4,8 @@ defmodule Ravner.MixProject do
   def project do
     [
       app: :ravner,
-      version: "0.4.0",
-      elixir: "~> 1.15",
+      version: "0.5.0",
+      elixir: "~> 1.16",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
