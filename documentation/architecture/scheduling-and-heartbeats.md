@@ -1,82 +1,43 @@
 # Task Scheduling & Heartbeats
 
-**Status:** Proposed
+**Status:** Implemented
 
-## Problem
+## Overview
 
-As Ravner scales, relying on `Task.Supervisor` and in-memory process groups for bulk scanning and cyclic execution becomes brittle.
-- **Scheduling:** Users want to define "scan this every week" or "scan this every 30 days" per domain. Relying on a static global CRON or in-memory timers doesn't scale and makes UI-driven configuration difficult.
-- **Resilience:** If the BEAM node restarts during a bulk operation of 5,000 domains, the queue is lost.
-- **Uptime Monitoring:** We want a "poor man's StatusCake" — a fast, lightweight heartbeat check to verify domain uptime at high frequency (e.g., every 5 minutes), completely separate from the heavy security scanner.
+Ravner utilizes **Oban** (PostgreSQL-backed job queues) to handle all asynchronous work, ranging from heavy multi-tool security scans to high-frequency uptime heartbeats. To maintain scalability, the system avoids individual cron jobs per domain, instead employing the **Dispatcher Worker** pattern.
 
-## Architecture: Oban + Dispatcher Pattern
+## Architecture: The Dispatcher Pattern
 
-We will adopt **Oban** (PostgreSQL-backed job queues) to handle all asynchronous work. Instead of creating thousands of individual cron jobs, we will use the **Dispatcher Worker** pattern.
+The scheduling system is entirely data-driven. Instead of populating the queue with thousands of future jobs, we run global Dispatchers that query the database for "due" tasks and enqueue them on demand.
 
-### 1. Database Schema Additions
+### 1. Database Configuration
 
-Domains (or their settings) will gain interval configurations for any supported test type:
-- `scan_interval_days`: Integer. How often to run the full security pipeline. `nil` means manual only.
-- `heartbeat_interval_minutes`: Integer. How often to ping the domain for uptime. `nil` means disabled.
-- `ssl_check_interval_days`: Integer. Fast, daily checks for expiration.
-- `tech_discovery_interval_days`: Integer. Heavy, infrequent `katana` runs.
+Domain automation is controlled via interval columns in `domain_metadata`:
+- `scan_interval_days`: Full security pipeline (Naabu, Nuclei, etc.).
+- `http_scan_interval_days`: Reachability and status check (`httpx`).
+- `dns_scan_interval_days`: Record and resolution check (`dnsx`).
+- `heartbeat_interval_minutes`: High-frequency uptime ping.
 
 ### 2. The Heartbeat (Poor Man's StatusCake)
 
-A new, extremely lightweight worker: `Ravner.Workers.HeartbeatWorker`.
-- **Purpose:** Fires a fast HTTP GET/HEAD request.
-- **Action:** Updates a new field `is_up` (boolean) and `last_heartbeat_at` on `domain_metadata`. If the status changes (e.g., 200 -> 502), it can trigger a lifecycle state change or a notification in the future.
-- **Queue:** Runs on a dedicated, high-concurrency Oban queue (e.g., `queues: [heartbeats: 50]`).
+Implemented via `Ravner.Workers.HeartbeatWorker`.
+- **Method**: Fast HTTP HEAD/GET request using `httpx`.
+- **Payload**: Updates `is_up` and `last_heartbeat_at`.
+- **Isolation**: Runs on a dedicated `heartbeats` queue with high concurrency (50) to ensure pings are never delayed by long-running scans.
 
-### 3. The Dispatcher Pattern (Scalable Cron)
+### 3. Global Dispatchers
 
-Instead of a static cron for every test, we configure global Dispatcher jobs in Oban:
+Oban Cron triggers the following dispatchers:
+- `HeartbeatDispatcher` (Every minute)
+- `SecurityScanDispatcher` (Every hour)
+- `HttpxScanDispatcher` (Hourly)
+- `DnsxScanDispatcher` (Hourly)
 
-1.  **`Ravner.Workers.HeartbeatDispatcher`** (Runs every minute)
-2.  **`Ravner.Workers.SecurityScanDispatcher`** (Runs every hour)
-3.  **`Ravner.Workers.SslCheckDispatcher`** (Runs daily)
+Each dispatcher performs an efficient SQL fragment check to identify domains where the `last_scanned_at + interval < NOW()`, enqueuing the appropriate worker for each match.
 
-**How a Dispatcher works:**
-When a Dispatcher runs, it executes a single Ecto query. For example, `SslCheckDispatcher` asks:
-*"Find all domains where `ssl_check_interval_days` is not null AND (`ssl_scanned_at` is null OR `ssl_scanned_at` + interval < NOW())."*
+## Observability & Management
 
-For every matching domain, the dispatcher enqueues a specific worker (`SslCheckWorker`). 
+Administration is handled via the **Jobs Dashboard** (`/admin/jobs`):
+- **Queue History**: Real-time view of executing, available, and completed jobs. High-frequency dispatchers are hidden by default to reduce noise.
+- **Active Schedules**: A consolidated list of all domains with automation enabled, allowing administrators to disable all schedules for a specific domain with a single click.
 
-**Why this scales to any test:**
-- **Zero collisions:** A 5-minute heartbeat and a 30-day deep crawl run entirely independently.
-- **Queue Segregation:** We isolate resources based on job weight.
-  ```elixir
-  queues: [
-    heartbeats: 50, # Fast HTTP pings, high concurrency
-    ssl_checks: 20, # Fast certificate fetches
-    scans: 5,       # Medium weight (httpx, naabu)
-    deep_tech: 2    # Heavy CPU/IO (katana), strictly limited
-  ]
-  ```
-- **UI Driven:** The frontend provides simple toggles (e.g., "Check SSL: Daily", "Deep Scan: Monthly"). The UI just updates the database interval columns, and the Dispatchers automatically pick up or drop the schedules.
-
-### 4. Bulk Operations via Oban
-
-The bulk operations UI currently uses `Task.async_stream`. This will be swapped to inserting Oban jobs.
-
-```elixir
-# Bulk scan execution becomes an insert-loop
-for id <- selected_ids do
-  %{
-    domain_id: id,
-    scan_type: "security_scan",
-    include_subdomains: include_subdomains?
-  }
-  |> Ravner.Workers.ScanWorker.new()
-  |> Oban.insert()
-end
-```
-
-**Benefits:**
-- **Zero blocking:** The UI responds instantly with "Added N domains to the scan queue".
-- **Rate limiting:** The `scans` queue processes them at the exact concurrency limit defined in our configuration, protecting the host OS from process exhaustion.
-- **Granularity:** Jobs carry their specific payload. Some jobs in the queue might have `include_subdomains: true`, others `false`. Oban handles them individually.
-
-## Dashboard & Observability
-
-We will install `oban_live_dashboard` to inject queue monitoring into Phoenix LiveDashboard. This gives engineers and admins a free UI at `/dev/dashboard` to pause queues, inspect failed jobs, and view cron execution history without writing any custom administration views.

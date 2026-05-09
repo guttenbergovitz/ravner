@@ -8,15 +8,22 @@ Ravner is an automated discovery and security auditing engine designed to map in
 
 ## Core Discovery Pipeline
 
-The system operates on a multi-stage discovery model:
+The system operates on a multi-stage discovery model, which can be triggered manually or automated via schedules:
 
 1.  **Identity**: DNS resolution (`dnsx`) and registration details (`rdap/whois`).
 2.  **Reachability**: HTTP probing (`httpx`) to determine status, final URLs, and server headers.
 3.  **Topology**: Subdomain enumeration via passive and active sources (Chaos, HackerTarget, crt.sh).
 4.  **Security**: Port discovery (`naabu`) and targeted vulnerability scanning (`nuclei`) scoped to high-impact findings.
 5.  **Intelligence**: Technology stack fingerprints via `webanalyze` (Wappalyzer) and deep crawling via `katana`.
+6.  **Persistence**: Continuous uptime monitoring via lightweight heartbeats.
 
-## Engineering Standards
+## Automation & Scheduling
+
+Ravner utilizes **Oban** for reliable background task processing and persistent scheduling. 
+
+- **Granular Intervals**: Configure independent schedules for Heartbeats (minutes), HTTP scans (days), DNS scans (days), and full Security scans (days) per domain.
+- **Dispatcher Pattern**: Efficient database-driven scheduling that scales to thousands of domains without queue bloat.
+- **Observability**: Real-time queue monitoring and schedule management via the Admin Jobs dashboard.
 
 The project follows strict Elixir/Phoenix idiomatic patterns:
 
