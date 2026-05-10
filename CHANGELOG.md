@@ -7,20 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-09
+
 ### Added
 
-- **Lean security scanner** — single `Run Security Scan` action chains httpx → naabu → tightly-scoped nuclei (critical/high only, HTTP/HTTPS surface). Persists derived `open_ports`, `tech_stack`, `http_status`, `final_url`, `server_header`, `hosting_platform`, and `last_security_scan_at` to `domain_metadata`.
-- **Severity badge row** at the top of every domain page, derived from the latest completed scan.
-- **Open ports chips** in the Infrastructure section.
+- **Oban-based Task Scheduling** — Integrated Oban for reliable, PostgreSQL-backed background task processing and persistent scheduling.
+- **Granular Automation** — Added configurable intervals for Heartbeats (minutes), HTTP scans (days), DNS scans (days), and full Security scans (days) per domain.
+- **Dispatcher Pattern** — Implemented a scalable, database-driven scheduling model that handles thousands of domains without queue bloat.
+- **Uptime Heartbeats (Internal Status monitor)** — Lightweight heartbeat system for continuous availability monitoring, decoupled from heavy security scans.
+- **Admin Jobs Dashboard** — A dedicated administrative view at `/admin/jobs` for real-time queue monitoring and unified schedule management.
+- **Architecture Roadmap** — Documented the long-term technical evolution plan, including JSONB normalization and tooling abstraction.
 
 ### Changed
 
-- **Security Posture section** simplified to show only the current scan (running, latest completed, latest failure, or empty state) — no more historical stream of per-tool cards.
-- Security scans are now available to admins **and editors** (previously admin-only).
+- **UI Component Decomposition** — Refactored the `DomainLive.Show` "god-file" into reusable FunctionComponents (`DomainComponents`) and a state-isolated `SecurityPostureComponent`.
+- **Lean security scanner** — single `Run Security Scan` action chains httpx → naabu → tightly-scoped nuclei (critical/high only). Persists derived metadata including `open_ports`, `tech_stack`, and `hosting_platform`.
+- **Documentation Overhaul** — Centralized and modernized the project documentation with a focus on engineering standards and discovery pipelines.
+- **Unified Disabled State** — Scan triggers are now globally synchronized; initiating any scan type properly grays out all other triggers to prevent concurrency conflicts.
 
-### Removed
+### Fixed
 
-- Standalone Naabu / Nuclei / httpx scan entry points and the "Advanced Tools" UI block.
+- **Boolean Attribute Rendering** — Fixed a `Protocol.UndefinedError` by ensuring Ecto structs are not passed directly to HTML boolean attributes.
+- **Upsert Metadata Logic** — Fixed a bug where unsetting intervals to `nil` was ignored by the database during upsert operations.
 
 ## [0.4.0] - 2026-05-02
 
@@ -49,52 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-04-28
 
-### Added
-
 ...
-[Unreleased]: https://github.com/guttenbergovitz/balebos/compare/v0.4.0...HEAD
+
+[Unreleased]: https://github.com/guttenbergovitz/balebos/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/guttenbergovitz/balebos/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/guttenbergovitz/balebos/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/guttenbergovitz/balebos/compare/v0.2.0...v0.3.0
-- **New lifecycle states**: `priority` (teal), `placeholder` (violet), `redirect` (cyan), `error` (red)
-- Auto-detect lifecycle state after HTTP scan: external redirect → `redirect`, HTTP error → `error`
-- **Quick scan button** on every domain/subdomain row with spinning animation and grayed-out state during scan
-- **Rich domain listing rows**: HTTP status with redirect target, IP address, tech stack, last scanned time
-- Clickable URLs in redirect chain and listing (open in new tab)
-- **crt.sh fallback** for subdomain discovery when Chaos and HackerTarget fail
-- HTTP fallback when HTTPS TLS fails (e.g., `campus-josera.pl`)
-
-### Fixed
-
-- Treat empty subdomain results as valid (no error flash)
-- crt.sh timeout handling (8s timeout, graceful degradation)
-- External redirect detection after full redirect chain follow
-
-## [0.2.0] - 2026-04-28
-
-### Added
-
-- **Domain listing search, filter, pagination** with autocomplete suggestions
-- Applied filters chips with individual clear buttons
-- **Bulk import** with apex domain detection and import summary
-- **RBAC** — role-based access control (viewer, editor, admin)
-- User management and invite system
-
-### Fixed
-
-- Chaos API authentication header format
-- HackerTarget "API count exceeded" error detection
-
-## [0.1.0] - 2026-04-27
-
-### Added
-
-- Initial release
-- Domain and subdomain management
-- HTTP, DNS, RDAP, subdomain scanning
-- Lifecycle state management (active, under_review, deprecated, decommissioned, abandoned)
-- Basic TUI dashboard
-
-[Unreleased]: https://github.com/guttenbergovitz/balebos/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/guttenbergovitz/balebos/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/guttenbergovitz/balebos/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/guttenbergovitz/balebos/releases/tag/v0.1.0
