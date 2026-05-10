@@ -16,11 +16,11 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 ## Phase 1: Foundation & Ash Installation
 *Goal: Install dependencies and set up the basic Ash Domain without touching existing business logic.*
 
-- [ ] Add `ash`, `ash_postgres`, and `picosat` (for ID generation) to `mix.exs`.
-- [ ] Run `mix deps.get` and `mix deps.compile`.
-- [ ] Configure Ash in `config.exs` and `test.exs` (e.g., set up `Ash.Domain` registry).
-- [ ] Create `Ravner.Inventory.AshDomain` module.
-- [ ] Run `mix test` (Should pass cleanly; dependencies only).
+- [x] Add `ash`, `ash_postgres`, and `picosat` (for ID generation) to `mix.exs`.
+- [x] Run `mix deps.get` and `mix deps.compile`.
+- [x] Configure Ash in `config.exs` and `test.exs` (e.g., set up `Ash.Domain` registry).
+- [x] Create `Ravner.Inventory.AshDomain` module.
+- [x] Run `mix test` (Should pass cleanly; dependencies only).
 
 ---
 
