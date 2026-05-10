@@ -5,6 +5,11 @@ defmodule Ravner.Inventory.AshDomain do
   use Ash.Domain
 
   resources do
-    # Resources will be registered here as they are converted in Phase 2
+    resource Ravner.Inventory.Brand
+    resource Ravner.Inventory.Organization
+    resource Ravner.Inventory.Project
+    resource Ravner.Inventory.ProjectRepository
+    resource Ravner.Inventory.Person
+    resource Ravner.Inventory.ProjectRole
   end
 end

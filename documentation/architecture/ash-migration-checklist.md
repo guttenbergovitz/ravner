@@ -27,23 +27,23 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 ## Phase 2: Inventory Entities (Facade Pattern)
 *Goal: Map existing Ecto schemas in `Ravner.Inventory` to Ash Resources, using the current database tables. The UI still uses the old Ecto context.*
 
-- [ ] **Convert `Ravner.Inventory.Brand`**
-  - [ ] Create `Ravner.Inventory.Brand.Resource`.
-  - [ ] Define attributes matching the `brands` table.
-  - [ ] Add basic CRUD actions (`create`, `read`, `update`, `destroy`).
-  - [ ] Add `AshPostgres.DataLayer` mapping to `"brands"`.
-- [ ] **Convert `Ravner.Inventory.Organization`**
-  - [ ] Map to `"organizations"`.
-  - [ ] Define `belongs_to :brand` and `has_many :projects` relationships.
-- [ ] **Convert `Ravner.Inventory.Project`**
-  - [ ] Map to `"projects"`.
-  - [ ] Define relationships (`belongs_to :organization`).
-- [ ] **Convert Identity Entities**
-  - [ ] Convert `Ravner.Inventory.Person`.
-  - [ ] Convert `Ravner.Inventory.ProjectRole`.
-- [ ] **Refactor Context as Facade**
-  - [ ] Update `lib/ravner/inventory.ex` to delegate functions (e.g., `create_brand/1`) to `Ash.create!/2`.
-  - [ ] *Regression Check:* Run `mix test`. Existing UI and context tests MUST pass. If they fail, fix the Ash Resource definitions until the facade behaves identically to pure Ecto.
+- [x] **Convert `Ravner.Inventory.Brand`**
+  - [x] Create `Ravner.Inventory.Brand.Resource`.
+  - [x] Define attributes matching the `brands` table.
+  - [x] Add basic CRUD actions (`create`, `read`, `update`, `destroy`).
+  - [x] Add `AshPostgres.DataLayer` mapping to `"brands"`.
+- [x] **Convert `Ravner.Inventory.Organization`**
+  - [x] Map to `"organizations"`.
+  - [x] Define `belongs_to :brand` and `has_many :projects` relationships.
+- [x] **Convert `Ravner.Inventory.Project`**
+  - [x] Map to `"projects"`.
+  - [x] Define relationships (`belongs_to :organization`).
+- [x] **Convert Identity Entities**
+  - [x] Convert `Ravner.Inventory.Person`.
+  - [x] Convert `Ravner.Inventory.ProjectRole`.
+- [x] **Refactor Context as Facade**
+  - [x] Update `lib/ravner/inventory.ex` to delegate functions (e.g., `create_brand/1`) to `Ash.create!/2`.
+  - [x] *Regression Check:* Run `mix test`. Existing UI and context tests MUST pass. If they fail, fix the Ash Resource definitions until the facade behaves identically to pure Ecto.
 
 ---
 
