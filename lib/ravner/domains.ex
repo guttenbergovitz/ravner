@@ -447,9 +447,7 @@ defmodule Ravner.Domains do
     Domain
     |> where(type: :domain)
     |> Repo.all()
-    |> Repo.preload([:parent_domain, :subdomains, :domain_tags, :domain_metadata],
-      in_parallel: false
-    )
+    |> Ash.load!([:parent_domain, :subdomains, :domain_tags, :domain_metadata])
   end
 
   @spec get_domain!(integer() | String.t()) :: Domain.t()
@@ -489,13 +487,7 @@ defmodule Ravner.Domains do
     Domain
     |> where([d], d.id in ^ids)
     |> Repo.all()
-    |> Repo.preload(
-      [
-        :parent_domain,
-        subdomains: :domain_metadata
-      ],
-      in_parallel: false
-    )
+    |> Ash.load!([:parent_domain, subdomains: :domain_metadata])
   end
 
   @doc """
@@ -503,7 +495,7 @@ defmodule Ravner.Domains do
   Used for lazy-loading when expanding a domain in the listing.
   """
   def preload_subdomain_metadata(%Domain{subdomains: subs} = domain) when is_list(subs) do
-    %{domain | subdomains: Repo.preload(subs, :domain_metadata)}
+    %{domain | subdomains: Ash.load!(subs, :domain_metadata)}
   end
 
   def preload_subdomain_metadata(domain), do: domain

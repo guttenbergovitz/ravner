@@ -62,11 +62,11 @@ defmodule Ravner.Inventory do
 
   @spec list_organizations() :: [Organization.t()]
   def list_organizations do
-    Repo.all(Organization) |> Repo.preload([:brand])
+    Organization |> Ash.read!() |> Ash.load!([:brand])
   end
 
   @spec get_organization!(integer() | String.t()) :: Organization.t()
-  def get_organization!(id), do: Repo.get!(Organization, id) |> Repo.preload([:brand])
+  def get_organization!(id), do: Organization |> Ash.get!(id) |> Ash.load!([:brand])
 
   @spec create_organization(map(), keyword()) ::
           {:ok, Organization.t()} | {:error, Ecto.Changeset.t() | atom()}
@@ -109,11 +109,11 @@ defmodule Ravner.Inventory do
     end)
     |> order_by([p], asc: p.last_name, asc: p.first_name)
     |> Repo.all()
-    |> Repo.preload([:organization])
+    |> Ash.load!([:organization])
   end
 
   @spec get_person!(integer() | String.t()) :: Person.t()
-  def get_person!(id), do: Repo.get!(Person, id) |> Repo.preload([:organization, :project_roles])
+  def get_person!(id), do: Person |> Ash.get!(id) |> Ash.load!([:organization, :project_roles])
 
   @spec create_person(map(), keyword()) ::
           {:ok, Person.t()} | {:error, Ecto.Changeset.t() | atom()}
@@ -214,7 +214,7 @@ defmodule Ravner.Inventory do
     ProjectRole
     |> where([pr], pr.project_id == ^project_id)
     |> Repo.all()
-    |> Repo.preload([:person])
+    |> Ash.load!([:person])
   end
 
   @spec list_project_roles_for_person(integer() | String.t()) :: [ProjectRole.t()]
@@ -222,11 +222,11 @@ defmodule Ravner.Inventory do
     ProjectRole
     |> where([pr], pr.person_id == ^person_id)
     |> Repo.all()
-    |> Repo.preload([:project])
+    |> Ash.load!([:project])
   end
 
   @spec get_project_role!(integer() | String.t()) :: ProjectRole.t()
-  def get_project_role!(id), do: Repo.get!(ProjectRole, id) |> Repo.preload([:project, :person])
+  def get_project_role!(id), do: ProjectRole |> Ash.get!(id) |> Ash.load!([:project, :person])
 
   @spec create_project_role(map(), keyword()) ::
           {:ok, ProjectRole.t()} | {:error, Ecto.Changeset.t() | atom()}
@@ -241,7 +241,7 @@ defmodule Ravner.Inventory do
       )
 
     case result do
-      {:ok, pr} -> {:ok, Repo.preload(pr, [:project, :person])}
+      {:ok, pr} -> {:ok, Ash.load!(pr, [:project, :person])}
       error -> error
     end
   end
