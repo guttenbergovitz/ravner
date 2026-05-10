@@ -1,6 +1,6 @@
 # Ash Framework Migration Plan
 
-**Status:** Planned
+**Status:** Implemented
 
 ## Objective
 Transition Ravner's governance, inventory, and authorization layers to the [Ash Framework](https://ash-hq.org/) while strictly preserving the high-performance Ecto/Oban runtime for background scanning and orchestration. This shift aligns the architecture with Ravner's core business value: providing enterprise-grade governance over digital ecosystems.

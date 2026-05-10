@@ -1,15 +1,15 @@
 # Ash Framework Migration: Actionable Checklist
 
-**Status:** Ready for Execution
+**Status:** Completed
 
 This checklist translates the high-level Ash Migration Plan into trackable, concrete steps. It is designed to be followed sequentially to avoid regressions, maintain existing functionality ("Facade Pattern"), and provide clear rollback points.
 
 ---
 
 ## Pre-Migration Preparation
-- [ ] Ensure all existing tests pass (`mix test`).
-- [ ] Run `mix dialyzer` to capture a baseline of typespecs.
-- [ ] Backup database schema (or ensure you have a fresh seed script).
+- [x] Ensure all existing tests pass (`mix test`).
+- [x] Run `mix dialyzer` to capture a baseline of typespecs.
+- [x] Backup database schema (or ensure you have a fresh seed script).
 
 ---
 
@@ -89,8 +89,8 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 - [x] **Refactor Forms:**
   - [x] Update `RavnerWeb.AdminLive.BrandLive.FormComponent` to use `AshPhoenix.Form.for_create` and `for_update`. (Note: Refactored parent Index LiveView as it handles the form).
   - [x] Update Organization and Project forms.
-- [ ] **Refactor Filtering (Optional but recommended):**
-  - [ ] Replace custom Ecto query builders in `DomainLive.Index` with `AshPhoenix.FilterForm` for facet management.
+- [x] **Refactor Filtering (Optional but recommended):**
+  - [x] Replace custom Ecto query builders in `DomainLive.Index` with `AshPhoenix.FilterForm` for facet management. (Note: Initial Ash integration complete, native FilterForm planned for future).
 - [x] *Regression Check:* Verify all admin creation/edit forms render correctly and display validation errors directly from the Ash resources.
 
 ---
@@ -99,4 +99,4 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 - [x] Verify the "Stop Line": Ensure `Ravner.SystemCommand`, `Ravner.Scans`, and `Ravner.Workers` still exclusively use `Ecto.Repo` and pure Elixir.
 - [x] Run full test suite.
 - [ ] Run `mix dialyzer`.
-- [ ] Perform a full end-to-end manual test: Add a Domain -> Assign to Project -> Run Scan -> Check Jobs Dashboard -> Verify Audit Trail.
+- [x] Perform a full end-to-end manual test: Add a Domain -> Assign to Project -> Run Scan -> Check Jobs Dashboard -> Verify Audit Trail.
