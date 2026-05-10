@@ -23,8 +23,8 @@ defmodule Ravner.Domains.DiscoveredUrl do
     attribute :content_type, :string
     attribute :source, :string
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp :inserted_at, type: :utc_datetime
+    update_timestamp :updated_at, type: :utc_datetime
   end
 
   relationships do

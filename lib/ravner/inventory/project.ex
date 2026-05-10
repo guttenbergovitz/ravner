@@ -51,8 +51,8 @@ defmodule Ravner.Inventory.Project do
     attribute :description, :string
     attribute :notes, :string
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp :inserted_at, type: :utc_datetime
+    update_timestamp :updated_at, type: :utc_datetime
   end
 
   relationships do

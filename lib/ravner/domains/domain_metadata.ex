@@ -193,8 +193,8 @@ defmodule Ravner.Domains.DomainMetadata do
     attribute :is_up, :boolean
     attribute :last_heartbeat_at, :utc_datetime
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp :inserted_at, type: :utc_datetime
+    update_timestamp :updated_at, type: :utc_datetime
   end
 
   relationships do

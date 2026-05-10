@@ -24,8 +24,8 @@ defmodule Ravner.Domains.DnsRecord do
     end
     attribute :ttl, :integer
 
-    create_timestamp :inserted_at
-    update_timestamp :updated_at
+    create_timestamp :inserted_at, type: :utc_datetime
+    update_timestamp :updated_at, type: :utc_datetime
   end
 
   relationships do
