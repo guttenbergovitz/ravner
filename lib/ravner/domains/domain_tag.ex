@@ -6,23 +6,25 @@ defmodule Ravner.Domains.DomainTag do
   import Ecto.Changeset
 
   postgres do
-    table "domain_tags"
-    repo Ravner.Repo
+    table("domain_tags")
+    repo(Ravner.Repo)
   end
 
   actions do
-    defaults [:read, :destroy, :create, :update]
+    defaults([:read, :destroy, :create, :update])
   end
 
   attributes do
-    integer_primary_key :id
-    attribute :tag, :string do
-      allow_nil? false
-    end
-    attribute :removed_at, :utc_datetime
+    integer_primary_key(:id)
 
-    create_timestamp :inserted_at, type: :utc_datetime
-    update_timestamp :updated_at, type: :utc_datetime
+    attribute :tag, :string do
+      allow_nil?(false)
+    end
+
+    attribute(:removed_at, :utc_datetime)
+
+    create_timestamp(:inserted_at, type: :utc_datetime)
+    update_timestamp(:updated_at, type: :utc_datetime)
   end
 
   relationships do

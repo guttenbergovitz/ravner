@@ -6,25 +6,27 @@ defmodule Ravner.Domains.DiscoveredUrl do
   import Ecto.Changeset
 
   postgres do
-    table "domain_discovered_urls"
-    repo Ravner.Repo
+    table("domain_discovered_urls")
+    repo(Ravner.Repo)
   end
 
   actions do
-    defaults [:read, :destroy, :create, :update]
+    defaults([:read, :destroy, :create, :update])
   end
 
   attributes do
-    integer_primary_key :id
-    attribute :url, :string do
-      allow_nil? false
-    end
-    attribute :status, :integer
-    attribute :content_type, :string
-    attribute :source, :string
+    integer_primary_key(:id)
 
-    create_timestamp :inserted_at, type: :utc_datetime
-    update_timestamp :updated_at, type: :utc_datetime
+    attribute :url, :string do
+      allow_nil?(false)
+    end
+
+    attribute(:status, :integer)
+    attribute(:content_type, :string)
+    attribute(:source, :string)
+
+    create_timestamp(:inserted_at, type: :utc_datetime)
+    update_timestamp(:updated_at, type: :utc_datetime)
   end
 
   relationships do

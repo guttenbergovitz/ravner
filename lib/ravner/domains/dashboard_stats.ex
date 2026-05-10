@@ -383,11 +383,8 @@ defmodule Ravner.Domains.DashboardStats do
       :active,
       :placeholder,
       :under_review,
-      :insecure,
-      :redirect,
       :deprecated,
       :decommissioned,
-      :error,
       :abandoned
     ]
 
@@ -396,11 +393,8 @@ defmodule Ravner.Domains.DashboardStats do
       active: "Active",
       placeholder: "Placeholder",
       under_review: "Under review",
-      insecure: "Insecure HTTP",
-      redirect: "Redirect",
       deprecated: "Deprecated",
       decommissioned: "Decommissioned",
-      error: "Error",
       abandoned: "Abandoned"
     }
 

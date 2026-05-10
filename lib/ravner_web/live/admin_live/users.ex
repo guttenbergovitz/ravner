@@ -60,7 +60,9 @@ defmodule RavnerWeb.AdminLive.Users do
   def handle_event("deactivate", %{"id" => id}, socket) do
     user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
 
-    case Accounts.admin_update_user(user, %{active: false}) do
+    case Accounts.admin_update_user(user, %{active: false},
+           actor: socket.assigns.current_scope.user
+         ) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -75,7 +77,9 @@ defmodule RavnerWeb.AdminLive.Users do
   def handle_event("activate", %{"id" => id}, socket) do
     user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
 
-    case Accounts.admin_update_user(user, %{active: true}) do
+    case Accounts.admin_update_user(user, %{active: true},
+           actor: socket.assigns.current_scope.user
+         ) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -92,7 +96,7 @@ defmodule RavnerWeb.AdminLive.Users do
   end
 
   defp do_create(socket, params) do
-    case Accounts.admin_create_user(params) do
+    case Accounts.admin_create_user(params, actor: socket.assigns.current_scope.user) do
       {:ok, _user} ->
         {:noreply,
          socket
@@ -106,7 +110,9 @@ defmodule RavnerWeb.AdminLive.Users do
   end
 
   defp do_update(socket, params) do
-    case Accounts.admin_update_user(socket.assigns.user, params) do
+    case Accounts.admin_update_user(socket.assigns.user, params,
+           actor: socket.assigns.current_scope.user
+         ) do
       {:ok, _user} ->
         {:noreply,
          socket

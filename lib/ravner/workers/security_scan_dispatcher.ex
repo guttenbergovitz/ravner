@@ -12,7 +12,7 @@ defmodule Ravner.Workers.SecurityScanDispatcher do
   def perform(_job) do
     # Find domains where scan_interval_days is not null AND
     # (last_security_scan_at is null OR last_security_scan_at + interval < NOW())
-    
+
     query =
       from(m in DomainMetadata,
         where: not is_nil(m.scan_interval_days),

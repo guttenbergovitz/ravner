@@ -43,9 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Codebase refactoring** — broken down "God Modules":
-    - Extracted `DashboardStats` to its own module.
-    - Refactored `Domains` query builder to use idiomatic functional pipelines.
-    - Simplified `Scans` fallback logic using `Enum.find_value/3`.
+  - Extracted `DashboardStats` to its own module.
+  - Refactored `Domains` query builder to use idiomatic functional pipelines.
+  - Simplified `Scans` fallback logic using `Enum.find_value/3`.
 - **LiveView optimization** — reduced cyclomatic complexity by using pattern matching for event handlers and extracting filter parsing logic.
 - **Documentation** — added comprehensive `@spec`, `@type`, and `@doc` annotations for better human and LLM onboarding.
 
@@ -63,5 +63,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.5.0]: https://github.com/guttenbergovitz/balebos/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/guttenbergovitz/balebos/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/guttenbergovitz/balebos/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/guttenbergovitz/balebos/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/guttenbergovitz/balebos/releases/tag/v0.1.0

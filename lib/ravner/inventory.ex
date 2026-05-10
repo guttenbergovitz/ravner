@@ -29,12 +29,14 @@ defmodule Ravner.Inventory do
     execute_ash_action(Brand, :create, attrs, opts, Brand.changeset(%Brand{}, attrs))
   end
 
-  @spec update_brand(Brand.t(), map(), keyword()) :: {:ok, Brand.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec update_brand(Brand.t(), map(), keyword()) ::
+          {:ok, Brand.t()} | {:error, Ecto.Changeset.t() | atom()}
   def update_brand(%Brand{} = brand, attrs, opts \\ []) do
     execute_ash_action(brand, :update, attrs, opts, Brand.changeset(brand, attrs))
   end
 
-  @spec delete_brand(Brand.t(), keyword()) :: {:ok, Brand.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec delete_brand(Brand.t(), keyword()) ::
+          {:ok, Brand.t()} | {:error, Ecto.Changeset.t() | atom()}
   def delete_brand(%Brand{} = brand, opts \\ []) do
     execute_ash_action(brand, :destroy, %{}, opts, Brand.changeset(brand, %{}))
   end
@@ -69,7 +71,13 @@ defmodule Ravner.Inventory do
   @spec create_organization(map(), keyword()) ::
           {:ok, Organization.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_organization(attrs \\ %{}, opts \\ []) do
-    execute_ash_action(Organization, :create, attrs, opts, Organization.changeset(%Organization{}, attrs))
+    execute_ash_action(
+      Organization,
+      :create,
+      attrs,
+      opts,
+      Organization.changeset(%Organization{}, attrs)
+    )
   end
 
   @spec update_organization(Organization.t(), map(), keyword()) ::
@@ -107,7 +115,8 @@ defmodule Ravner.Inventory do
   @spec get_person!(integer() | String.t()) :: Person.t()
   def get_person!(id), do: Repo.get!(Person, id) |> Repo.preload([:organization, :project_roles])
 
-  @spec create_person(map(), keyword()) :: {:ok, Person.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec create_person(map(), keyword()) ::
+          {:ok, Person.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_person(attrs \\ %{}, opts \\ []) do
     execute_ash_action(Person, :create, attrs, opts, Person.changeset(%Person{}, attrs))
   end
@@ -118,7 +127,8 @@ defmodule Ravner.Inventory do
     execute_ash_action(person, :update, attrs, opts, Person.changeset(person, attrs))
   end
 
-  @spec delete_person(Person.t(), keyword()) :: {:ok, Person.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec delete_person(Person.t(), keyword()) ::
+          {:ok, Person.t()} | {:error, Ecto.Changeset.t() | atom()}
   def delete_person(%Person{} = person, opts \\ []) do
     execute_ash_action(person, :destroy, %{}, opts, Person.changeset(person, %{}))
   end
@@ -152,16 +162,18 @@ defmodule Ravner.Inventory do
     end)
     |> order_by([p], asc: p.name)
     |> Repo.all()
-    |> Repo.preload([:organization])
+    |> Ash.load!([:organization])
   end
 
   @spec get_project!(integer() | String.t()) :: Project.t()
   def get_project!(id) do
-    Repo.get!(Project, id)
-    |> Repo.preload([:organization, :project_roles])
+    Project
+    |> Ash.get!(id)
+    |> Ash.load!([:organization, :project_roles])
   end
 
-  @spec create_project(map(), keyword()) :: {:ok, Project.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec create_project(map(), keyword()) ::
+          {:ok, Project.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_project(attrs \\ %{}, opts \\ []) do
     execute_ash_action(Project, :create, attrs, opts, Project.changeset(%Project{}, attrs))
   end
@@ -172,7 +184,8 @@ defmodule Ravner.Inventory do
     execute_ash_action(project, :update, attrs, opts, Project.changeset(project, attrs))
   end
 
-  @spec delete_project(Project.t(), keyword()) :: {:ok, Project.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec delete_project(Project.t(), keyword()) ::
+          {:ok, Project.t()} | {:error, Ecto.Changeset.t() | atom()}
   def delete_project(%Project{} = project, opts \\ []) do
     execute_ash_action(project, :destroy, %{}, opts, Project.changeset(project, %{}))
   end
@@ -218,7 +231,14 @@ defmodule Ravner.Inventory do
   @spec create_project_role(map(), keyword()) ::
           {:ok, ProjectRole.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_project_role(attrs \\ %{}, opts \\ []) do
-    result = execute_ash_action(ProjectRole, :create, attrs, opts, ProjectRole.changeset(%ProjectRole{}, attrs))
+    result =
+      execute_ash_action(
+        ProjectRole,
+        :create,
+        attrs,
+        opts,
+        ProjectRole.changeset(%ProjectRole{}, attrs)
+      )
 
     case result do
       {:ok, pr} -> {:ok, Repo.preload(pr, [:project, :person])}
@@ -253,7 +273,13 @@ defmodule Ravner.Inventory do
   @spec create_project_repository(map(), keyword()) ::
           {:ok, ProjectRepository.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_project_repository(attrs \\ %{}, opts \\ []) do
-    execute_ash_action(ProjectRepository, :create, attrs, opts, ProjectRepository.changeset(%ProjectRepository{}, attrs))
+    execute_ash_action(
+      ProjectRepository,
+      :create,
+      attrs,
+      opts,
+      ProjectRepository.changeset(%ProjectRepository{}, attrs)
+    )
   end
 
   @spec update_project_repository(ProjectRepository.t(), map(), keyword()) ::

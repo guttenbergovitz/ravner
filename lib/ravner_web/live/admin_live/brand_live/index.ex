@@ -86,8 +86,9 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
          |> assign(:brands, Inventory.list_brands())}
 
       {:error, :forbidden} ->
-        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
-        
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
+
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete brand.")}
     end

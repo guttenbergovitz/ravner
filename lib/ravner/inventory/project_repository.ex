@@ -9,53 +9,53 @@ defmodule Ravner.Inventory.ProjectRepository do
   @kinds ~w(website portal ecommerce cms landing app api library tool documentation config other)
 
   postgres do
-    table "project_repositories"
-    repo Ravner.Repo
+    table("project_repositories")
+    repo(Ravner.Repo)
   end
 
   policies do
     policy action_type(:read) do
-      authorize_if always()
+      authorize_if(always())
     end
 
     policy action_type([:create, :update, :destroy]) do
-      authorize_if actor_attribute_equals(:role, :admin)
-      authorize_if actor_attribute_equals(:role, :editor)
+      authorize_if(actor_attribute_equals(:role, :admin))
+      authorize_if(actor_attribute_equals(:role, :editor))
     end
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults([:read, :destroy])
 
     create :create do
-      primary? true
-      accept [:url, :kind, :main_language, :technology, :notes, :project_id]
+      primary?(true)
+      accept([:url, :kind, :main_language, :technology, :notes, :project_id])
     end
 
     update :update do
-      primary? true
-      accept [:url, :kind, :main_language, :technology, :notes, :project_id]
+      primary?(true)
+      accept([:url, :kind, :main_language, :technology, :notes, :project_id])
     end
   end
 
   attributes do
-    integer_primary_key :id
+    integer_primary_key(:id)
 
     attribute :url, :string do
-      allow_nil? false
+      allow_nil?(false)
     end
 
     attribute :kind, :string do
-      default "website"
-      allow_nil? false
+      default("website")
+      allow_nil?(false)
     end
 
-    attribute :main_language, :string
-    attribute :technology, :string
-    attribute :notes, :string
+    attribute(:main_language, :string)
+    attribute(:technology, :string)
+    attribute(:notes, :string)
 
-    create_timestamp :inserted_at, type: :utc_datetime
-    update_timestamp :updated_at, type: :utc_datetime
+    create_timestamp(:inserted_at, type: :utc_datetime)
+    update_timestamp(:updated_at, type: :utc_datetime)
   end
 
   relationships do

@@ -105,8 +105,7 @@ defmodule RavnerWeb.DomainLive.SecurityPostureComponent do
                       <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-red-500"></span>
                         <span class="text-xs font-light text-neutral-600">
-                          Critical:
-                          <span class="font-medium text-neutral-900">{critical_count}</span>
+                          Critical: <span class="font-medium text-neutral-900">{critical_count}</span>
                         </span>
                       </div>
                       <div class="flex items-center gap-2">
@@ -118,8 +117,7 @@ defmodule RavnerWeb.DomainLive.SecurityPostureComponent do
                       <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
                         <span class="text-xs font-light text-neutral-600">
-                          Medium:
-                          <span class="font-medium text-neutral-900">{medium_count}</span>
+                          Medium: <span class="font-medium text-neutral-900">{medium_count}</span>
                         </span>
                       </div>
                       <div class="flex items-center gap-2">

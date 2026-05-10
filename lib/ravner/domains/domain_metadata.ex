@@ -6,16 +6,17 @@ defmodule Ravner.Domains.DomainMetadata do
   import Ecto.Changeset
 
   postgres do
-    table "domain_metadata"
-    repo Ravner.Repo
+    table("domain_metadata")
+    repo(Ravner.Repo)
   end
 
   actions do
-    defaults [:read, :destroy]
+    defaults([:read, :destroy])
 
     create :create do
-      primary? true
-      accept [
+      primary?(true)
+
+      accept([
         :domain_id,
         :http_status,
         :final_url,
@@ -59,12 +60,13 @@ defmodule Ravner.Domains.DomainMetadata do
         :dns_scan_interval_days,
         :is_up,
         :last_heartbeat_at
-      ]
+      ])
     end
 
     update :update do
-      primary? true
-      accept [
+      primary?(true)
+
+      accept([
         :domain_id,
         :http_status,
         :final_url,
@@ -108,93 +110,101 @@ defmodule Ravner.Domains.DomainMetadata do
         :dns_scan_interval_days,
         :is_up,
         :last_heartbeat_at
-      ]
+      ])
     end
   end
 
   attributes do
-    integer_primary_key :id
+    integer_primary_key(:id)
 
     # HTTP snapshot
-    attribute :http_status, :integer
-    attribute :final_url, :string
+    attribute(:http_status, :integer)
+    attribute(:final_url, :string)
+
     attribute :redirect_chain, {:array, :map} do
-      default []
+      default([])
     end
+
     attribute :security_headers, :map do
-      default %{}
+      default(%{})
     end
 
     # SSL snapshot
-    attribute :ssl_issuer, :string
-    attribute :ssl_subject, :string
-    attribute :ssl_valid_from, :utc_datetime
-    attribute :ssl_valid_until, :utc_datetime
-    attribute :ssl_days_remaining, :integer
+    attribute(:ssl_issuer, :string)
+    attribute(:ssl_subject, :string)
+    attribute(:ssl_valid_from, :utc_datetime)
+    attribute(:ssl_valid_until, :utc_datetime)
+    attribute(:ssl_days_remaining, :integer)
 
     # DNS snapshot
     attribute :ip_v4, {:array, :string} do
-      default []
+      default([])
     end
+
     attribute :ip_v6, {:array, :string} do
-      default []
+      default([])
     end
 
     # WHOIS / RDAP snapshot
-    attribute :registrar, :string
-    attribute :registrant_org, :string
-    attribute :registration_date, :utc_datetime
-    attribute :expiration_date, :utc_datetime
-    attribute :whois_raw, :string
+    attribute(:registrar, :string)
+    attribute(:registrant_org, :string)
+    attribute(:registration_date, :utc_datetime)
+    attribute(:expiration_date, :utc_datetime)
+    attribute(:whois_raw, :string)
+
     attribute :contacts, :map do
-      default %{}
+      default(%{})
     end
 
     # Infrastructure
-    attribute :hosting_platform, :string
-    attribute :asn_org, :string
-    attribute :asn_number, :string
-    attribute :server_header, :string
+    attribute(:hosting_platform, :string)
+    attribute(:asn_org, :string)
+    attribute(:asn_number, :string)
+    attribute(:server_header, :string)
+
     attribute :tech_stack, {:array, :string} do
-      default []
+      default([])
     end
+
     attribute :js_assets, {:array, :string} do
-      default []
+      default([])
     end
+
     attribute :forms, {:array, :map} do
-      default []
+      default([])
     end
+
     attribute :deep_scan_errors, {:array, :string} do
-      default []
+      default([])
     end
 
     # Scan provenance
-    attribute :scanned_at, :utc_datetime
-    attribute :scan_duration_ms, :integer
-    attribute :http_scanned_at, :utc_datetime
-    attribute :dns_scanned_at, :utc_datetime
-    attribute :subdomains_scanned_at, :utc_datetime
-    attribute :rdap_scanned_at, :utc_datetime
-    attribute :deep_tech_scanned_at, :utc_datetime
-    attribute :last_security_scan_at, :utc_datetime
+    attribute(:scanned_at, :utc_datetime)
+    attribute(:scan_duration_ms, :integer)
+    attribute(:http_scanned_at, :utc_datetime)
+    attribute(:dns_scanned_at, :utc_datetime)
+    attribute(:subdomains_scanned_at, :utc_datetime)
+    attribute(:rdap_scanned_at, :utc_datetime)
+    attribute(:deep_tech_scanned_at, :utc_datetime)
+    attribute(:last_security_scan_at, :utc_datetime)
 
     # Security scan results
     attribute :open_ports, {:array, :integer} do
-      default []
+      default([])
     end
 
     # Scheduling & Heartbeats
-    attribute :scan_interval_days, :integer
-    attribute :heartbeat_interval_minutes, :integer
-    attribute :ssl_check_interval_days, :integer
-    attribute :tech_discovery_interval_days, :integer
-    attribute :http_scan_interval_days, :integer
-    attribute :dns_scan_interval_days, :integer
-    attribute :is_up, :boolean
-    attribute :last_heartbeat_at, :utc_datetime
+    attribute(:scan_interval_days, :integer)
+    attribute(:heartbeat_interval_minutes, :integer)
+    attribute(:ssl_check_interval_days, :integer)
+    attribute(:tech_discovery_interval_days, :integer)
+    attribute(:http_scan_interval_days, :integer)
+    attribute(:dns_scan_interval_days, :integer)
+    attribute(:is_up, :boolean)
+    attribute(:last_heartbeat_at, :utc_datetime)
 
-    create_timestamp :inserted_at, type: :utc_datetime
-    update_timestamp :updated_at, type: :utc_datetime
+    create_timestamp(:inserted_at, type: :utc_datetime)
+    update_timestamp(:updated_at, type: :utc_datetime)
   end
 
   relationships do
@@ -202,7 +212,7 @@ defmodule Ravner.Domains.DomainMetadata do
   end
 
   identities do
-    identity :unique_domain, [:domain_id]
+    identity(:unique_domain, [:domain_id])
   end
 
   def changeset(metadata, attrs) do

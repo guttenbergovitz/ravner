@@ -95,7 +95,26 @@ defmodule RavnerWeb.Router do
     end
   end
 
-  # Admin-only routes — require :admin role via plug and on_mount
+  # Editor governance routes — admins and editors manage inventory ownership.
+  scope "/admin", RavnerWeb do
+    pipe_through([:browser, :require_authenticated_user, :require_editor])
+
+    live_session :admin_governance, on_mount: [{RavnerWeb.UserAuth, :ensure_editor}] do
+      live("/organizations", AdminLive.OrganizationLive.Index, :index)
+      live("/organizations/new", AdminLive.OrganizationLive.Index, :new)
+      live("/organizations/:id/edit", AdminLive.OrganizationLive.Index, :edit)
+      live("/people", AdminLive.PersonLive.Index, :index)
+      live("/people/new", AdminLive.PersonLive.Index, :new)
+      live("/people/:id", AdminLive.PersonLive.Show, :show)
+      live("/people/:id/edit", AdminLive.PersonLive.Index, :edit)
+      live("/projects", AdminLive.ProjectLive.Index, :index)
+      live("/projects/new", AdminLive.ProjectLive.Index, :new)
+      live("/projects/:id", AdminLive.ProjectLive.Show, :show)
+      live("/projects/:id/edit", AdminLive.ProjectLive.Index, :edit)
+    end
+  end
+
+  # Admin-only routes — require :admin role via plug and on_mount.
   scope "/admin", RavnerWeb do
     pipe_through([:browser, :require_authenticated_user, :require_admin])
 
@@ -111,17 +130,6 @@ defmodule RavnerWeb.Router do
       live("/brands", AdminLive.BrandLive.Index, :index)
       live("/brands/new", AdminLive.BrandLive.Index, :new)
       live("/brands/:id/edit", AdminLive.BrandLive.Index, :edit)
-      live("/organizations", AdminLive.OrganizationLive.Index, :index)
-      live("/organizations/new", AdminLive.OrganizationLive.Index, :new)
-      live("/organizations/:id/edit", AdminLive.OrganizationLive.Index, :edit)
-      live("/people", AdminLive.PersonLive.Index, :index)
-      live("/people/new", AdminLive.PersonLive.Index, :new)
-      live("/people/:id", AdminLive.PersonLive.Show, :show)
-      live("/people/:id/edit", AdminLive.PersonLive.Index, :edit)
-      live("/projects", AdminLive.ProjectLive.Index, :index)
-      live("/projects/new", AdminLive.ProjectLive.Index, :new)
-      live("/projects/:id", AdminLive.ProjectLive.Show, :show)
-      live("/projects/:id/edit", AdminLive.ProjectLive.Index, :edit)
       live("/jobs", AdminLive.Jobs, :index)
     end
 

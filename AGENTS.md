@@ -5,6 +5,21 @@ This is a web application written using the Phoenix web framework.
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
+## Ash governance architecture
+
+Ravner uses Ash to model enterprise governance, not as a blanket replacement for Ecto.
+
+- Use Ash for governance-oriented domains: inventory ownership, organizations, projects, people, project roles, role-based authorization, domain lifecycle transitions, and auditable administrative workflows
+- Keep high-volume runtime paths on pure Ecto/Oban: scanners, external command execution, worker orchestration, DNS records, tech evidence, discovered URLs, and other bulk ingestion paths must bypass Ash unless there is an explicit architectural decision to change the stop line
+- Treat `use Ash.Resource` as foundation only. A governance migration is not complete until the resource exposes explicit business actions, has appropriate Ash policies, accepts an actor where authorization matters, and records audit history where compliance requires it
+- Prefer explicit Ash actions for lifecycle and ownership changes instead of generic raw updates. For example, model domain lifecycle changes as actions such as `mark_deprecated`, `mark_abandoned`, or `assign_project` when business rules or auditability matter
+- Use `Ash.Policy.Authorizer` for centralized authorization on Ash-managed governance resources. Do not rely only on hidden buttons or LiveView guards to protect writes
+- Use `AshPaperTrail` for governance resources whose changes must answer "who changed what and when"; at minimum this applies to domain lifecycle/ownership changes and other compliance-relevant administrative records
+- Use `AshPhoenix.Form` for administrative forms that create or update Ash-managed resources, so form validation follows the resource action contract
+- Keep context modules as stable facades. Public context APIs should preserve caller expectations while delegating governance writes through Ash actions where applicable
+- When a route is placed behind `:require_admin`, `:require_editor`, or another router pipeline, ensure the Ash policies express the same access model. If the router and Ash policies intentionally differ, document why in the change
+- Documentation and checklists must reflect actual implementation status. Do not mark Ash governance phases as complete when lifecycle actions, policies, actor propagation, or audit trails are still partial
+
 ### Phoenix v1.8 guidelines
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content

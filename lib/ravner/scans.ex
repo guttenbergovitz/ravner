@@ -89,7 +89,7 @@ defmodule Ravner.Scans do
       http_scanned_at: now
     })
 
-    maybe_set_error_lifecycle(domain)
+    Domains.record_technical_status(domain, :error)
 
     {:error, :dns_unresolved}
   end
@@ -354,7 +354,7 @@ defmodule Ravner.Scans do
     existing
     |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
     |> Enum.each(fn {_name, {id, _pid}} ->
-      Domains.update_domain(%Domain{id: id}, %{parent_domain_id: parent_id})
+      Domains.record_scanner_domain_update(id, %{parent_domain_id: parent_id})
     end)
   end
 
@@ -386,7 +386,7 @@ defmodule Ravner.Scans do
 
         Domains.upsert_domain_metadata(domain_id, meta)
         maybe_update_domain_url(domain, data.final_url)
-        maybe_update_lifecycle_from_http(domain, data)
+        record_technical_status_from_http(domain, data)
         {:ok, data}
 
       {:error, reason} ->
@@ -395,7 +395,7 @@ defmodule Ravner.Scans do
           http_scanned_at: DateTime.utc_now()
         })
 
-        maybe_set_error_lifecycle(domain)
+        Domains.record_technical_status(domain, :error)
 
         if match?({:transport, _}, reason) do
           {:ok, %{error: :connection_error}}
@@ -892,49 +892,28 @@ defmodule Ravner.Scans do
     end
   end
 
-  # Auto-updates lifecycle based on HTTP scan result.
-  # Only sets redirect/error if the domain is in a "neutral" state —
-  # never overwrites intentional states like priority, deprecated, etc.
-  @auto_eligible_states [:active, :under_review, :redirect, :insecure, :error, nil]
-
-  defp maybe_update_lifecycle_from_http(domain, data) do
-    if domain.lifecycle_state in @auto_eligible_states do
+  defp record_technical_status_from_http(domain, data) do
+    status =
       cond do
-        external_redirect?(domain.name, data.final_url) ->
-          Domains.update_domain(domain, %{lifecycle_state: :redirect})
-
-        data.http_status >= 400 ->
-          Domains.update_domain(domain, %{lifecycle_state: :error})
-
-        String.starts_with?(data.final_url, "http://") ->
-          # No valid HTTPS certificate or not enforced
-          Domains.update_domain(domain, %{lifecycle_state: :insecure})
-
-        data.http_status == 200 ->
-          # Healthy — if it was previously auto-set to error/redirect, restore to active
-          if domain.lifecycle_state in [:error, :redirect, :insecure] do
-            Domains.update_domain(domain, %{lifecycle_state: :active})
-          end
-
-        true ->
-          :ok
+        external_redirect?(domain.name, data.final_url) -> :redirect
+        data.http_status >= 400 -> :error
+        String.starts_with?(data.final_url, "http://") -> :insecure
+        data.http_status == 200 -> :reachable
+        true -> :unknown
       end
+
+    if status != :unknown do
+      Domains.record_technical_status(domain, status)
     end
   end
 
   defp maybe_update_domain_url(domain, final_url) when is_binary(final_url) and final_url != "" do
     if domain.url != final_url do
-      Domains.update_domain(domain, %{url: final_url})
+      Domains.record_scanner_domain_update(domain, %{url: final_url})
     end
   end
 
   defp maybe_update_domain_url(_domain, _final_url), do: :ok
-
-  defp maybe_set_error_lifecycle(domain) do
-    if domain.lifecycle_state in @auto_eligible_states do
-      Domains.update_domain(domain, %{lifecycle_state: :error})
-    end
-  end
 
   defp external_redirect?(domain_name, final_url) when is_binary(final_url) do
     final_host =

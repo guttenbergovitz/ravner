@@ -6,26 +6,29 @@ defmodule Ravner.Domains.DnsRecord do
   import Ecto.Changeset
 
   postgres do
-    table "domain_dns_records"
-    repo Ravner.Repo
+    table("domain_dns_records")
+    repo(Ravner.Repo)
   end
 
   actions do
-    defaults [:read, :destroy, :create, :update]
+    defaults([:read, :destroy, :create, :update])
   end
 
   attributes do
-    integer_primary_key :id
-    attribute :type, :string do
-      allow_nil? false
-    end
-    attribute :value, :string do
-      allow_nil? false
-    end
-    attribute :ttl, :integer
+    integer_primary_key(:id)
 
-    create_timestamp :inserted_at, type: :utc_datetime
-    update_timestamp :updated_at, type: :utc_datetime
+    attribute :type, :string do
+      allow_nil?(false)
+    end
+
+    attribute :value, :string do
+      allow_nil?(false)
+    end
+
+    attribute(:ttl, :integer)
+
+    create_timestamp(:inserted_at, type: :utc_datetime)
+    update_timestamp(:updated_at, type: :utc_datetime)
   end
 
   relationships do

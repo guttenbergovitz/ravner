@@ -5,6 +5,14 @@ defmodule RavnerWeb.DomainLive.Index do
   """
   use RavnerWeb, :live_view
 
+  import RavnerWeb.DomainComponents,
+    only: [
+      lifecycle_dot_class: 1,
+      lifecycle_dot_class: 2,
+      technical_status_indicator: 1,
+      technical_status_options: 0
+    ]
+
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Inventory
@@ -16,12 +24,17 @@ defmodule RavnerWeb.DomainLive.Index do
     "active" => :active,
     "under_review" => :under_review,
     "placeholder" => :placeholder,
-    "redirect" => :redirect,
-    "insecure" => :insecure,
-    "error" => :error,
     "deprecated" => :deprecated,
     "decommissioned" => :decommissioned,
     "abandoned" => :abandoned
+  }
+
+  @technical_status_states %{
+    "unknown" => :unknown,
+    "reachable" => :reachable,
+    "redirect" => :redirect,
+    "insecure" => :insecure,
+    "error" => :error
   }
 
   @impl true
@@ -117,6 +130,7 @@ defmodule RavnerWeb.DomainLive.Index do
       overrides =
         case type do
           "lifecycle" -> [lifecycle: new_val]
+          "technical_status" -> [technical_status: new_val]
           "brand" -> [brand_id: new_val]
           "org" -> [organization_id: new_val]
           "project" -> [project_id: new_val]
@@ -133,6 +147,7 @@ defmodule RavnerWeb.DomainLive.Index do
     overrides =
       case type do
         "lifecycle" -> [lifecycle: []]
+        "technical_status" -> [technical_status: []]
         "brand" -> [brand_id: []]
         "org" -> [organization_id: []]
         "project" -> [project_id: []]
@@ -144,6 +159,15 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("toggle_empty_facets", _params, socket) do
     {:noreply, assign(socket, :show_empty_facets, !socket.assigns.show_empty_facets)}
+  end
+
+  def handle_event("toggle_filter_subdomains", _params, socket) do
+    params = build_params(socket, include_subdomains: !socket.assigns.include_subdomains, page: 1)
+
+    {:noreply,
+     socket
+     |> assign(:include_subdomains, !socket.assigns.include_subdomains)
+     |> push_patch(to: ~p"/domains?#{params}")}
   end
 
   def handle_event("toggle_facet_group", %{"group" => group}, socket) do
@@ -247,8 +271,9 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("set_lifecycle", %{"id" => id, "state" => state}, socket) do
     domain = Domains.get_domain!(id)
+    actor = socket.assigns.current_scope.user
 
-    case Domains.update_domain(domain, %{lifecycle_state: state}) do
+    case Domains.set_domain_lifecycle(domain, state, actor: actor) do
       {:ok, updated_domain} ->
         {:noreply,
          socket
@@ -371,7 +396,9 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("save", %{"domain" => domain_params}, socket) do
-    case Domains.create_domain(domain_params) do
+    actor = socket.assigns.current_scope.user
+
+    case Domains.create_domain(domain_params, actor: actor) do
       {:ok, _domain} ->
         {:noreply,
          socket
@@ -384,7 +411,7 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("import", %{"import" => %{"domains" => domains}}, socket) do
-    results = Domains.bulk_import(domains)
+    results = Domains.bulk_import(domains, actor: socket.assigns.current_scope.user)
 
     {:noreply,
      socket
@@ -428,13 +455,20 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:scanning_ids, MapSet.new())
     |> assign(:ip_filter, "")
     |> assign(:export_include_subs, false)
+    |> assign(:technical_status_filter, [])
     |> assign(:project_filter, [])
     |> assign(:org_filter, [])
     |> assign(:brand_filter, [])
     |> assign(:lifecycle_filter, [])
     |> assign(:show_empty_facets, false)
-    |> assign(:expanded_facets, MapSet.new(["lifecycle", "brand"]))
-    |> assign(:facets, %{lifecycle: [], brands: [], organizations: [], projects: []})
+    |> assign(:expanded_facets, MapSet.new(["lifecycle", "technical_status", "brand"]))
+    |> assign(:facets, %{
+      lifecycle: [],
+      technical_status: [],
+      brands: [],
+      organizations: [],
+      projects: []
+    })
   end
 
   defp apply_action(socket, :index, params) do
@@ -482,6 +516,8 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:total_pages, result.total_pages)
     |> assign(:search, filters.search)
     |> assign(:ip_filter, filters.ip)
+    |> assign(:include_subdomains, filters.include_subdomains)
+    |> assign(:technical_status_filter, filters.technical_status)
     |> assign(:lifecycle_filter, filters.lifecycle)
     |> assign(:project_filter, filters.project_id)
     |> assign(:org_filter, filters.org_id)
@@ -500,6 +536,9 @@ defmodule RavnerWeb.DomainLive.Index do
   defp filters_changed?(socket, filters) do
     filters.search != (socket.assigns[:search] || "") or
       filters.ip != (socket.assigns[:ip_filter] || "") or
+      filters.include_subdomains != (socket.assigns[:include_subdomains] || false) or
+      Enum.sort(filters.technical_status) !=
+        Enum.sort(socket.assigns[:technical_status_filter] || []) or
       Enum.sort(filters.lifecycle) != Enum.sort(socket.assigns[:lifecycle_filter] || []) or
       Enum.sort(filters.project_id) != Enum.sort(socket.assigns[:project_filter] || []) or
       Enum.sort(filters.org_id) != Enum.sort(socket.assigns[:org_filter] || []) or
@@ -510,6 +549,9 @@ defmodule RavnerWeb.DomainLive.Index do
     %{
       search: Map.get(params, "search", ""),
       ip: Map.get(params, "ip", ""),
+      include_subdomains: Map.get(params, "include_subdomains", "false") == "true",
+      technical_status:
+        params |> Map.get("technical_status", "") |> parse_technical_status_list(),
       lifecycle: params |> Map.get("lifecycle", "") |> parse_lifecycle_list(),
       project_id: params |> Map.get("project_id", "") |> parse_int_list(),
       org_id: params |> Map.get("organization_id", "") |> parse_int_list(),
@@ -527,6 +569,18 @@ defmodule RavnerWeb.DomainLive.Index do
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
     |> Enum.map(&Map.get(@lifecycle_states, &1))
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp parse_technical_status_list(""), do: []
+  defp parse_technical_status_list(nil), do: []
+
+  defp parse_technical_status_list(s) do
+    s
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&Map.get(@technical_status_states, &1))
     |> Enum.reject(&is_nil/1)
   end
 
@@ -652,14 +706,9 @@ defmodule RavnerWeb.DomainLive.Index do
   defp execute_bulk_assign(socket, type, target_id) do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
 
-    attrs =
-      case type do
-        :brand -> %{brand_id: target_id}
-        :org -> %{organization_id: target_id}
-        :project -> %{project_id: target_id}
-      end
+    {:ok, count} =
+      Domains.bulk_assign(ids, type, target_id, actor: socket.assigns.current_scope.user)
 
-    {:ok, count} = Domains.bulk_update(ids, attrs)
     params = build_params(socket)
 
     {:noreply,
@@ -682,7 +731,10 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp execute_bulk_lifecycle(socket, state) do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
-    {:ok, count} = Domains.bulk_update(ids, %{lifecycle_state: state})
+
+    {:ok, count} =
+      Domains.bulk_set_lifecycle(ids, state, actor: socket.assigns.current_scope.user)
+
     {_state, label, _color} = Enum.find(lifecycle_options(), fn {s, _, _} -> s == state end)
     params = build_params(socket)
 
@@ -704,15 +756,24 @@ defmodule RavnerWeb.DomainLive.Index do
     search = Keyword.get(overrides, :search, socket.assigns[:search] || "")
     ip = Keyword.get(overrides, :ip, socket.assigns[:ip_filter] || "")
     page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
+
+    include_subdomains =
+      Keyword.get(overrides, :include_subdomains, socket.assigns[:include_subdomains] || false)
+
     project_ids = Keyword.get(overrides, :project_id, socket.assigns[:project_filter] || [])
     org_ids = Keyword.get(overrides, :organization_id, socket.assigns[:org_filter] || [])
     brand_ids = Keyword.get(overrides, :brand_id, socket.assigns[:brand_filter] || [])
     lifecycles = Keyword.get(overrides, :lifecycle, socket.assigns[:lifecycle_filter] || [])
 
+    technical_statuses =
+      Keyword.get(overrides, :technical_status, socket.assigns[:technical_status_filter] || [])
+
     [
       search: search,
       ip: ip,
+      include_subdomains: if(include_subdomains, do: "true", else: ""),
       lifecycle: Enum.map_join(lifecycles, ",", &to_string/1),
+      technical_status: Enum.map_join(technical_statuses, ",", &to_string/1),
       project_id: Enum.map_join(project_ids, ",", &to_string/1),
       organization_id: Enum.map_join(org_ids, ",", &to_string/1),
       brand_id: Enum.map_join(brand_ids, ",", &to_string/1),
@@ -737,9 +798,11 @@ defmodule RavnerWeb.DomainLive.Index do
   defp facet_assign("brand"), do: {:ok, :brand_filter}
   defp facet_assign("org"), do: {:ok, :org_filter}
   defp facet_assign("project"), do: {:ok, :project_filter}
+  defp facet_assign("technical_status"), do: {:ok, :technical_status_filter}
   defp facet_assign(_), do: :error
 
   defp facet_value("lifecycle", id), do: Map.fetch(@lifecycle_states, id)
+  defp facet_value("technical_status", id), do: Map.fetch(@technical_status_states, id)
 
   defp facet_value(_type, id) do
     case Integer.parse(id) do
@@ -756,29 +819,14 @@ defmodule RavnerWeb.DomainLive.Index do
     user && Map.get(role_rank, user.role, 0) >= 1
   end
 
-  defp lifecycle_color(:priority), do: "bg-teal-600"
-  defp lifecycle_color(:active), do: "bg-green-500"
-  defp lifecycle_color(:placeholder), do: "bg-violet-500"
-  defp lifecycle_color(:under_review), do: "bg-yellow-500"
-  defp lifecycle_color(:redirect), do: "bg-cyan-500"
-  defp lifecycle_color(:insecure), do: "bg-amber-600"
-  defp lifecycle_color(:error), do: "bg-red-500"
-  defp lifecycle_color(:deprecated), do: "bg-orange-500"
-  defp lifecycle_color(:decommissioned), do: "bg-red-500"
-  defp lifecycle_color(:abandoned), do: "bg-neutral-400"
-  defp lifecycle_color(_), do: "bg-neutral-400"
-
   defp lifecycle_options do
     [
       {:priority, "Priority", "bg-teal-600"},
       {:active, "Active", "bg-green-500"},
       {:under_review, "Under review", "bg-yellow-500"},
       {:placeholder, "Placeholder", "bg-violet-500"},
-      {:insecure, "Insecure HTTP", "bg-amber-600"},
-      {:redirect, "Redirect", "bg-cyan-500"},
       {:deprecated, "Deprecated", "bg-orange-400"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
-      {:error, "Error", "bg-red-500"},
       {:abandoned, "Abandoned", "bg-neutral-400"}
     ]
   end

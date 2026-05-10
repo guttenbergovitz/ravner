@@ -11,7 +11,6 @@ defmodule RavnerWeb.DomainLive.Show do
 
   alias Ravner.Domains
   alias Ravner.Inventory
-  alias Ravner.Repo
   alias Ravner.Scans
   alias Ravner.SecurityScans
 
@@ -252,8 +251,9 @@ defmodule RavnerWeb.DomainLive.Show do
 
   def handle_event("set_lifecycle", %{"state" => state}, socket) do
     domain = socket.assigns.domain
+    actor = socket.assigns.current_scope.user
 
-    case Domains.update_domain(domain, %{lifecycle_state: state}) do
+    case Domains.set_domain_lifecycle(domain, state, actor: actor) do
       {:ok, _} ->
         domain = Domains.get_domain_with_preloads!(domain.id)
 
@@ -275,8 +275,9 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("set_project", %{"project_id" => pid}, socket) do
     domain = socket.assigns.domain
     pid = if pid == "", do: nil, else: String.to_integer(pid)
+    actor = socket.assigns.current_scope.user
 
-    case Domains.update_domain_with_project(domain, pid) do
+    case Domains.assign_domain_project(domain, pid, actor: actor) do
       {:ok, _} ->
         domain = Domains.get_domain_with_preloads!(domain.id)
 
@@ -297,10 +298,9 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("set_brand", %{"brand_id" => bid}, socket) do
     domain = socket.assigns.domain
     bid = if bid == "", do: nil, else: String.to_integer(bid)
+    actor = socket.assigns.current_scope.user
 
-    attrs = build_brand_update_attrs(domain, bid)
-
-    case Domains.update_domain(domain, attrs) do
+    case Domains.assign_domain_brand(domain, bid, actor: actor) do
       {:ok, _} ->
         {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
 
@@ -317,10 +317,9 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("set_organization", %{"organization_id" => oid}, socket) do
     domain = socket.assigns.domain
     oid = if oid == "", do: nil, else: String.to_integer(oid)
+    actor = socket.assigns.current_scope.user
 
-    attrs = build_org_update_attrs(domain, oid)
-
-    case Domains.update_domain(domain, attrs) do
+    case Domains.assign_domain_organization(domain, oid, actor: actor) do
       {:ok, _} ->
         {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
 
@@ -504,10 +503,11 @@ defmodule RavnerWeb.DomainLive.Show do
   defp infrastructure_metadata?(domain) do
     metadata = domain.domain_metadata
 
-    (metadata && (metadata.hosting_platform || metadata.asn_org ||
-         populated?(metadata.tech_stack) ||
-         populated?(metadata.js_assets) ||
-         populated?(metadata.open_ports))) ||
+    (metadata &&
+       (metadata.hosting_platform || metadata.asn_org ||
+          populated?(metadata.tech_stack) ||
+          populated?(metadata.js_assets) ||
+          populated?(metadata.open_ports))) ||
       populated?(domain.tech_evidence) ||
       populated?(domain.discovered_urls)
   end
@@ -544,12 +544,14 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   defp parse_interval(""), do: nil
+
   defp parse_interval(val) when is_binary(val) do
     case Integer.parse(val) do
       {int, ""} -> int
       _ -> nil
     end
   end
+
   defp parse_interval(_), do: nil
 
   # Compute domain classification from stored metadata (Balebos-style)
@@ -583,52 +585,6 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp classify_by_metadata(_domain, %{http_status: status}) do
     {:other, status}
-  end
-
-  defp build_brand_update_attrs(domain, bid) do
-    attrs = %{brand_id: bid}
-
-    if bid do
-      org = domain.organization
-
-      if org && org.brand_id && org.brand_id != bid do
-        Map.merge(attrs, %{organization_id: nil, project_id: nil})
-      else
-        project = domain.project
-
-        if project do
-          proj_org = Repo.get(Ravner.Inventory.Organization, project.organization_id)
-
-          if proj_org && proj_org.brand_id && proj_org.brand_id != bid do
-            Map.merge(attrs, %{project_id: nil})
-          else
-            attrs
-          end
-        else
-          attrs
-        end
-      end
-    else
-      attrs
-    end
-  end
-
-  defp build_org_update_attrs(domain, oid) do
-    attrs = %{organization_id: oid}
-
-    attrs =
-      if oid do
-        org = Repo.get(Ravner.Inventory.Organization, oid)
-        if org && org.brand_id, do: Map.put(attrs, :brand_id, org.brand_id), else: attrs
-      else
-        attrs
-      end
-
-    if domain.project && domain.project.organization_id != oid do
-      Map.put(attrs, :project_id, nil)
-    else
-      attrs
-    end
   end
 
   # Returns the external redirect target domain if final_url points outside the current root domain

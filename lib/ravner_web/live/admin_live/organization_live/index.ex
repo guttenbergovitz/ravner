@@ -86,10 +86,11 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
         {:noreply,
          socket
          |> put_flash(:info, "Organization deleted")
-         |> assign(:organizations, Inventory.list_organizations())}
+         |> assign(:orgs, Inventory.list_organizations())}
 
       {:error, :forbidden} ->
-        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to delete organization.")}

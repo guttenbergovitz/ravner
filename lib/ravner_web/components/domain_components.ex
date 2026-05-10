@@ -41,13 +41,11 @@ defmodule RavnerWeb.DomainComponents do
         </span>
       <% {:external_redirect, target} -> %>
         <span class="inline-flex items-center gap-1.5 text-yellow-700 font-light">
-          <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0"></span>
-          EXT → {target}
+          <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0"></span> EXT → {target}
         </span>
       <% {:redirect, target} -> %>
         <span class="inline-flex items-center gap-1.5 text-yellow-600 font-light">
-          <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0"></span>
-          Redirect → {target}
+          <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0"></span> Redirect → {target}
         </span>
       <% {:client_error, code} -> %>
         <span class="inline-flex items-center gap-1.5 text-orange-700 font-light">
@@ -61,8 +59,7 @@ defmodule RavnerWeb.DomainComponents do
         </span>
       <% {:other, code} -> %>
         <span class="inline-flex items-center gap-1.5 text-neutral-500 font-light">
-          <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0"></span>
-          HTTP {code}
+          <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0"></span> HTTP {code}
         </span>
       <% {:scan_error, _} -> %>
         <span class="inline-flex items-center gap-1.5 text-red-600 font-light">
@@ -83,15 +80,41 @@ defmodule RavnerWeb.DomainComponents do
   def lifecycle_indicator(assigns) do
     ~H"""
     <div class={["inline-flex items-center gap-2 font-light", @class]}>
-      <span class={[
-        "w-2 h-2 rounded-full shrink-0",
-        lifecycle_color(@state)
-      ]}>
-      </span>
+      <span class={lifecycle_dot_class(@state)}></span>
       <span class="capitalize">
         {@state |> Atom.to_string() |> String.replace("_", " ")}
       </span>
     </div>
+    """
+  end
+
+  @doc """
+  Renders the scanner-observed technical status as a quiet line-art badge.
+  """
+  attr :status, :atom, default: :unknown
+  attr :variant, :atom, default: :label, values: [:icon, :label]
+  attr :class, :any, default: nil
+
+  def technical_status_indicator(assigns) do
+    assigns = assign(assigns, :status, normalize_technical_status(assigns.status))
+
+    ~H"""
+    <span
+      class={[
+        "inline-flex items-center justify-center text-neutral-500 transition-colors hover:text-neutral-900",
+        @variant == :icon && "size-4",
+        @variant == :label &&
+          "gap-1.5 text-[10px] font-light uppercase tracking-[0.14em]",
+        technical_status_tone(@status),
+        @class
+      ]}
+      title={"technical: #{technical_status_label(@status)}"}
+    >
+      <.icon name={technical_status_icon(@status)} class="size-3.5 shrink-0" />
+      <span :if={@variant == :label}>
+        {technical_status_label(@status)}
+      </span>
+    </span>
     """
   end
 
@@ -318,13 +341,70 @@ defmodule RavnerWeb.DomainComponents do
   def lifecycle_color(:active), do: "bg-green-500"
   def lifecycle_color(:placeholder), do: "bg-violet-500"
   def lifecycle_color(:under_review), do: "bg-yellow-500"
-  def lifecycle_color(:insecure), do: "bg-amber-600"
-  def lifecycle_color(:redirect), do: "bg-cyan-500"
-  def lifecycle_color(:error), do: "bg-red-500"
   def lifecycle_color(:deprecated), do: "bg-orange-500"
   def lifecycle_color(:decommissioned), do: "bg-red-500"
   def lifecycle_color(:abandoned), do: "bg-neutral-400"
   def lifecycle_color(_), do: "bg-neutral-400"
+
+  @doc """
+  Returns the icon name for scanner-observed technical status.
+  """
+  def technical_status_icon(:reachable), do: "hero-shield-check"
+  def technical_status_icon(:redirect), do: "hero-arrow-top-right-on-square"
+  def technical_status_icon(:insecure), do: "hero-exclamation-triangle"
+  def technical_status_icon(:error), do: "hero-x-circle"
+  def technical_status_icon(_), do: "hero-question-mark-circle"
+
+  @doc """
+  Returns the label for scanner-observed technical status.
+  """
+  def technical_status_label(status) do
+    status
+    |> normalize_technical_status()
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+  end
+
+  @doc """
+  Returns the visual classes for a lifecycle marker.
+  """
+  def lifecycle_dot_class(state, size \\ :md)
+
+  def lifecycle_dot_class(state, :sm) do
+    [
+      "size-2 rounded-full shrink-0 ring-1 ring-white/80 ring-offset-1 ring-offset-white",
+      lifecycle_color(state)
+    ]
+  end
+
+  def lifecycle_dot_class(state, :md) do
+    [
+      "size-2.5 rounded-full shrink-0 ring-1 ring-white/80 ring-offset-1 ring-offset-white shadow-[0_1px_1px_rgba(0,0,0,0.05)]",
+      lifecycle_color(state)
+    ]
+  end
+
+  @doc """
+  Returns subtle text/border tone classes for scanner-observed technical status.
+  """
+  def technical_status_tone(:reachable), do: "text-emerald-700"
+  def technical_status_tone(:redirect), do: "text-sky-700"
+  def technical_status_tone(:insecure), do: "text-amber-700"
+  def technical_status_tone(:error), do: "text-red-700"
+  def technical_status_tone(_), do: "text-neutral-400"
+
+  @doc """
+  Returns all scanner-observed technical status options.
+  """
+  def technical_status_options do
+    [
+      {:unknown, "Unknown", "hero-question-mark-circle"},
+      {:reachable, "Reachable", "hero-shield-check"},
+      {:redirect, "Redirect", "hero-arrow-top-right-on-square"},
+      {:insecure, "Insecure", "hero-exclamation-triangle"},
+      {:error, "Error", "hero-x-circle"}
+    ]
+  end
 
   @doc """
   Returns all lifecycle options.
@@ -335,14 +415,17 @@ defmodule RavnerWeb.DomainComponents do
       {:active, "Active", "bg-green-500"},
       {:under_review, "Under review", "bg-yellow-500"},
       {:placeholder, "Placeholder", "bg-violet-500"},
-      {:insecure, "Insecure HTTP", "bg-amber-600"},
-      {:redirect, "Redirect", "bg-cyan-500"},
-      {:error, "Error", "bg-red-500"},
       {:deprecated, "Deprecated", "bg-orange-500"},
       {:decommissioned, "Decommissioned", "bg-red-500"},
       {:abandoned, "Abandoned", "bg-neutral-400"}
     ]
   end
+
+  defp normalize_technical_status(nil), do: :unknown
+  defp normalize_technical_status(status) when is_atom(status), do: status
+
+  defp normalize_technical_status(status) when is_binary(status),
+    do: String.to_existing_atom(status)
 
   defp badge_data(counts) do
     [

@@ -56,6 +56,110 @@ defmodule Ravner.Domains do
   end
 
   @doc """
+  Sets a domain lifecycle state through the governance action layer.
+  """
+  @spec set_domain_lifecycle(Domain.t(), atom() | String.t(), keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def set_domain_lifecycle(%Domain{} = domain, lifecycle, opts \\ []) do
+    attrs = %{lifecycle_state: normalize_atom(lifecycle)}
+    execute_ash_action(domain, :set_lifecycle, attrs, opts, Domain.changeset(domain, attrs))
+  end
+
+  @doc """
+  Assigns a domain to a project and derives organization/brand ownership.
+  """
+  @spec assign_domain_project(Domain.t(), integer() | nil, keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def assign_domain_project(%Domain{} = domain, project_id, opts \\ []) do
+    attrs = project_assignment_attrs(project_id)
+    execute_ash_action(domain, :assign_project, attrs, opts, Domain.changeset(domain, attrs))
+  end
+
+  @doc """
+  Assigns a domain to a brand and clears lower-level ownership when needed.
+  """
+  @spec assign_domain_brand(Domain.t(), integer() | nil, keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def assign_domain_brand(%Domain{} = domain, brand_id, opts \\ []) do
+    attrs = %{brand_id: brand_id, organization_id: nil, project_id: nil}
+    execute_ash_action(domain, :assign_brand, attrs, opts, Domain.changeset(domain, attrs))
+  end
+
+  @doc """
+  Assigns a domain to an organization and derives brand ownership.
+  """
+  @spec assign_domain_organization(Domain.t(), integer() | nil, keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def assign_domain_organization(%Domain{} = domain, organization_id, opts \\ []) do
+    attrs = organization_assignment_attrs(organization_id)
+
+    execute_ash_action(
+      domain,
+      :assign_organization,
+      attrs,
+      opts,
+      Domain.changeset(domain, attrs)
+    )
+  end
+
+  @doc """
+  Sets lifecycle for multiple domains through Ash governance actions.
+  """
+  @spec bulk_set_lifecycle([integer()], atom(), keyword()) :: {:ok, integer()} | {:error, any()}
+  def bulk_set_lifecycle(ids, lifecycle, opts \\ []) when is_list(ids) do
+    bulk_apply(ids, fn domain -> set_domain_lifecycle(domain, lifecycle, opts) end)
+  end
+
+  @doc """
+  Assigns ownership for multiple domains through Ash governance actions.
+  """
+  @spec bulk_assign([integer()], :brand | :org | :project, integer(), keyword()) ::
+          {:ok, integer()} | {:error, any()}
+  def bulk_assign(ids, type, target_id, opts \\ []) when is_list(ids) do
+    bulk_apply(ids, fn domain ->
+      case type do
+        :brand -> assign_domain_brand(domain, target_id, opts)
+        :org -> assign_domain_organization(domain, target_id, opts)
+        :project -> assign_domain_project(domain, target_id, opts)
+      end
+    end)
+  end
+
+  @doc """
+  Records scanner-observed technical status without changing governance lifecycle.
+  """
+  @spec record_technical_status(Domain.t() | integer() | String.t(), atom()) :: {:ok, integer()}
+  def record_technical_status(%Domain{id: id}, status), do: record_technical_status(id, status)
+
+  def record_technical_status(id, status)
+      when status in [:unknown, :reachable, :redirect, :insecure, :error] do
+    record_scanner_domain_update(id, %{technical_status: status})
+  end
+
+  @doc """
+  Records scanner-maintained domain fields without invoking governance actions.
+  """
+  @spec record_scanner_domain_update(Domain.t() | integer() | String.t(), map()) ::
+          {:ok, integer()}
+  def record_scanner_domain_update(%Domain{id: id}, attrs),
+    do: record_scanner_domain_update(id, attrs)
+
+  def record_scanner_domain_update(id, attrs) when is_map(attrs) do
+    allowed_attrs =
+      attrs
+      |> Map.take([:technical_status, :url, :parent_domain_id])
+      |> Map.put(:updated_at, DateTime.utc_now(:second))
+      |> Map.to_list()
+
+    {count, _} =
+      Domain
+      |> where([d], d.id == ^id)
+      |> Repo.update_all(set: allowed_attrs)
+
+    {:ok, count}
+  end
+
+  @doc """
   Deletes domains by their IDs in bulk.
   ...
   """
@@ -75,6 +179,7 @@ defmodule Ravner.Domains do
   """
   @spec get_facet_counts(keyword()) :: %{
           lifecycle: [{atom(), integer()}],
+          technical_status: [{atom(), integer()}],
           brands: [{integer(), String.t(), integer()}],
           organizations: [{integer(), String.t(), integer()}],
           projects: [{integer(), String.t(), integer()}]
@@ -93,6 +198,7 @@ defmodule Ravner.Domains do
 
     %{
       lifecycle: get_lifecycle_facets(base_query, opts),
+      technical_status: get_technical_status_facets(base_query, opts),
       brands: get_brand_facets(base_query, opts),
       organizations: get_organization_facets(base_query, opts),
       projects: get_project_facets(base_query, opts)
@@ -110,6 +216,21 @@ defmodule Ravner.Domains do
     )
     |> group_by([d], d.lifecycle_state)
     |> select([d], {d.lifecycle_state, count(d.id)})
+    |> Repo.all()
+    |> Enum.reject(fn {k, _} -> is_nil(k) end)
+    |> Enum.sort_by(fn {k, _} -> k end)
+  end
+
+  defp get_technical_status_facets(query, opts) do
+    query
+    |> filter_by_lifecycle(Keyword.get(opts, :lifecycle))
+    |> filter_by_project(Keyword.get(opts, :project_id))
+    |> filter_by_organization_or_brand(
+      Keyword.get(opts, :organization_id),
+      Keyword.get(opts, :brand_id)
+    )
+    |> group_by([d], d.technical_status)
+    |> select([d], {d.technical_status, count(d.id)})
     |> Repo.all()
     |> Enum.reject(fn {k, _} -> is_nil(k) end)
     |> Enum.sort_by(fn {k, _} -> k end)
@@ -223,6 +344,7 @@ defmodule Ravner.Domains do
     |> filter_by_type(Keyword.get(opts, :include_subdomains, false))
     |> filter_by_search(Keyword.get(opts, :search, ""))
     |> filter_by_lifecycle(Keyword.get(opts, :lifecycle, nil))
+    |> filter_by_technical_status(Keyword.get(opts, :technical_status, nil))
     |> filter_by_ip(Keyword.get(opts, :ip, ""))
     |> filter_by_project(Keyword.get(opts, :project_id, nil))
     |> filter_by_organization_or_brand(
@@ -248,6 +370,16 @@ defmodule Ravner.Domains do
 
   defp filter_by_lifecycle(query, lifecycle),
     do: where(query, [d], d.lifecycle_state == ^lifecycle)
+
+  defp filter_by_technical_status(query, technical_status)
+       when technical_status in [nil, "", :all, []],
+       do: query
+
+  defp filter_by_technical_status(query, technical_status) when is_list(technical_status),
+    do: where(query, [d], d.technical_status in ^technical_status)
+
+  defp filter_by_technical_status(query, technical_status),
+    do: where(query, [d], d.technical_status == ^technical_status)
 
   defp filter_by_ip(query, ip) when ip in [nil, ""], do: query
 
@@ -327,26 +459,24 @@ defmodule Ravner.Domains do
   def get_domain_with_preloads!(id) do
     Domain
     |> Ash.get!(id)
-    |> Ash.load!(
-      [
-        :parent_domain,
-        :domain_tags,
-        :domain_metadata,
-        :project,
-        :brand,
-        :organization,
-        :dns_records,
-        :tech_evidence,
-        :discovered_urls,
-        subdomains: [:domain_metadata]
-      ]
-    )
+    |> Ash.load!([
+      :parent_domain,
+      :domain_tags,
+      :domain_metadata,
+      :project,
+      :brand,
+      :organization,
+      :dns_records,
+      :tech_evidence,
+      :discovered_urls,
+      subdomains: [:domain_metadata]
+    ])
   end
 
   def get_domain_with_subdomains!(id) do
     Domain
     |> Ash.get!(id)
-    |> Ash.load!([subdomains: [:domain_metadata]])
+    |> Ash.load!(subdomains: [:domain_metadata])
   end
 
   def list_domains_by_ids(ids) when is_list(ids) do
@@ -378,39 +508,24 @@ defmodule Ravner.Domains do
 
   def preload_subdomain_metadata(domain), do: domain
 
-  @spec create_domain(map(), keyword()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec create_domain(map(), keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_domain(attrs \\ %{}, opts \\ []) do
     execute_ash_action(Domain, :create, attrs, opts, Domain.changeset(%Domain{}, attrs))
   end
 
-  @spec update_domain(Domain.t(), map(), keyword()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec update_domain(Domain.t(), map(), keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
   def update_domain(%Domain{} = domain, attrs, opts \\ []) do
     execute_ash_action(domain, :update, attrs, opts, Domain.changeset(domain, attrs))
   end
 
   def update_domain_with_project(%Domain{} = domain, project_id, opts \\ []) do
-    attrs = %{project_id: project_id}
-
-    attrs =
-      if project_id do
-        project = Repo.get!(Ravner.Inventory.Project, project_id)
-        org_id = project.organization_id
-
-        org =
-          if org_id, do: Repo.get!(Ravner.Inventory.Organization, org_id), else: nil
-
-        Map.merge(attrs, %{
-          brand_id: org && org.brand_id,
-          organization_id: org_id
-        })
-      else
-        attrs
-      end
-
-    execute_ash_action(domain, :update, attrs, opts, Domain.changeset(domain, attrs))
+    assign_domain_project(domain, project_id, opts)
   end
 
-  @spec delete_domain(Domain.t(), keyword()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  @spec delete_domain(Domain.t(), keyword()) ::
+          {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
   def delete_domain(%Domain{} = domain, opts \\ []) do
     execute_ash_action(domain, :destroy, %{}, opts, Domain.changeset(domain, %{}))
   end
@@ -509,13 +624,13 @@ defmodule Ravner.Domains do
       file_dupes: [domain_name]             # duplicate within the input itself
     }
   """
-  @spec bulk_import(String.t()) :: %{
+  @spec bulk_import(String.t(), keyword()) :: %{
           added: [String.t()],
           skipped: [String.t()],
           ignored: [{String.t(), term()}],
           file_dupes: [String.t()]
         }
-  def bulk_import(text) when is_binary(text) do
+  def bulk_import(text, opts \\ []) when is_binary(text) do
     lines =
       text
       |> String.split(~r/\r?\n/)
@@ -571,7 +686,7 @@ defmodule Ravner.Domains do
         if MapSet.member?(existing, normalized) do
           {added, [normalized | skipped], ignored}
         else
-          case create_domain(%{name: normalized, type: :domain}) do
+          case create_domain(%{name: normalized, type: :domain}, opts) do
             {:ok, domain} ->
               {[domain.name | added], skipped, ignored}
 
@@ -674,19 +789,38 @@ defmodule Ravner.Domains do
   """
   @spec upsert_domain_metadata(integer() | String.t(), map(), keyword()) ::
           {:ok, DomainMetadata.t()} | {:error, any()}
-  def upsert_domain_metadata(domain_id, attrs, opts \\ []) do
-    actor = Keyword.get(opts, :actor)
+  def upsert_domain_metadata(domain_id, attrs, opts \\ [])
 
-    case Repo.get_by(DomainMetadata, domain_id: domain_id) do
-      nil ->
-        DomainMetadata
-        |> Ash.Changeset.for_create(:create, Map.put(attrs, :domain_id, domain_id), actor: actor)
-        |> Ash.create()
+  def upsert_domain_metadata(domain_id, attrs, _opts) when is_map(attrs) do
+    now = DateTime.utc_now(:second)
 
-      metadata ->
-        metadata
-        |> Ash.Changeset.for_update(:update, attrs, actor: actor)
-        |> Ash.update()
+    attrs =
+      attrs
+      |> Map.put(:domain_id, domain_id)
+      |> Map.put(:inserted_at, now)
+      |> Map.put(:updated_at, now)
+
+    changeset = DomainMetadata.changeset(%DomainMetadata{}, attrs)
+
+    if changeset.valid? do
+      changes =
+        changeset.changes
+        |> Map.put(:inserted_at, now)
+        |> Map.put(:updated_at, now)
+
+      replace_fields =
+        changes
+        |> Map.keys()
+        |> Enum.reject(&(&1 in [:id, :domain_id, :inserted_at]))
+
+      Repo.insert_all(DomainMetadata, [changes],
+        on_conflict: {:replace, replace_fields},
+        conflict_target: [:domain_id]
+      )
+
+      {:ok, Repo.get_by!(DomainMetadata, domain_id: domain_id)}
+    else
+      {:error, changeset}
     end
   end
 
@@ -778,7 +912,7 @@ defmodule Ravner.Domains do
   @spec to_csv([Domain.t()]) :: String.t()
   def to_csv(domains) when is_list(domains) do
     header =
-      "Name,Type,Lifecycle,HTTP Status,Final URL,IP v4,Tech Stack,Registrar,Expires,Scanned,Subdomains\n"
+      "Name,Type,Lifecycle,Technical Status,HTTP Status,Final URL,IP v4,Tech Stack,Registrar,Expires,Scanned,Subdomains\n"
 
     rows = Enum.map_join(domains, "\n", &domain_to_csv_row/1)
 
@@ -810,6 +944,7 @@ defmodule Ravner.Domains do
       domain.name,
       to_string(domain.type),
       to_string(domain.lifecycle_state),
+      to_string(domain.technical_status || :unknown),
       http,
       final,
       ip,
@@ -837,6 +972,41 @@ defmodule Ravner.Domains do
 
   # ── Internal Helpers ─────────────────────────────────────────────────────────
 
+  defp normalize_atom(value) when is_atom(value), do: value
+  defp normalize_atom(value) when is_binary(value), do: String.to_existing_atom(value)
+
+  defp project_assignment_attrs(nil), do: %{project_id: nil, organization_id: nil, brand_id: nil}
+
+  defp project_assignment_attrs(project_id) do
+    project = Repo.get!(Ravner.Inventory.Project, project_id)
+    org_id = project.organization_id
+    org = if org_id, do: Repo.get!(Ravner.Inventory.Organization, org_id), else: nil
+
+    %{
+      project_id: project_id,
+      brand_id: org && org.brand_id,
+      organization_id: org_id
+    }
+  end
+
+  defp organization_assignment_attrs(nil), do: %{organization_id: nil, project_id: nil}
+
+  defp organization_assignment_attrs(organization_id) do
+    org = Repo.get!(Ravner.Inventory.Organization, organization_id)
+    %{organization_id: organization_id, brand_id: org.brand_id, project_id: nil}
+  end
+
+  defp bulk_apply(ids, fun) when is_function(fun, 1) do
+    ids
+    |> list_domains_by_ids()
+    |> Enum.reduce_while({:ok, 0}, fn domain, {:ok, count} ->
+      case fun.(domain) do
+        {:ok, _domain} -> {:cont, {:ok, count + 1}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
   defp execute_ash_action(resource_or_record, action_type, attrs, opts, fallback_changeset) do
     actor = Keyword.get(opts, :actor)
 
@@ -851,6 +1021,12 @@ defmodule Ravner.Domains do
           :update ->
             resource_or_record
             |> Ash.Changeset.for_update(:update, attrs, actor: actor)
+            |> Ash.update()
+
+          action
+          when action in [:set_lifecycle, :assign_project, :assign_brand, :assign_organization] ->
+            resource_or_record
+            |> Ash.Changeset.for_update(action, attrs, actor: actor)
             |> Ash.update()
 
           :destroy ->

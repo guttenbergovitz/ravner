@@ -86,6 +86,7 @@ config :ravner, Oban,
 # Configure Ash
 config :ravner,
   ash_domains: [
+    Ravner.Accounts.AshDomain,
     Ravner.Inventory.AshDomain,
     Ravner.Domains.AshDomain
   ]

@@ -12,7 +12,7 @@ defmodule Ravner.Workers.HeartbeatDispatcher do
   def perform(_job) do
     # Find domains where heartbeat_interval_minutes is not null AND
     # (last_heartbeat_at is null OR last_heartbeat_at + interval < NOW())
-    
+
     query =
       from(m in DomainMetadata,
         where: not is_nil(m.heartbeat_interval_minutes),

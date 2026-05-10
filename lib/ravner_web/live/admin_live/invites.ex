@@ -31,9 +31,10 @@ defmodule RavnerWeb.AdminLive.Invites do
   end
 
   def handle_event("send_invite", %{"invite" => params}, socket) do
-    invited_by_id = socket.assigns.current_scope.user.id
+    actor = socket.assigns.current_scope.user
+    invited_by_id = actor.id
 
-    case Accounts.create_invite(params, invited_by_id) do
+    case Accounts.create_invite(params, invited_by_id, actor: actor) do
       {:ok, invite} ->
         invite_url = url(~p"/users/invite/#{invite.token}")
 

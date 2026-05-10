@@ -34,12 +34,12 @@ defmodule RavnerWeb.DomainLive.IndexTest do
 
       view
       |> element(
-        "#lifecycle-menu-#{domain.id} button[phx-click='set_lifecycle'][phx-value-state='error']"
+        "#lifecycle-menu-#{domain.id} button[phx-click='set_lifecycle'][phx-value-state='deprecated']"
       )
       |> render_click()
 
-      assert has_element?(view, "#lifecycle-menu-#{domain.id} button.bg-red-500")
-      assert Domains.get_domain!(domain.id).lifecycle_state == :error
+      assert has_element?(view, "#lifecycle-menu-#{domain.id} button.bg-orange-500")
+      assert Domains.get_domain!(domain.id).lifecycle_state == :deprecated
     end
 
     test "renders an external open link for a healthy domain", %{conn: conn} do
@@ -63,6 +63,66 @@ defmodule RavnerWeb.DomainLive.IndexTest do
                view,
                "#domain-#{domain.id} a[href='https://landing.example.com/path'][target='_blank']"
              )
+    end
+
+    test "can include subdomains in the sidebar filters", %{conn: conn} do
+      root = DomainsFixtures.domain_fixture(%{lifecycle_state: :active})
+
+      subdomain =
+        DomainsFixtures.domain_fixture(%{
+          name: "app.#{root.name}",
+          type: :subdomain,
+          parent_domain_id: root.id,
+          lifecycle_state: :active
+        })
+
+      admin = AccountsFixtures.user_fixture()
+      {:ok, admin} = admin |> Accounts.User.role_changeset(%{role: :admin}) |> Repo.update()
+      conn = log_in_user(conn, admin)
+
+      {:ok, view, _html} = live(conn, ~p"/domains")
+
+      refute has_element?(view, "#domain-#{subdomain.id}")
+
+      view
+      |> element("button[phx-click='toggle_filter_subdomains']")
+      |> render_click()
+
+      assert has_element?(view, "#domain-#{subdomain.id}")
+    end
+
+    test "filters by technical status alongside subdomains", %{conn: conn} do
+      error_domain = DomainsFixtures.domain_fixture(%{technical_status: :error})
+      reachable_domain = DomainsFixtures.domain_fixture(%{technical_status: :reachable})
+
+      sub_error =
+        DomainsFixtures.domain_fixture(%{
+          name: "api.#{error_domain.name}",
+          type: :subdomain,
+          parent_domain_id: error_domain.id,
+          technical_status: :error
+        })
+
+      admin = AccountsFixtures.user_fixture()
+      {:ok, admin} = admin |> Accounts.User.role_changeset(%{role: :admin}) |> Repo.update()
+      conn = log_in_user(conn, admin)
+
+      {:ok, view, _html} = live(conn, ~p"/domains")
+
+      view
+      |> element(
+        "button[phx-click='toggle_facet'][phx-value-type='technical_status'][phx-value-id='error']"
+      )
+      |> render_click()
+
+      assert has_element?(view, "#domain-#{error_domain.id}")
+      refute has_element?(view, "#domain-#{reachable_domain.id}")
+
+      view
+      |> element("button[phx-click='toggle_filter_subdomains']")
+      |> render_click()
+
+      assert has_element?(view, "#domain-#{sub_error.id}")
     end
 
     test "updates subdomain lifecycle dot from expanded listing", %{conn: conn} do
@@ -92,12 +152,12 @@ defmodule RavnerWeb.DomainLive.IndexTest do
 
       view
       |> element(
-        "#lifecycle-menu-#{subdomain.id} button[phx-click='set_lifecycle'][phx-value-state='error']"
+        "#lifecycle-menu-#{subdomain.id} button[phx-click='set_lifecycle'][phx-value-state='deprecated']"
       )
       |> render_click()
 
-      assert has_element?(view, "#lifecycle-menu-#{subdomain.id} button.bg-red-500")
-      assert Domains.get_domain!(subdomain.id).lifecycle_state == :error
+      assert has_element?(view, "#lifecycle-menu-#{subdomain.id} button.bg-orange-500")
+      assert Domains.get_domain!(subdomain.id).lifecycle_state == :deprecated
     end
   end
 
