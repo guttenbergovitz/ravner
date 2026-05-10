@@ -722,9 +722,14 @@ defmodule Ravner.Domains do
 
       entries =
         Enum.map(records, fn r ->
-          r
-          |> Map.take([:type, :value, :ttl])
-          |> Map.merge(%{domain_id: domain_id, inserted_at: now, updated_at: now})
+          %{
+            domain_id: domain_id,
+            type: r[:type] || r["type"],
+            value: r[:value] || r["value"],
+            ttl: r[:ttl] || r["ttl"],
+            inserted_at: now,
+            updated_at: now
+          }
         end)
 
       if entries != [], do: Repo.insert_all(DnsRecord, entries)
@@ -742,9 +747,15 @@ defmodule Ravner.Domains do
 
       entries =
         Enum.map(evidence, fn e ->
-          e
-          |> Map.take([:name, :version, :source, :confidence])
-          |> Map.merge(%{domain_id: domain_id, inserted_at: now, updated_at: now})
+          %{
+            domain_id: domain_id,
+            name: e[:name] || e["name"] || e["App"] || "Unknown",
+            version: e[:version] || e["version"],
+            source: e[:source] || e["source"],
+            confidence: e[:confidence] || e["confidence"],
+            inserted_at: now,
+            updated_at: now
+          }
         end)
 
       if entries != [], do: Repo.insert_all(TechEvidence, entries)
@@ -762,9 +773,15 @@ defmodule Ravner.Domains do
 
       entries =
         Enum.map(urls, fn u ->
-          u
-          |> Map.take([:url, :status, :content_type, :source])
-          |> Map.merge(%{domain_id: domain_id, inserted_at: now, updated_at: now})
+          %{
+            domain_id: domain_id,
+            url: u[:url] || u["url"],
+            status: u[:status] || u["status"],
+            content_type: u[:content_type] || u["content_type"],
+            source: u[:source] || u["source"],
+            inserted_at: now,
+            updated_at: now
+          }
         end)
 
       if entries != [], do: Repo.insert_all(DiscoveredUrl, entries)
