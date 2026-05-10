@@ -69,4 +69,5 @@ Detailed specifications and architectural notes are kept in the `/documentation`
 - `/documentation/architecture` — System design, command execution, and scheduling.
 - `/documentation/architecture/roadmap.md` — Identified bottlenecks and future scaling plans.
 - `/documentation/architecture/ash-migration-plan.md` — Strategic plan for partial Ash Framework adoption.
+- `/documentation/architecture/ash-migration-checklist.md` — Actionable checklist for executing the Ash migration.
 - `/documentation/heuristics` — Rules for classification and discovery logic.
