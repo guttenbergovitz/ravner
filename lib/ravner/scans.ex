@@ -20,8 +20,8 @@ defmodule Ravner.Scans do
   @iana_bootstrap "https://data.iana.org/rdap/dns.json"
   @dnsx_timeout 30_000
   @whois_timeout 30_000
-  @katana_timeout 60_000
-  @webanalyze_timeout 60_000
+  @katana_timeout 180_000
+  @webanalyze_timeout 120_000
   @deep_url_limit 100
   @deep_js_limit 50
   @deep_evidence_limit 80
