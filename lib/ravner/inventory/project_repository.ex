@@ -1,7 +1,8 @@
 defmodule Ravner.Inventory.ProjectRepository do
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
 
@@ -10,6 +11,17 @@ defmodule Ravner.Inventory.ProjectRepository do
   postgres do
     table "project_repositories"
     repo Ravner.Repo
+  end
+
+  policies do
+    policy action_type(:read) do
+      authorize_if always()
+    end
+
+    policy action_type([:create, :update, :destroy]) do
+      authorize_if actor_attribute_equals(:role, :admin)
+      authorize_if actor_attribute_equals(:role, :editor)
+    end
   end
 
   actions do

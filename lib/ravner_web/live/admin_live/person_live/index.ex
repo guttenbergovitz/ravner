@@ -47,12 +47,13 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
   def handle_event("save", %{"person" => attrs}, socket) do
     person = socket.assigns.person
     person_id = person && person.id
+    actor = socket.assigns.current_scope.user
 
     result =
       if person_id do
-        Inventory.update_person(person, attrs)
+        Inventory.update_person(person, attrs, actor: actor)
       else
-        Inventory.create_person(attrs)
+        Inventory.create_person(attrs, actor: actor)
       end
 
     case result do
@@ -62,6 +63,9 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
          |> put_flash(:info, "Person saved")
          |> push_patch(to: ~p"/admin/people")}
 
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: :person))}
     end
@@ -69,11 +73,20 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Inventory.delete_person(Inventory.get_person!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Person deleted")
-     |> assign(:people, Inventory.list_people())}
+    case Inventory.delete_person(Inventory.get_person!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Person deleted")
+         |> assign(:people, Inventory.list_people())}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete person.")}
+    end
   end
 end

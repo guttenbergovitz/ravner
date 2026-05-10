@@ -50,18 +50,18 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 ## Phase 3: Centralized Authorization (Policies)
 *Goal: Move RBAC from the UI/Router layer down into Ash Policies.*
 
-- [ ] Add `Ash.Policy.Authorizer` to all Inventory resources.
-- [ ] Define the Actor (`Ravner.Accounts.User`).
-- [ ] **Implement Policies on Resources:**
-  - [ ] `Brand`: Only `:admin` can create/update/destroy. All authenticated users can read.
-  - [ ] `Organization`: Only `:admin` or `:editor` can mutate.
-  - [ ] `ProjectRole`: Restrict assignment based on user tier.
-- [ ] **Context Updates for Actor:**
-  - [ ] Update the `Ravner.Inventory` facade functions to accept an `actor` parameter (e.g., `create_brand(attrs, actor: user)`).
-- [ ] **UI Cleanup:**
-  - [ ] Remove `if @current_scope.user.role == :admin` guards around database writes in LiveViews.
-  - [ ] Handle `Ash.Error.Forbidden` cleanly in the UI (flash messages).
-- [ ] *Regression Check:* Run manual tests logging in as a `:viewer` to ensure mutation buttons either disappear (UI) or fail gracefully (Backend).
+- [x] Add `Ash.Policy.Authorizer` to all Inventory resources.
+- [x] Define the Actor (`Ravner.Accounts.User`).
+- [x] **Implement Policies on Resources:**
+  - [x] `Brand`: Only `:admin` can create/update/destroy. All authenticated users can read.
+  - [x] `Organization`: Only `:admin` or `:editor` can mutate.
+  - [x] `ProjectRole`: Restrict assignment based on user tier.
+- [x] **Context Updates for Actor:**
+  - [x] Update the `Ravner.Inventory` facade functions to accept an `actor` parameter (e.g., `create_brand(attrs, actor: user)`).
+- [x] **UI Cleanup:**
+  - [x] Remove `if @current_scope.user.role == :admin` guards around database writes in LiveViews.
+  - [x] Handle `Ash.Error.Forbidden` cleanly in the UI (flash messages).
+- [x] *Regression Check:* Run manual tests logging in as a `:viewer` to ensure mutation buttons either disappear (UI) or fail gracefully (Backend).
 
 ---
 

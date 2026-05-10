@@ -1,13 +1,28 @@
 defmodule Ravner.Inventory.Brand do
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
 
   postgres do
     table "brands"
     repo Ravner.Repo
+  end
+
+  policies do
+    policy action_type(:read) do
+      authorize_if always()
+    end
+
+    policy action_type(:create) do
+      authorize_if actor_attribute_equals(:role, :admin)
+    end
+
+    policy action_type([:update, :destroy]) do
+      authorize_if actor_attribute_equals(:role, :admin)
+    end
   end
 
   actions do

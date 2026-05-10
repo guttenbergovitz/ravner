@@ -4,6 +4,10 @@ defmodule Ravner.Inventory.AshDomain do
   """
   use Ash.Domain
 
+  authorization do
+    authorize :always
+  end
+
   resources do
     resource Ravner.Inventory.Brand
     resource Ravner.Inventory.Organization

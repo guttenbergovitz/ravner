@@ -52,12 +52,13 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
   def handle_event("save", %{"project" => attrs}, socket) do
     project = socket.assigns.project
     project_id = project && project.id
+    actor = socket.assigns.current_scope.user
 
     result =
       if project_id do
-        Inventory.update_project(project, attrs)
+        Inventory.update_project(project, attrs, actor: actor)
       else
-        Inventory.create_project(attrs)
+        Inventory.create_project(attrs, actor: actor)
       end
 
     case result do
@@ -67,6 +68,9 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
          |> put_flash(:info, "Project saved")
          |> push_patch(to: ~p"/admin/projects")}
 
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: :project))}
     end
@@ -74,24 +78,37 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Inventory.delete_project(Inventory.get_project!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Project deleted")
-     |> assign(:projects, Inventory.list_projects())}
+    case Inventory.delete_project(Inventory.get_project!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Project deleted")
+         |> assign(:projects, Inventory.list_projects())}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete project.")}
+    end
   end
 
   @impl true
   def handle_event("add_role", %{"project_role" => attrs}, socket) do
     attrs = Map.put(attrs, "project_id", socket.assigns.project.id)
+    actor = socket.assigns.current_scope.user
 
-    case Inventory.create_project_role(attrs) do
+    case Inventory.create_project_role(attrs, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Role added")
          |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to add role (already exists?)")}
@@ -100,23 +117,36 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   @impl true
   def handle_event("delete_role", %{"id" => id}, socket) do
-    Inventory.delete_project_role(Inventory.get_project_role!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+    case Inventory.delete_project_role(Inventory.get_project_role!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete role.")}
+    end
   end
 
   @impl true
   def handle_event("add_repo", %{"project_repository" => attrs}, socket) do
     attrs = Map.put(attrs, "project_id", socket.assigns.project.id)
+    actor = socket.assigns.current_scope.user
 
-    case Inventory.create_project_repository(attrs) do
+    case Inventory.create_project_repository(attrs, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Repository added")
          |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to add repository")}
@@ -125,10 +155,19 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   @impl true
   def handle_event("delete_repo", %{"id" => id}, socket) do
-    Inventory.delete_project_repository(Inventory.get_project_repository!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+    case Inventory.delete_project_repository(Inventory.get_project_repository!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete repository.")}
+    end
   end
 end

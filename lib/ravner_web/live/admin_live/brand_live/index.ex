@@ -44,12 +44,13 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
   def handle_event("save", %{"brand" => attrs}, socket) do
     brand = socket.assigns.brand
     brand_id = brand && brand.id
+    actor = socket.assigns.current_scope.user
 
     result =
       if brand_id do
-        Inventory.update_brand(brand, attrs)
+        Inventory.update_brand(brand, attrs, actor: actor)
       else
-        Inventory.create_brand(attrs)
+        Inventory.create_brand(attrs, actor: actor)
       end
 
     case result do
@@ -59,6 +60,9 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
          |> put_flash(:info, "Brand saved")
          |> push_patch(to: ~p"/admin/brands")}
 
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: :brand))}
     end
@@ -66,11 +70,20 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Inventory.delete_brand(Inventory.get_brand!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Brand deleted")
-     |> assign(:brands, Inventory.list_brands())}
+    case Inventory.delete_brand(Inventory.get_brand!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Brand deleted")
+         |> assign(:brands, Inventory.list_brands())}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+        
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete brand.")}
+    end
   end
 end

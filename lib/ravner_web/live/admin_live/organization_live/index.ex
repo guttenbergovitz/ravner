@@ -45,14 +45,15 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
 
   @impl true
   def handle_event("save", %{"organization" => attrs}, socket) do
-    org = socket.assigns.org
+    org = socket.assigns.organization
     org_id = org && org.id
+    actor = socket.assigns.current_scope.user
 
     result =
       if org_id do
-        Inventory.update_organization(org, attrs)
+        Inventory.update_organization(org, attrs, actor: actor)
       else
-        Inventory.create_organization(attrs)
+        Inventory.create_organization(attrs, actor: actor)
       end
 
     case result do
@@ -62,6 +63,9 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
          |> put_flash(:info, "Organization saved")
          |> push_patch(to: ~p"/admin/organizations")}
 
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: :organization))}
     end
@@ -69,11 +73,20 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Inventory.delete_organization(Inventory.get_organization!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Organization deleted")
-     |> assign(:orgs, Inventory.list_organizations())}
+    case Inventory.delete_organization(Inventory.get_organization!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Organization deleted")
+         |> assign(:organizations, Inventory.list_organizations())}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete organization.")}
+    end
   end
 end
