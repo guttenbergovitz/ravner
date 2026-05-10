@@ -33,7 +33,14 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
     |> assign(:projects, Inventory.list_projects())
     |> assign(:project, %Project{})
     |> assign(:roles, [])
-    |> assign(:form, to_form(Inventory.change_project(%Project{}), as: :project))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_create(Project, :create,
+        as: "project",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -45,53 +52,71 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
     |> assign(:project, project)
     |> assign(:roles, Inventory.list_project_roles(project.id))
     |> assign(:repos, Inventory.list_project_repositories(project.id))
-    |> assign(:form, to_form(Inventory.change_project(project), as: :project))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_update(project, :update,
+        as: "project",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   @impl true
-  def handle_event("save", %{"project" => attrs}, socket) do
-    project = socket.assigns.project
-    project_id = project && project.id
+  def handle_event("validate", %{"project" => params}, socket) do
+    form = AshPhoenix.Form.validate(socket.assigns.form, params)
+    {:noreply, assign(socket, :form, form)}
+  end
 
-    result =
-      if project_id do
-        Inventory.update_project(project, attrs)
-      else
-        Inventory.create_project(attrs)
-      end
-
-    case result do
-      {:ok, _} ->
+  @impl true
+  def handle_event("save", %{"project" => params}, socket) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
+      {:ok, _project} ->
         {:noreply,
          socket
          |> put_flash(:info, "Project saved")
          |> push_patch(to: ~p"/admin/projects")}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset, as: :project))}
+      {:error, form} ->
+        {:noreply, assign(socket, :form, form)}
     end
   end
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Inventory.delete_project(Inventory.get_project!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Project deleted")
-     |> assign(:projects, Inventory.list_projects())}
+    case Inventory.delete_project(Inventory.get_project!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Project deleted")
+         |> assign(:projects, Inventory.list_projects())}
+
+      {:error, :forbidden} ->
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete project.")}
+    end
   end
 
   @impl true
   def handle_event("add_role", %{"project_role" => attrs}, socket) do
     attrs = Map.put(attrs, "project_id", socket.assigns.project.id)
+    actor = socket.assigns.current_scope.user
 
-    case Inventory.create_project_role(attrs) do
+    case Inventory.create_project_role(attrs, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Role added")
          |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to add role (already exists?)")}
@@ -100,23 +125,38 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   @impl true
   def handle_event("delete_role", %{"id" => id}, socket) do
-    Inventory.delete_project_role(Inventory.get_project_role!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+    case Inventory.delete_project_role(Inventory.get_project_role!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:roles, Inventory.list_project_roles(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete role.")}
+    end
   end
 
   @impl true
   def handle_event("add_repo", %{"project_repository" => attrs}, socket) do
     attrs = Map.put(attrs, "project_id", socket.assigns.project.id)
+    actor = socket.assigns.current_scope.user
 
-    case Inventory.create_project_repository(attrs) do
+    case Inventory.create_project_repository(attrs, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Repository added")
          |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to add repository")}
@@ -125,10 +165,20 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   @impl true
   def handle_event("delete_repo", %{"id" => id}, socket) do
-    Inventory.delete_project_repository(Inventory.get_project_repository!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+    case Inventory.delete_project_repository(Inventory.get_project_repository!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:repos, Inventory.list_project_repositories(socket.assigns.project.id))}
+
+      {:error, :forbidden} ->
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete repository.")}
+    end
   end
 end

@@ -7,24 +7,41 @@
           <h1 class="text-2xl font-light tracking-tight mb-1">Domains</h1>
           <div class="flex items-center justify-between">
             <p class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
-              {if @total == 0 && @search == "" && @lifecycle_filter == [] && @brand_filter == [] &&
-                    @org_filter == [] && @project_filter == [],
+              {if @total == 0 && @search == "" && @lifecycle_filter == [] &&
+                    @technical_status_filter == [] && @brand_filter == [] && @org_filter == [] &&
+                    @project_filter == [],
                   do: "No domains yet",
                   else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
             </p>
-            <button
-              phx-click="toggle_empty_facets"
-              class={[
-                "text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
-                if(@show_empty_facets,
-                  do: "bg-neutral-900 text-white border-neutral-900",
-                  else: "text-neutral-400 border-neutral-200 hover:border-neutral-400"
-                )
-              ]}
-              title="Show filters with zero results"
-            >
-              Show empty
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                phx-click="toggle_filter_subdomains"
+                aria-pressed={@include_subdomains}
+                class={[
+                  "inline-flex items-center gap-1.5 text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
+                  if(@include_subdomains,
+                    do: "bg-neutral-900 text-white border-neutral-900",
+                    else: "text-neutral-400 border-neutral-200 hover:border-neutral-400"
+                  )
+                ]}
+                title="Include subdomains in search and filters"
+              >
+                <.icon name="hero-square-2-stack" class="w-3 h-3" /> Subdomains
+              </button>
+              <button
+                phx-click="toggle_empty_facets"
+                class={[
+                  "text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
+                  if(@show_empty_facets,
+                    do: "bg-neutral-900 text-white border-neutral-900",
+                    else: "text-neutral-400 border-neutral-200 hover:border-neutral-400"
+                  )
+                ]}
+                title="Show filters with zero results"
+              >
+                Show empty
+              </button>
+            </div>
           </div>
         </div>
 
@@ -84,6 +101,73 @@
                         <span>{label}</span>
                       </div>
                       <span class="text-[10px] opacity-60">{count}</span>
+                    </button>
+                  <% end %>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Technical Status Facet --%>
+          <div>
+            <button
+              phx-click="toggle_facet_group"
+              phx-value-group="technical_status"
+              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group"
+            >
+              <span>Technical</span>
+              <.icon
+                name={
+                  if MapSet.member?(@expanded_facets, "technical_status"),
+                    do: "hero-chevron-up",
+                    else: "hero-chevron-down"
+                }
+                class="w-3 h-3 opacity-50 group-hover:opacity-100"
+              />
+            </button>
+
+            <%= if MapSet.member?(@expanded_facets, "technical_status") do %>
+              <div class="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                <%= for {status, label, _icon} <- technical_status_options() do %>
+                  <% count =
+                    Enum.find_value(@facets.technical_status, 0, fn {s, c} ->
+                      if s == status, do: c
+                    end) %>
+                  <% active = status in @technical_status_filter %>
+                  <%= if @show_empty_facets || count > 0 || active do %>
+                    <button
+                      phx-click="toggle_facet"
+                      phx-value-type="technical_status"
+                      phx-value-id={status}
+                      class={[
+                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group",
+                        if(active,
+                          do: "bg-neutral-100 text-neutral-900 font-normal",
+                          else: "text-neutral-500 hover:bg-neutral-50 font-light"
+                        ),
+                        count == 0 && !active && "opacity-30"
+                      ]}
+                    >
+                      <div class="flex items-center gap-2 min-w-0">
+                        <div class={[
+                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
+                          if(active,
+                            do: "bg-neutral-900 border-neutral-900",
+                            else: "border-neutral-300 group-hover:border-neutral-400"
+                          )
+                        ]}>
+                          <%= if active do %>
+                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
+                          <% end %>
+                        </div>
+                        <.technical_status_indicator
+                          status={status}
+                          variant={:icon}
+                          class="size-3.5"
+                        />
+                        <span>{label}</span>
+                      </div>
+                      <span class="text-[10px] opacity-60 shrink-0 ml-2">{count}</span>
                     </button>
                   <% end %>
                 <% end %>
@@ -557,7 +641,7 @@
         <% end %>
 
         <%!-- Active Filter Chips --%>
-        <%= if @search != "" || @ip_filter != "" || @lifecycle_filter != [] || @project_filter != [] || @org_filter != [] || @brand_filter != [] do %>
+        <%= if @search != "" || @ip_filter != "" || @lifecycle_filter != [] || @technical_status_filter != [] || @project_filter != [] || @org_filter != [] || @brand_filter != [] do %>
           <div class="flex items-center gap-2 mb-6 flex-wrap animate-in fade-in duration-500">
             <span class="text-[10px] font-normal text-neutral-400 uppercase tracking-widest mr-1">
               Active:
@@ -597,6 +681,23 @@
                   phx-click="toggle_facet"
                   phx-value-type="lifecycle"
                   phx-value-id={state}
+                  class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                >
+                  <.icon name="hero-x-mark" class="w-3 h-3" />
+                </button>
+              </span>
+            <% end %>
+
+            <%= for status <- @technical_status_filter do %>
+              <% {_, label, _icon} =
+                Enum.find(technical_status_options(), fn {s, _, _} -> s == status end) %>
+              <span class="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-neutral-50 border border-neutral-200 text-[10px] font-normal text-neutral-600 uppercase tracking-wide">
+                <.technical_status_indicator status={status} variant={:icon} class="size-3" />
+                {label}
+                <button
+                  phx-click="toggle_facet"
+                  phx-value-type="technical_status"
+                  phx-value-id={status}
                   class="text-neutral-400 hover:text-neutral-900 transition-colors"
                 >
                   <.icon name="hero-x-mark" class="w-3 h-3" />
@@ -713,8 +814,8 @@
                         phx-value-id={domain.id}
                         phx-stop
                         class={[
-                          "w-2 h-2 rounded-full transition-transform hover:scale-150 cursor-pointer",
-                          lifecycle_color(domain.lifecycle_state)
+                          "transition-transform hover:scale-125 cursor-pointer",
+                          lifecycle_dot_class(domain.lifecycle_state)
                         ]}
                         title={domain.lifecycle_state}
                       >
@@ -724,7 +825,7 @@
                           class="absolute left-0 top-5 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
                           phx-click-away="close_lifecycle_menu"
                         >
-                          <%= for {state, label, color} <- lifecycle_options() do %>
+                          <%= for {state, label, _color} <- lifecycle_options() do %>
                             <button
                               phx-click="set_lifecycle"
                               phx-value-id={domain.id}
@@ -734,13 +835,19 @@
                                 domain.lifecycle_state == state && "font-medium"
                               ]}
                             >
-                              <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                              <span class={lifecycle_dot_class(state, :sm)}></span>
                               {label}
                             </button>
                           <% end %>
                         </div>
                       <% end %>
                     </div>
+
+                    <.technical_status_indicator
+                      status={domain.technical_status}
+                      variant={:icon}
+                      class="shrink-0"
+                    />
 
                     <div class="flex items-center gap-3">
                       <.link
@@ -909,8 +1016,8 @@
                               phx-value-id={sub.id}
                               phx-stop
                               class={[
-                                "w-1.5 h-1.5 rounded-full transition-transform hover:scale-150 cursor-pointer",
-                                lifecycle_color(sub.lifecycle_state)
+                                "transition-transform hover:scale-125 cursor-pointer",
+                                lifecycle_dot_class(sub.lifecycle_state, :sm)
                               ]}
                               title={sub.lifecycle_state}
                             >
@@ -920,7 +1027,7 @@
                                 class="absolute left-0 top-5 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
                                 phx-click-away="close_lifecycle_menu"
                               >
-                                <%= for {state, label, color} <- lifecycle_options() do %>
+                                <%= for {state, label, _color} <- lifecycle_options() do %>
                                   <button
                                     phx-click="set_lifecycle"
                                     phx-value-id={sub.id}
@@ -930,14 +1037,18 @@
                                       sub.lifecycle_state == state && "font-medium"
                                     ]}
                                   >
-                                    <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}>
-                                    </span>
+                                    <span class={lifecycle_dot_class(state, :sm)}></span>
                                     {label}
                                   </button>
                                 <% end %>
                               </div>
                             <% end %>
                           </div>
+                          <.technical_status_indicator
+                            status={sub.technical_status}
+                            variant={:icon}
+                            class="size-5 shrink-0"
+                          />
                           <.link
                             navigate={~p"/domains/#{sub.id}"}
                             class="text-sm font-light hover:underline"

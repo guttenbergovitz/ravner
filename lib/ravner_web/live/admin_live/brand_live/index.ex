@@ -27,7 +27,14 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
     |> assign(:page_title, "New Brand")
     |> assign(:brands, Inventory.list_brands())
     |> assign(:brand, %Brand{})
-    |> assign(:form, to_form(Inventory.change_brand(%Brand{}), as: :brand))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_create(Brand, :create,
+        as: "brand",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -37,40 +44,53 @@ defmodule RavnerWeb.AdminLive.BrandLive.Index do
     |> assign(:page_title, "Edit Brand")
     |> assign(:brands, Inventory.list_brands())
     |> assign(:brand, brand)
-    |> assign(:form, to_form(Inventory.change_brand(brand), as: :brand))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_update(brand, :update,
+        as: "brand",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   @impl true
-  def handle_event("save", %{"brand" => attrs}, socket) do
-    brand = socket.assigns.brand
-    brand_id = brand && brand.id
+  def handle_event("validate", %{"brand" => params}, socket) do
+    form = AshPhoenix.Form.validate(socket.assigns.form, params)
+    {:noreply, assign(socket, :form, form)}
+  end
 
-    result =
-      if brand_id do
-        Inventory.update_brand(brand, attrs)
-      else
-        Inventory.create_brand(attrs)
-      end
-
-    case result do
-      {:ok, _} ->
+  @impl true
+  def handle_event("save", %{"brand" => params}, socket) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
+      {:ok, _brand} ->
         {:noreply,
          socket
          |> put_flash(:info, "Brand saved")
          |> push_patch(to: ~p"/admin/brands")}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset, as: :brand))}
+      {:error, form} ->
+        {:noreply, assign(socket, :form, form)}
     end
   end
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    Inventory.delete_brand(Inventory.get_brand!(id))
+    actor = socket.assigns.current_scope.user
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Brand deleted")
-     |> assign(:brands, Inventory.list_brands())}
+    case Inventory.delete_brand(Inventory.get_brand!(id), actor: actor) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Brand deleted")
+         |> assign(:brands, Inventory.list_brands())}
+
+      {:error, :forbidden} ->
+        {:noreply,
+         put_flash(socket, :error, "You do not have permission to perform this action.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to delete brand.")}
+    end
   end
 end

@@ -1,17 +1,36 @@
 defmodule Ravner.Domains.DiscoveredUrl do
-  use Ecto.Schema
+  use Ash.Resource,
+    domain: Ravner.Domains.AshDomain,
+    data_layer: AshPostgres.DataLayer
+
   import Ecto.Changeset
 
-  @type t :: %__MODULE__{}
+  postgres do
+    table("domain_discovered_urls")
+    repo(Ravner.Repo)
+  end
 
-  schema "domain_discovered_urls" do
-    belongs_to(:domain, Ravner.Domains.Domain)
-    field(:url, :string)
-    field(:status, :integer)
-    field(:content_type, :string)
-    field(:source, :string)
+  actions do
+    defaults([:read, :destroy, :create, :update])
+  end
 
-    timestamps(type: :utc_datetime)
+  attributes do
+    integer_primary_key(:id)
+
+    attribute :url, :string do
+      allow_nil?(false)
+    end
+
+    attribute(:status, :integer)
+    attribute(:content_type, :string)
+    attribute(:source, :string)
+
+    create_timestamp(:inserted_at, type: :utc_datetime)
+    update_timestamp(:updated_at, type: :utc_datetime)
+  end
+
+  relationships do
+    belongs_to :domain, Ravner.Domains.Domain, attribute_type: :integer
   end
 
   def changeset(discovered_url, attrs) do

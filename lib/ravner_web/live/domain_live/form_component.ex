@@ -28,7 +28,9 @@ defmodule RavnerWeb.DomainLive.FormComponent do
   end
 
   defp save_domain(socket, :new, domain_params) do
-    case Domains.create_domain(domain_params) do
+    actor = socket.assigns.current_scope.user
+
+    case Domains.create_domain(domain_params, actor: actor) do
       {:ok, _domain} ->
         {:noreply,
          socket

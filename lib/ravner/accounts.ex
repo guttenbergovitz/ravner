@@ -6,7 +6,14 @@ defmodule Ravner.Accounts do
   import Ecto.Query, warn: false
   alias Ravner.Repo
 
-  alias Ravner.Accounts.{User, UserNotifier, UserToken}
+  alias Ravner.Accounts.{
+    User,
+    UserInviteResource,
+    UserNotifier,
+    UserResource,
+    UserToken,
+    UserTokenResource
+  }
 
   ## Database getters
 
@@ -191,7 +198,7 @@ defmodule Ravner.Accounts do
   """
   def generate_user_session_token(user) do
     {token, user_token} = UserToken.build_session_token(user)
-    Repo.insert!(user_token)
+    insert_user_token!(user_token)
     token
   end
 
@@ -276,7 +283,7 @@ defmodule Ravner.Accounts do
       when is_function(update_email_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
 
-    Repo.insert!(user_token)
+    insert_user_token!(user_token)
     UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
   end
 
@@ -286,7 +293,7 @@ defmodule Ravner.Accounts do
   def deliver_login_instructions(%User{} = user, magic_link_url_fun)
       when is_function(magic_link_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "login")
-    Repo.insert!(user_token)
+    insert_user_token!(user_token)
     UserNotifier.deliver_login_instructions(user, magic_link_url_fun.(encoded_token))
   end
 
@@ -299,6 +306,20 @@ defmodule Ravner.Accounts do
   end
 
   ## Token helper
+
+  defp insert_user_token!(%UserToken{} = user_token) do
+    attrs =
+      user_token
+      |> Map.from_struct()
+      |> Map.take([:token, :context, :sent_to, :user_id, :authenticated_at])
+
+    {:ok, created} =
+      UserTokenResource
+      |> Ash.Changeset.for_create(:create, attrs, actor: system_actor())
+      |> Ash.create()
+
+    Repo.get!(UserToken, created.id)
+  end
 
   defp update_user_and_delete_all_tokens(changeset) do
     Repo.transact(fn ->
@@ -324,26 +345,50 @@ defmodule Ravner.Accounts do
   end
 
   @doc "Creates a user directly (admin flow) with a temporary password."
-  def admin_create_user(attrs) do
-    %User{}
-    |> User.admin_changeset(attrs)
-    |> User.password_changeset(attrs)
-    |> User.confirm_changeset()
-    |> Repo.insert()
+  def admin_create_user(attrs, opts \\ []) do
+    actor = Keyword.get(opts, :actor, %{role: :admin})
+
+    changeset =
+      %User{}
+      |> User.admin_changeset(attrs)
+      |> User.password_changeset(attrs)
+      |> User.confirm_changeset()
+
+    if changeset.valid? do
+      user = Ecto.Changeset.apply_changes(changeset)
+
+      attrs = %{
+        email: user.email,
+        hashed_password: user.hashed_password,
+        confirmed_at: user.confirmed_at,
+        role: user.role,
+        name: user.name,
+        active: user.active
+      }
+
+      create_user_via_ash(attrs, changeset, actor)
+    else
+      {:error, changeset}
+    end
   end
 
   @doc "Updates user role, name or active flag."
-  def admin_update_user(%User{} = user, attrs) do
-    user
-    |> User.role_changeset(attrs)
-    |> Repo.update()
+  def admin_update_user(%User{} = user, attrs, opts \\ []) do
+    actor = Keyword.get(opts, :actor, %{role: :admin})
+    changeset = User.role_changeset(user, attrs)
+
+    if changeset.valid? do
+      update_user_resource(user, changeset, actor)
+    else
+      {:error, changeset}
+    end
   end
 
   @doc "Promotes the first user (root) to admin role."
   def promote_first_user_to_admin do
     case Repo.one(from u in User, order_by: [asc: u.inserted_at], limit: 1) do
       nil -> :noop
-      user -> Repo.update!(User.role_changeset(user, %{role: :admin}))
+      user -> admin_update_user(user, %{role: :admin}, actor: system_actor())
     end
   end
 
@@ -354,20 +399,43 @@ defmodule Ravner.Accounts do
   @invite_ttl_hours 48
 
   @doc "Creates an invite token for a given email and role."
-  def create_invite(attrs, invited_by_id) do
+  def create_invite(attrs, invited_by_id, opts \\ []) do
+    actor = Keyword.get(opts, :actor, %{role: :admin})
     token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
     expires_at = DateTime.add(DateTime.utc_now(:second), @invite_ttl_hours * 3600, :second)
 
-    %UserInvite{}
-    |> UserInvite.changeset(
-      Map.merge(attrs, %{
-        "token" => token,
-        "invited_by_id" => invited_by_id,
-        "expires_at" => expires_at
-      })
-    )
-    |> Ecto.Changeset.put_change(:token, token)
-    |> Repo.insert()
+    changeset =
+      %UserInvite{}
+      |> UserInvite.changeset(
+        Map.merge(attrs, %{
+          "token" => token,
+          "invited_by_id" => invited_by_id,
+          "expires_at" => expires_at
+        })
+      )
+      |> Ecto.Changeset.put_change(:token, token)
+
+    if changeset.valid? do
+      invite = Ecto.Changeset.apply_changes(changeset)
+
+      ash_attrs = %{
+        token: invite.token,
+        email: invite.email,
+        role: invite.role,
+        name: invite.name,
+        invited_by_id: invite.invited_by_id,
+        expires_at: invite.expires_at
+      }
+
+      case UserInviteResource
+           |> Ash.Changeset.for_create(:create, ash_attrs, actor: actor)
+           |> Ash.create() do
+        {:ok, created} -> {:ok, Repo.get!(UserInvite, created.id)}
+        {:error, _} -> {:error, changeset}
+      end
+    else
+      {:error, changeset}
+    end
   end
 
   @doc "Gets a valid (unexpired, unaccepted) invite by token."
@@ -383,7 +451,7 @@ defmodule Ravner.Accounts do
   @doc "Accepts an invite: creates the user account and marks the invite used."
   def accept_invite(%UserInvite{} = invite, password) do
     Repo.transaction(fn ->
-      {:ok, user} =
+      changeset =
         %User{}
         |> User.admin_changeset(
           %{
@@ -395,13 +463,31 @@ defmodule Ravner.Accounts do
         )
         |> User.password_changeset(%{"password" => password, "password_confirmation" => password})
         |> User.confirm_changeset()
-        |> Repo.insert()
 
-      invite
-      |> UserInvite.accept_changeset()
-      |> Repo.update!()
+      user = Ecto.Changeset.apply_changes(changeset)
 
-      user
+      {:ok, created_user} =
+        create_user_via_ash(
+          %{
+            email: user.email,
+            hashed_password: user.hashed_password,
+            confirmed_at: user.confirmed_at,
+            role: user.role,
+            name: user.name,
+            active: user.active
+          },
+          changeset,
+          system_actor()
+        )
+
+      accepted_at =
+        invite
+        |> UserInvite.accept_changeset()
+        |> Ecto.Changeset.get_change(:accepted_at)
+
+      {:ok, _invite} = accept_invite_via_ash(invite, accepted_at, system_actor())
+
+      created_user
     end)
   end
 
@@ -409,4 +495,35 @@ defmodule Ravner.Accounts do
   def list_invites do
     Repo.all(from i in UserInvite, order_by: [desc: i.inserted_at], preload: [:invited_by])
   end
+
+  defp create_user_via_ash(attrs, fallback_changeset, actor) do
+    case UserResource |> Ash.Changeset.for_create(:create, attrs, actor: actor) |> Ash.create() do
+      {:ok, created} -> {:ok, Repo.get!(User, created.id)}
+      {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
+      {:error, _} -> {:error, fallback_changeset}
+    end
+  end
+
+  defp update_user_resource(%User{} = user, changeset, actor) do
+    with {:ok, resource} <- Ash.get(UserResource, user.id, actor: actor),
+         {:ok, _updated} <-
+           resource
+           |> Ash.Changeset.for_update(:admin_update, changeset.changes, actor: actor)
+           |> Ash.update() do
+      {:ok, Repo.get!(User, user.id)}
+    else
+      {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
+      {:error, _} -> {:error, changeset}
+    end
+  end
+
+  defp accept_invite_via_ash(%UserInvite{} = invite, accepted_at, actor) do
+    with {:ok, resource} <- Ash.get(UserInviteResource, invite.id, actor: actor) do
+      resource
+      |> Ash.Changeset.for_update(:accept, %{accepted_at: accepted_at}, actor: actor)
+      |> Ash.update()
+    end
+  end
+
+  defp system_actor, do: %{role: :admin}
 end

@@ -25,10 +25,13 @@ Ravner utilizes **Oban** for reliable background task processing and persistent 
 - **Dispatcher Pattern**: Efficient database-driven scheduling that scales to thousands of domains without queue bloat.
 - **Observability**: Real-time queue monitoring and schedule management via the Admin Jobs dashboard.
 
-The project follows strict Elixir/Phoenix idiomatic patterns:
+## Engineering Standards
 
+The project follows idiomatic Elixir/Phoenix patterns with a hybrid architecture:
+
+- **Governance Layer (Ash Framework)**: Authorization (RBAC), Inventory management, and Domain lifecycle transitions are handled via **Ash Framework**. This provides declarative policies and automated audit trails (`ash_paper_trail`).
+- **Performance Runtime (Pure Ecto/Oban)**: High-concurrency background scanning, process orchestration (`Ravner.SystemCommand`), and heavy data ingestion (e.g., thousands of URLs) bypass Ash and use pure **Ecto/Oban** to avoid abstraction overhead and maintain maximum I/O performance.
 - **Strict Typing**: All public context functions must have `@spec` annotations. Core data structures are defined via `@type t`.
-- **Logic Placement**: Thin controllers/LiveViews. All business logic and orchestration reside in the core contexts (e.g., `Ravner.Domains`, `Ravner.Scans`).
 - **Clean Execution**: External tools are wrapped by `Ravner.SystemCommand` to ensure proper process group cleanup and timeout management.
 - **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for both developers and LLM-based agents.
 
@@ -39,13 +42,7 @@ The project follows strict Elixir/Phoenix idiomatic patterns:
 - Elixir 1.16+
 - PostgreSQL
 - External tools (must be in `$PATH`):
-  - `dnsx`
-  - `httpx`
-  - `naabu`
-  - `nuclei`
-  - `katana`
-  - `webanalyze`
-  - `whois`
+  - `dnsx`, `httpx`, `naabu`, `nuclei`, `katana`, `webanalyze`, `whois`
 
 ### Setup
 
@@ -68,4 +65,6 @@ Detailed specifications and architectural notes are kept in the `/documentation`
 - `/documentation/features` — Specific feature designs (Bulk ops, Security scans).
 - `/documentation/architecture` — System design, command execution, and scheduling.
 - `/documentation/architecture/roadmap.md` — Identified bottlenecks and future scaling plans.
+- `/documentation/architecture/ash-migration-plan.md` — Ash Framework adoption strategy.
+- `/documentation/architecture/ash-migration-checklist.md` — Completed migration steps and regression checks.
 - `/documentation/heuristics` — Rules for classification and discovery logic.

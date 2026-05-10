@@ -20,8 +20,14 @@ This document outlines known architectural bottlenecks and the planned technical
 
 **Planned Solution**: Maintain strict concurrency limits via Oban queues and implement active monitoring of host-level `ulimit` and network saturation.
 
-## 4. Tooling Abstraction (Adapter Pattern)
+## 5. Strategic Shift: Enterprise Governance via Ash Framework
 
-**Issue**: Logic for executing and parsing external tools (e.g., `webanalyze`) is currently tightly coupled within workers. Any breaking change in a tool's output format will require manual updates to worker logic.
+**Context**: Ravner's primary business value is not as a raw scanning engine, but as an enterprise governance and knowledge management platform for digital ecosystems. Scans exist to reduce organizational blindness, but the current Role-Based Access Control (RBAC) and inventory management logic is naive and scattered across UI layers.
 
-**Planned Solution**: Introduce a "Parser/Adapter" architectural layer. This abstraction will decouple the execution of external binaries from data ingestion, making it easier to add new tools or update existing ones without touching core business logic.
+**Planned Solution (Partial Ash Adoption)**:
+We will transition the governance and inventory layers to the **Ash Framework** to provide enterprise-grade policies, auditability, and lifecycle workflows, while keeping the runtime orchestration in pure Elixir/Ecto/Oban.
+
+**Implementation Boundaries**:
+- **Ash Domain**: `Ravner.Inventory` (Brands, Orgs, Projects, Roles) and the ownership/lifecycle aspects of `Ravner.Domains`. This enables strict declarative authorization (Ash Policies) and automatic audit trails (AshPaperTrail) necessary for compliance.
+- **Non-Ash Domain**: `Ravner.SystemCommand`, `Ravner.Scans`, and all Oban Dispatchers/Workers must remain pure Ecto/Elixir to maintain maximum I/O performance and avoid abstraction overhead during high-concurrency background processing.
+- **Rollout**: Migration will be iterative, starting strictly with the `Ravner.Inventory` context to avoid cognitive overload and establish patterns before touching core domain routing.

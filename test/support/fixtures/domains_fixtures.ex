@@ -13,7 +13,7 @@ defmodule Ravner.DomainsFixtures do
         type: :domain,
         lifecycle_state: :active
       })
-      |> Domains.create_domain()
+      |> Domains.create_domain(actor: %{role: :admin})
 
     domain
   end

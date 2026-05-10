@@ -3,7 +3,9 @@
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-2xl font-light tracking-tight">Background Jobs</h1>
-        <p class="text-sm font-light text-neutral-500 mt-1">Oban queue inspection and automation schedules.</p>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Oban queue inspection and automation schedules.
+        </p>
       </div>
       <div class="flex bg-neutral-100 p-1 rounded-lg">
         <button
@@ -46,7 +48,9 @@
           <p class="text-2xl font-light text-yellow-600">{@stats["scheduled"] || 0}</p>
         </div>
         <div class="card-line p-4">
-          <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Retryable / Discarded</p>
+          <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">
+            Retryable / Discarded
+          </p>
           <p class="text-2xl font-light text-red-600">
             {@stats["retryable"] || 0} / {@stats["discarded"] || 0}
           </p>
@@ -57,13 +61,12 @@
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-sm font-normal tracking-wide uppercase">Recent Jobs</h2>
           <label class="flex items-center gap-2 text-xs font-light text-neutral-500 cursor-pointer">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={@show_dispatchers}
               phx-click="toggle_dispatchers"
               class="w-3.5 h-3.5 border-neutral-300 rounded text-neutral-900 focus:ring-0"
-            />
-            Show Dispatchers
+            /> Show Dispatchers
           </label>
         </div>
         <div class="overflow-x-auto">
@@ -127,7 +130,9 @@
 
     <%= if @active_tab == :schedules do %>
       <div class="card-line">
-        <h2 class="text-sm font-normal tracking-wide uppercase mb-4">Domains with Active Schedules</h2>
+        <h2 class="text-sm font-normal tracking-wide uppercase mb-4">
+          Domains with Active Schedules
+        </h2>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100">
@@ -144,7 +149,10 @@
               <%= for meta <- @schedules do %>
                 <tr class="hover:bg-neutral-50/50 transition-colors">
                   <td class="px-4 py-3">
-                    <.link navigate={~p"/domains/#{meta.domain.id}"} class="font-medium text-neutral-900 hover:underline">
+                    <.link
+                      navigate={~p"/domains/#{meta.domain.id}"}
+                      class="font-medium text-neutral-900 hover:underline"
+                    >
                       {meta.domain.name}
                     </.link>
                   </td>
@@ -208,6 +216,5 @@
         </div>
       </div>
     <% end %>
-
   </div>
 </Layouts.app>

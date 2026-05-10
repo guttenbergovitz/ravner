@@ -71,7 +71,12 @@ defmodule Ravner.MixProject do
       {:bandit, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:oban, "~> 2.18"}
+      {:oban, "~> 2.18"},
+      {:ash, "~> 3.4"},
+      {:ash_postgres, "~> 2.4"},
+      {:ash_phoenix, "~> 2.1"},
+      {:ash_paper_trail, "~> 0.3.0"},
+      {:picosat_elixir, "~> 0.2.3"}
     ]
   end
 

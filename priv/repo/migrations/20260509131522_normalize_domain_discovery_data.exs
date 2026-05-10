@@ -10,6 +10,7 @@ defmodule Ravner.Repo.Migrations.NormalizeDomainDiscoveryData do
       add :ttl, :integer
       timestamps(type: :utc_datetime)
     end
+
     create index(:domain_dns_records, [:domain_id])
 
     # 2. Tech Evidence
@@ -21,6 +22,7 @@ defmodule Ravner.Repo.Migrations.NormalizeDomainDiscoveryData do
       add :confidence, :integer
       timestamps(type: :utc_datetime)
     end
+
     create index(:domain_tech_evidence, [:domain_id])
 
     # 3. Discovered URLs
@@ -32,6 +34,7 @@ defmodule Ravner.Repo.Migrations.NormalizeDomainDiscoveryData do
       add :source, :string
       timestamps(type: :utc_datetime)
     end
+
     create index(:domain_discovered_urls, [:domain_id])
 
     # 4. Clean up domain_metadata

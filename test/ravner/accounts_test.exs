@@ -389,6 +389,59 @@ defmodule Ravner.AccountsTest do
     end
   end
 
+  describe "Ash-backed admin accounts actions" do
+    test "admin can create and update a user" do
+      attrs =
+        valid_user_attributes(%{
+          password: valid_user_password(),
+          name: "Editor",
+          role: "editor"
+        })
+
+      assert {:ok, user} = Accounts.admin_create_user(attrs, actor: %{role: :admin})
+      assert user.role == :editor
+      assert user.confirmed_at
+
+      assert {:ok, updated} =
+               Accounts.admin_update_user(user, %{role: "viewer", active: false},
+                 actor: %{role: :admin}
+               )
+
+      assert updated.role == :viewer
+      refute updated.active
+    end
+
+    test "editor cannot use admin-only account actions" do
+      attrs =
+        valid_user_attributes(%{
+          password: valid_user_password(),
+          role: "viewer"
+        })
+
+      assert {:error, :forbidden} = Accounts.admin_create_user(attrs, actor: %{role: :editor})
+
+      user = user_fixture()
+
+      assert {:error, :forbidden} =
+               Accounts.admin_update_user(user, %{role: "admin"}, actor: %{role: :editor})
+    end
+
+    test "admin creates invites through the account governance layer" do
+      admin = user_fixture(%{role: :admin})
+
+      assert {:ok, invite} =
+               Accounts.create_invite(
+                 %{"email" => unique_user_email(), "role" => "viewer"},
+                 admin.id,
+                 actor: %{role: :admin}
+               )
+
+      assert invite.invited_by_id == admin.id
+      assert invite.role == :viewer
+      assert is_binary(invite.token)
+    end
+  end
+
   describe "inspect/2 for the User module" do
     test "does not include password" do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""

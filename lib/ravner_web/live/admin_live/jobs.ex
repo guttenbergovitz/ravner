@@ -41,11 +41,11 @@ defmodule RavnerWeb.AdminLive.Jobs do
 
   @impl true
   def handle_event("toggle_dispatchers", _, socket) do
-    socket = 
+    socket =
       socket
       |> assign(:show_dispatchers, !socket.assigns.show_dispatchers)
       |> fetch_jobs()
-      
+
     {:noreply, socket}
   end
 
@@ -61,17 +61,18 @@ defmodule RavnerWeb.AdminLive.Jobs do
   @impl true
   def handle_event("disable_schedule", %{"domain_id" => id}, socket) do
     id = String.to_integer(id)
-    
+
     attrs = %{
-      scan_interval_days: nil, 
+      scan_interval_days: nil,
       heartbeat_interval_minutes: nil,
       http_scan_interval_days: nil,
       dns_scan_interval_days: nil
     }
-    
+
     case Domains.upsert_domain_metadata(id, attrs) do
       {:ok, _} ->
         {:noreply, fetch_schedules(socket) |> put_flash(:info, "Schedules disabled for domain.")}
+
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "Failed to disable schedules.")}
     end
@@ -79,8 +80,8 @@ defmodule RavnerWeb.AdminLive.Jobs do
 
   defp fetch_jobs(socket) do
     query = Oban.Job
-    
-    query = 
+
+    query =
       if socket.assigns.show_dispatchers do
         query
       else
@@ -111,10 +112,10 @@ defmodule RavnerWeb.AdminLive.Jobs do
       from(m in DomainMetadata,
         join: d in assoc(m, :domain),
         where:
-          not is_nil(m.scan_interval_days) or 
-          not is_nil(m.heartbeat_interval_minutes) or
-          not is_nil(m.http_scan_interval_days) or
-          not is_nil(m.dns_scan_interval_days),
+          not is_nil(m.scan_interval_days) or
+            not is_nil(m.heartbeat_interval_minutes) or
+            not is_nil(m.http_scan_interval_days) or
+            not is_nil(m.dns_scan_interval_days),
         order_by: [asc: d.name],
         preload: [domain: d]
       )
