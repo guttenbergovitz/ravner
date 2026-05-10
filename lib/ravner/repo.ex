@@ -23,6 +23,10 @@ defmodule Ravner.Repo do
     :ok
   end
 
+  def prefer_transaction_for_atomic_updates? do
+    true
+  end
+
   def default_constraint_match_type(_type, _name) do
     :exact
   end
