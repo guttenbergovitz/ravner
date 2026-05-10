@@ -85,18 +85,18 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 ## Phase 5: UI Modernization (AshPhoenix)
 *Goal: Replace custom Ecto form bindings with `AshPhoenix.Form`.*
 
-- [ ] Add `ash_phoenix` dependency.
-- [ ] **Refactor Forms:**
-  - [ ] Update `RavnerWeb.AdminLive.BrandLive.FormComponent` to use `AshPhoenix.Form.for_create` and `for_update`.
-  - [ ] Update Organization and Project forms.
+- [x] Add `ash_phoenix` dependency.
+- [x] **Refactor Forms:**
+  - [x] Update `RavnerWeb.AdminLive.BrandLive.FormComponent` to use `AshPhoenix.Form.for_create` and `for_update`. (Note: Refactored parent Index LiveView as it handles the form).
+  - [x] Update Organization and Project forms.
 - [ ] **Refactor Filtering (Optional but recommended):**
   - [ ] Replace custom Ecto query builders in `DomainLive.Index` with `AshPhoenix.FilterForm` for facet management.
-- [ ] *Regression Check:* Verify all admin creation/edit forms render correctly and display validation errors directly from the Ash resources.
+- [x] *Regression Check:* Verify all admin creation/edit forms render correctly and display validation errors directly from the Ash resources.
 
 ---
 
 ## Post-Migration Verification
-- [ ] Verify the "Stop Line": Ensure `Ravner.SystemCommand`, `Ravner.Scans`, and `Ravner.Workers` still exclusively use `Ecto.Repo` and pure Elixir.
-- [ ] Run full test suite.
+- [x] Verify the "Stop Line": Ensure `Ravner.SystemCommand`, `Ravner.Scans`, and `Ravner.Workers` still exclusively use `Ecto.Repo` and pure Elixir.
+- [x] Run full test suite.
 - [ ] Run `mix dialyzer`.
 - [ ] Perform a full end-to-end manual test: Add a Domain -> Assign to Project -> Run Scan -> Check Jobs Dashboard -> Verify Audit Trail.

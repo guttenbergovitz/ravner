@@ -30,7 +30,14 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
     |> assign(:page_title, "New Person")
     |> assign(:people, Inventory.list_people())
     |> assign(:person, %Person{})
-    |> assign(:form, to_form(Inventory.change_person(%Person{}), as: :person))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_create(Person, :create,
+        as: "person",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -40,34 +47,33 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
     |> assign(:page_title, "Edit Person")
     |> assign(:people, Inventory.list_people())
     |> assign(:person, person)
-    |> assign(:form, to_form(Inventory.change_person(person), as: :person))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_update(person, :update,
+        as: "person",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   @impl true
-  def handle_event("save", %{"person" => attrs}, socket) do
-    person = socket.assigns.person
-    person_id = person && person.id
-    actor = socket.assigns.current_scope.user
+  def handle_event("validate", %{"person" => params}, socket) do
+    form = AshPhoenix.Form.validate(socket.assigns.form, params)
+    {:noreply, assign(socket, :form, form)}
+  end
 
-    result =
-      if person_id do
-        Inventory.update_person(person, attrs, actor: actor)
-      else
-        Inventory.create_person(attrs, actor: actor)
-      end
-
-    case result do
-      {:ok, _} ->
+  @impl true
+  def handle_event("save", %{"person" => params}, socket) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
+      {:ok, _person} ->
         {:noreply,
          socket
          |> put_flash(:info, "Person saved")
          |> push_patch(to: ~p"/admin/people")}
 
-      {:error, :forbidden} ->
-        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset, as: :person))}
+      {:error, form} ->
+        {:noreply, assign(socket, :form, form)}
     end
   end
 

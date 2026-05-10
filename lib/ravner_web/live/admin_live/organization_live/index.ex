@@ -30,7 +30,14 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
     |> assign(:page_title, "New Organization")
     |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, %Organization{})
-    |> assign(:form, to_form(Inventory.change_organization(%Organization{}), as: :organization))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_create(Organization, :create,
+        as: "organization",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -40,34 +47,33 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
     |> assign(:page_title, "Edit Organization")
     |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, org)
-    |> assign(:form, to_form(Inventory.change_organization(org), as: :organization))
+    |> assign(
+      :form,
+      AshPhoenix.Form.for_update(org, :update,
+        as: "organization",
+        actor: socket.assigns.current_scope.user
+      )
+      |> to_form()
+    )
   end
 
   @impl true
-  def handle_event("save", %{"organization" => attrs}, socket) do
-    org = socket.assigns.organization
-    org_id = org && org.id
-    actor = socket.assigns.current_scope.user
+  def handle_event("validate", %{"organization" => params}, socket) do
+    form = AshPhoenix.Form.validate(socket.assigns.form, params)
+    {:noreply, assign(socket, :form, form)}
+  end
 
-    result =
-      if org_id do
-        Inventory.update_organization(org, attrs, actor: actor)
-      else
-        Inventory.create_organization(attrs, actor: actor)
-      end
-
-    case result do
-      {:ok, _} ->
+  @impl true
+  def handle_event("save", %{"organization" => params}, socket) do
+    case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
+      {:ok, _org} ->
         {:noreply,
          socket
          |> put_flash(:info, "Organization saved")
          |> push_patch(to: ~p"/admin/organizations")}
 
-      {:error, :forbidden} ->
-        {:noreply, put_flash(socket, :error, "You do not have permission to perform this action.")}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset, as: :organization))}
+      {:error, form} ->
+        {:noreply, assign(socket, :form, form)}
     end
   end
 
