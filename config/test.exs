@@ -46,3 +46,6 @@ config :phoenix,
 
 # Oban testing configuration
 config :ravner, Oban, testing: :inline
+
+# Ash testing configuration
+config :ash, :disable_async?, true

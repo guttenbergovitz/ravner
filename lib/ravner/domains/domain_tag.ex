@@ -1,15 +1,35 @@
 defmodule Ravner.Domains.DomainTag do
-  use Ecto.Schema
+  use Ash.Resource,
+    domain: Ravner.Domains.AshDomain,
+    data_layer: AshPostgres.DataLayer
+
   import Ecto.Changeset
 
-  schema "domain_tags" do
-    belongs_to(:domain, Ravner.Domains.Domain)
-    field(:tag, :string)
-    field(:removed_at, :utc_datetime)
-
-    timestamps(type: :utc_datetime)
+  postgres do
+    table "domain_tags"
+    repo Ravner.Repo
   end
 
+  actions do
+    defaults [:read, :destroy, :create, :update]
+  end
+
+  attributes do
+    integer_primary_key :id
+    attribute :tag, :string do
+      allow_nil? false
+    end
+    attribute :removed_at, :utc_datetime
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
+  end
+
+  relationships do
+    belongs_to :domain, Ravner.Domains.Domain, attribute_type: :integer
+  end
+
+  # Keep Ecto changeset for compatibility
   def changeset(domain_tag, attrs) do
     domain_tag
     |> cast(attrs, [:domain_id, :tag, :removed_at])

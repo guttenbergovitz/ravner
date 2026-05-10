@@ -19,10 +19,10 @@ defmodule Ravner.Domains do
     :parent_domain,
     :domain_tags,
     :domain_metadata,
-    :subdomains,
     :project,
     :brand,
-    :organization
+    :organization,
+    subdomains: [:domain_metadata]
   ]
 
   @doc """
@@ -197,7 +197,7 @@ defmodule Ravner.Domains do
       |> limit(@page_size)
       |> offset(^offset)
       |> Repo.all()
-      |> Repo.preload(@domain_listing_preloads, in_parallel: false)
+      |> Ash.load!(@domain_listing_preloads)
 
     %{
       domains: domains,
@@ -215,7 +215,7 @@ defmodule Ravner.Domains do
     filtered_query(opts)
     |> order_by([d], asc: d.name)
     |> Repo.all()
-    |> Repo.preload(@domain_listing_preloads, in_parallel: false)
+    |> Ash.load!(@domain_listing_preloads)
   end
 
   defp filtered_query(opts) do
@@ -326,8 +326,8 @@ defmodule Ravner.Domains do
   @spec get_domain_with_preloads!(integer() | String.t()) :: Domain.t()
   def get_domain_with_preloads!(id) do
     Domain
-    |> Repo.get!(id)
-    |> Repo.preload(
+    |> Ash.get!(id)
+    |> Ash.load!(
       [
         :parent_domain,
         :domain_tags,
@@ -338,21 +338,15 @@ defmodule Ravner.Domains do
         :dns_records,
         :tech_evidence,
         :discovered_urls,
-        subdomains: :domain_metadata
-      ],
-      in_parallel: false
+        subdomains: [:domain_metadata]
+      ]
     )
   end
 
   def get_domain_with_subdomains!(id) do
     Domain
-    |> Repo.get!(id)
-    |> Repo.preload(
-      [
-        subdomains: :domain_metadata
-      ],
-      in_parallel: false
-    )
+    |> Ash.get!(id)
+    |> Ash.load!([subdomains: [:domain_metadata]])
   end
 
   def list_domains_by_ids(ids) when is_list(ids) do
@@ -384,21 +378,17 @@ defmodule Ravner.Domains do
 
   def preload_subdomain_metadata(domain), do: domain
 
-  @spec create_domain(map()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t()}
-  def create_domain(attrs \\ %{}) do
-    %Domain{}
-    |> Domain.changeset(attrs)
-    |> Repo.insert()
+  @spec create_domain(map(), keyword()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def create_domain(attrs \\ %{}, opts \\ []) do
+    execute_ash_action(Domain, :create, attrs, opts, Domain.changeset(%Domain{}, attrs))
   end
 
-  @spec update_domain(Domain.t(), map()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t()}
-  def update_domain(%Domain{} = domain, attrs) do
-    domain
-    |> Domain.changeset(attrs)
-    |> Repo.update()
+  @spec update_domain(Domain.t(), map(), keyword()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def update_domain(%Domain{} = domain, attrs, opts \\ []) do
+    execute_ash_action(domain, :update, attrs, opts, Domain.changeset(domain, attrs))
   end
 
-  def update_domain_with_project(%Domain{} = domain, project_id) do
+  def update_domain_with_project(%Domain{} = domain, project_id, opts \\ []) do
     attrs = %{project_id: project_id}
 
     attrs =
@@ -417,14 +407,12 @@ defmodule Ravner.Domains do
         attrs
       end
 
-    domain
-    |> Domain.changeset(attrs)
-    |> Repo.update()
+    execute_ash_action(domain, :update, attrs, opts, Domain.changeset(domain, attrs))
   end
 
-  @spec delete_domain(Domain.t()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t()}
-  def delete_domain(%Domain{} = domain) do
-    Repo.delete(domain)
+  @spec delete_domain(Domain.t(), keyword()) :: {:ok, Domain.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def delete_domain(%Domain{} = domain, opts \\ []) do
+    execute_ash_action(domain, :destroy, %{}, opts, Domain.changeset(domain, %{}))
   end
 
   @spec change_domain(Domain.t(), map()) :: Ecto.Changeset.t()
@@ -684,31 +672,22 @@ defmodule Ravner.Domains do
   domain_id can no longer race to insert a duplicate row or clobber
   each other's writes.
   """
-  @spec upsert_domain_metadata(integer() | String.t(), map()) ::
-          {:ok, DomainMetadata.t()} | {:error, Ecto.Changeset.t()}
-  def upsert_domain_metadata(domain_id, attrs) do
-    attrs_with_id = Map.put(attrs, :domain_id, domain_id)
-    changeset = DomainMetadata.changeset(%DomainMetadata{}, attrs_with_id)
+  @spec upsert_domain_metadata(integer() | String.t(), map(), keyword()) ::
+          {:ok, DomainMetadata.t()} | {:error, any()}
+  def upsert_domain_metadata(domain_id, attrs, opts \\ []) do
+    actor = Keyword.get(opts, :actor)
 
-    # `changeset.changes` omits fields if the provided value equals the struct's default (e.g. `nil`).
-    # To ensure `ON CONFLICT DO UPDATE` replaces these fields in the database, we must explicitly
-    # include all keys from `attrs` that are valid schema fields in `fields_to_replace`.
-    provided_fields =
-      Enum.filter(DomainMetadata.__schema__(:fields), fn field ->
-        Map.has_key?(attrs, field) or Map.has_key?(attrs, to_string(field))
-      end)
+    case Repo.get_by(DomainMetadata, domain_id: domain_id) do
+      nil ->
+        DomainMetadata
+        |> Ash.Changeset.for_create(:create, Map.put(attrs, :domain_id, domain_id), actor: actor)
+        |> Ash.create()
 
-    fields_to_replace =
-      provided_fields
-      |> List.delete(:domain_id)
-      |> then(&[:updated_at | &1])
-      |> Enum.uniq()
-
-    Repo.insert(changeset,
-      on_conflict: {:replace, fields_to_replace},
-      conflict_target: :domain_id,
-      returning: true
-    )
+      metadata ->
+        metadata
+        |> Ash.Changeset.for_update(:update, attrs, actor: actor)
+        |> Ash.update()
+    end
   end
 
   @doc """
@@ -853,6 +832,40 @@ defmodule Ravner.Domains do
       "\"#{escaped}\""
     else
       str
+    end
+  end
+
+  # ── Internal Helpers ─────────────────────────────────────────────────────────
+
+  defp execute_ash_action(resource_or_record, action_type, attrs, opts, fallback_changeset) do
+    actor = Keyword.get(opts, :actor)
+
+    if fallback_changeset.valid? do
+      result =
+        case action_type do
+          :create ->
+            resource_or_record
+            |> Ash.Changeset.for_create(:create, attrs, actor: actor)
+            |> Ash.create()
+
+          :update ->
+            resource_or_record
+            |> Ash.Changeset.for_update(:update, attrs, actor: actor)
+            |> Ash.update()
+
+          :destroy ->
+            Ash.destroy(resource_or_record, actor: actor)
+        end
+
+      case result do
+        :ok -> {:ok, resource_or_record}
+        {:ok, record} -> {:ok, record}
+        {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Forbidden{} | _]}} -> {:error, :forbidden}
+        {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
+        {:error, _ash_err} -> {:error, fallback_changeset}
+      end
+    else
+      {:error, fallback_changeset}
     end
   end
 end

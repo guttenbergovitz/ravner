@@ -1,17 +1,34 @@
 defmodule Ravner.Domains.TechEvidence do
-  use Ecto.Schema
+  use Ash.Resource,
+    domain: Ravner.Domains.AshDomain,
+    data_layer: AshPostgres.DataLayer
+
   import Ecto.Changeset
 
-  @type t :: %__MODULE__{}
+  postgres do
+    table "domain_tech_evidence"
+    repo Ravner.Repo
+  end
 
-  schema "domain_tech_evidence" do
-    belongs_to(:domain, Ravner.Domains.Domain)
-    field(:name, :string)
-    field(:version, :string)
-    field(:source, :string)
-    field(:confidence, :integer)
+  actions do
+    defaults [:read, :destroy, :create, :update]
+  end
 
-    timestamps(type: :utc_datetime)
+  attributes do
+    integer_primary_key :id
+    attribute :name, :string do
+      allow_nil? false
+    end
+    attribute :version, :string
+    attribute :source, :string
+    attribute :confidence, :integer
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
+  end
+
+  relationships do
+    belongs_to :domain, Ravner.Domains.Domain, attribute_type: :integer
   end
 
   def changeset(tech_evidence, attrs) do

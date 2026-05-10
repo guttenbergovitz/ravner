@@ -1,16 +1,35 @@
 defmodule Ravner.Domains.DnsRecord do
-  use Ecto.Schema
+  use Ash.Resource,
+    domain: Ravner.Domains.AshDomain,
+    data_layer: AshPostgres.DataLayer
+
   import Ecto.Changeset
 
-  @type t :: %__MODULE__{}
+  postgres do
+    table "domain_dns_records"
+    repo Ravner.Repo
+  end
 
-  schema "domain_dns_records" do
-    belongs_to(:domain, Ravner.Domains.Domain)
-    field(:type, :string)
-    field(:value, :string)
-    field(:ttl, :integer)
+  actions do
+    defaults [:read, :destroy, :create, :update]
+  end
 
-    timestamps(type: :utc_datetime)
+  attributes do
+    integer_primary_key :id
+    attribute :type, :string do
+      allow_nil? false
+    end
+    attribute :value, :string do
+      allow_nil? false
+    end
+    attribute :ttl, :integer
+
+    create_timestamp :inserted_at
+    update_timestamp :updated_at
+  end
+
+  relationships do
+    belongs_to :domain, Ravner.Domains.Domain, attribute_type: :integer
   end
 
   def changeset(dns_record, attrs) do

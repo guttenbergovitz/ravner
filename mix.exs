@@ -75,6 +75,7 @@ defmodule Ravner.MixProject do
       {:ash, "~> 3.4"},
       {:ash_postgres, "~> 2.4"},
       {:ash_phoenix, "~> 2.1"},
+      {:ash_paper_trail, "~> 0.3.0"},
       {:picosat_elixir, "~> 0.2.3"}
     ]
   end

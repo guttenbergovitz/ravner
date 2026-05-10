@@ -86,7 +86,8 @@ config :ravner, Oban,
 # Configure Ash
 config :ravner,
   ash_domains: [
-    Ravner.Inventory.AshDomain
+    Ravner.Inventory.AshDomain,
+    Ravner.Domains.AshDomain
   ]
 
 # Configure esbuild (the version is required)

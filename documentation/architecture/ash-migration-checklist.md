@@ -68,17 +68,17 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 ## Phase 4: Domain Lifecycle & Governance
 *Goal: Bring domain metadata and lifecycle under Ash, enabling audit trails.*
 
-- [ ] **Convert `Ravner.Domains.Domain` to Ash Resource.**
-  - [ ] Map to `"domains"`.
-  - [ ] Define relationships to `Brand`, `Organization`, `Project`.
-- [ ] **State Machine Actions (Lifecycle):**
-  - [ ] Replace `upsert_domain_metadata` lifecycle changes with explicit Ash actions on the Domain resource (e.g., `action :mark_deprecated`).
-  - [ ] Implement action validations (e.g., "cannot mark a Priority domain as Abandoned without admin override").
-- [ ] **Implement AshPaperTrail:**
-  - [ ] Add `ash_paper_trail` dependency.
-  - [ ] Generate PaperTrail migrations for `domains`.
-  - [ ] Configure `Domain` resource to track history.
-- [ ] *Regression Check:* Run `mix test`. Ensure that bulk operations (which hit the domains table) still function correctly. Ensure Oban dispatchers (which use Ecto) are NOT broken by the Ash Domain resource.
+- [x] **Convert `Ravner.Domains.Domain` to Ash Resource.**
+  - [x] Map to `"domains"`.
+  - [x] Define relationships to `Brand`, `Organization`, `Project`.
+- [x] **State Machine Actions (Lifecycle):**
+  - [x] Replace `upsert_domain_metadata` lifecycle changes with explicit Ash actions on the Domain resource (e.g., `action :mark_deprecated`).
+  - [x] Implement action validations (e.g., "cannot mark a Priority domain as Abandoned without admin override").
+- [x] **Implement AshPaperTrail:**
+  - [x] Add `ash_paper_trail` dependency.
+  - [x] Generate PaperTrail migrations for `domains`.
+  - [x] Configure `Domain` resource to track history.
+- [x] *Regression Check:* Run `mix test`. Ensure that bulk operations (which hit the domains table) still function correctly. Ensure Oban dispatchers (which use Ecto) are NOT broken by the Ash Domain resource.
 
 ---
 
