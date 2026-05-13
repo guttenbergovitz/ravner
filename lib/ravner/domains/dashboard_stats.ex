@@ -36,13 +36,17 @@ defmodule Ravner.Domains.DashboardStats do
     ssl_stats = get_ssl_stats(now)
     ssl_alerts = get_ssl_alerts(now)
 
-    # 3. Infrastructure & Hosting
+    # 3. Domain Registration Analytics
+    domain_stats = get_domain_stats(now)
+    domain_alerts = get_domain_alerts(now)
+
+    # 4. Infrastructure & Hosting
     infra_stats = get_infra_stats()
 
-    # 4. Governance & Risk (Ownership Gaps)
+    # 5. Governance & Risk (Ownership Gaps)
     governance = get_governance_stats()
 
-    # 5. Inventory & Trends
+    # 6. Inventory & Trends
     top_by_subs = get_top_domains_by_subdomains()
     scan_stats = get_scan_freshness_stats(total, week_ago, month_ago)
 
@@ -54,6 +58,8 @@ defmodule Ravner.Domains.DashboardStats do
       top_by_subs: top_by_subs,
       ssl_alerts: ssl_alerts,
       ssl: ssl_stats,
+      domain_alerts: domain_alerts,
+      domain: domain_stats,
       http: http_stats,
       infra: infra_stats,
       governance: governance,
@@ -434,6 +440,76 @@ defmodule Ravner.Domains.DashboardStats do
     |> Enum.map(fn alert ->
       status = if DateTime.compare(alert.valid_until, now) == :lt, do: :expired, else: :expiring
       Map.put(alert, :status, status)
+    end)
+  end
+
+  defp get_domain_stats(now) do
+    exp_7d = DateTime.add(now, 7 * 24 * 60 * 60, :second)
+    exp_30d = DateTime.add(now, 30 * 24 * 60 * 60, :second)
+
+    counts =
+      from(m in DomainMetadata,
+        select: %{
+          total: count(fragment("CASE WHEN ? IS NOT NULL THEN 1 END", m.expiration_date)),
+          expired: count(fragment("CASE WHEN ? < ? THEN 1 END", m.expiration_date, ^now)),
+          soon_7d:
+            count(
+              fragment(
+                "CASE WHEN ? >= ? AND ? < ? THEN 1 END",
+                m.expiration_date,
+                ^now,
+                m.expiration_date,
+                ^exp_7d
+              )
+            ),
+          soon_30d:
+            count(
+              fragment(
+                "CASE WHEN ? >= ? AND ? < ? THEN 1 END",
+                m.expiration_date,
+                ^exp_7d,
+                m.expiration_date,
+                ^exp_30d
+              )
+            )
+        }
+      )
+      |> Repo.one() ||
+        %{total: 0, expired: 0, soon_7d: 0, soon_30d: 0}
+
+    Map.put(counts, :issuers, [])
+  end
+
+  defp get_domain_alerts(now) do
+    soon = DateTime.add(now, 14 * 24 * 60 * 60, :second)
+
+    Repo.all(
+      from(m in DomainMetadata,
+        join: d in Domain,
+        on: m.domain_id == d.id,
+        where: not is_nil(m.expiration_date) and m.expiration_date < ^soon,
+        order_by: [asc: m.expiration_date],
+        select: %{
+          id: d.id,
+          name: d.name,
+          expiration_date: m.expiration_date
+        }
+      )
+    )
+    |> Enum.map(fn alert ->
+      days_remaining =
+        if alert.expiration_date do
+          DateTime.diff(alert.expiration_date, now, :day)
+        else
+          nil
+        end
+
+      status =
+        if DateTime.compare(alert.expiration_date, now) == :lt, do: :expired, else: :expiring
+
+      alert
+      |> Map.put(:days_remaining, days_remaining)
+      |> Map.put(:status, status)
     end)
   end
 end

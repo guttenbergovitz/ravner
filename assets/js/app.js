@@ -26,13 +26,30 @@ import {hooks as colocatedHooks} from "phoenix-colocated/ravner"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+
+const CsvDownload = {
+  mounted() {
+    this.handleEvent("download_csv", ({filename, content}) => {
+      const blob = new Blob([content], {type: "text/csv;charset=utf-8;"})
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.setAttribute("download", filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    })
+  }
+}
+
 const liveSocket = new LiveSocket("/live", Socket, {
   // Only fall back to longpoll after a generous wait — 2.5s was triggering
   // "Attempting to reconnect" toasts in dev whenever code/asset reload added
   // any latency to the initial WS handshake.
   longPollFallbackMs: 30_000,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, CsvDownload},
 })
 
 // Show progress bar on live navigation and form submits

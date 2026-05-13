@@ -619,8 +619,31 @@
         <% end %>
 
         <%= if @domain.domain_metadata && (@domain.domain_metadata.registrar || @domain.domain_metadata.registration_date || @domain.domain_metadata.expiration_date || @domain.domain_metadata.registrant_org) do %>
+          <% now = DateTime.utc_now() %>
+          <% days_remaining =
+            @domain.domain_metadata.expiration_date &&
+              DateTime.diff(@domain.domain_metadata.expiration_date, now, :day) %>
+          <% expired = days_remaining != nil && days_remaining < 0 %>
+          <% expiring_soon = days_remaining != nil && days_remaining <= 14 && !expired %>
           <div class="card-line">
-            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Registration</h2>
+            <h2 class="text-sm font-normal tracking-wide uppercase mb-6 flex items-center justify-between">
+              Registration
+              <span
+                :if={@domain.domain_metadata.expiration_date}
+                class={[
+                  "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider",
+                  expired && "text-red-700 bg-red-50 border-red-200",
+                  expiring_soon && "text-amber-700 bg-amber-50 border-amber-200",
+                  !expired && !expiring_soon && "text-green-700 bg-green-50 border-green-200"
+                ]}
+              >
+                <%= if expired do %>
+                  Expired
+                <% else %>
+                  {days_remaining} days left
+                <% end %>
+              </span>
+            </h2>
             <div class="grid grid-cols-2 gap-6 text-sm">
               <div>
                 <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">

@@ -31,6 +31,18 @@ defmodule Ravner.Workers.ScanWorker do
     :ok
   end
 
+  def perform(%Oban.Job{args: %{"domain_id" => domain_id, "scan_type" => "ssl"}}) do
+    Logger.info("Starting background SSL scan for domain #{domain_id}")
+    Scans.run_ssl_scan(domain_id)
+    :ok
+  end
+
+  def perform(%Oban.Job{args: %{"domain_id" => domain_id, "scan_type" => "rdap"}}) do
+    Logger.info("Starting background RDAP scan for domain #{domain_id}")
+    Scans.run_rdap_scan(domain_id)
+    :ok
+  end
+
   def perform(%Oban.Job{args: %{"scan_type" => type}}) do
     {:error, "Unknown scan type: #{type}"}
   end

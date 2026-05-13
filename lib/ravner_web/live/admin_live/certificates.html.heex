@@ -7,6 +7,39 @@
           Global overview of monitored encryption certificates
         </p>
       </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
+          <button
+            phx-click="bulk_scan"
+            phx-value-limit="10"
+            class="text-xs font-light uppercase tracking-wider px-3 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+          >
+            Scan top 10
+          </button>
+          <button
+            phx-click="bulk_scan"
+            phx-value-limit="50"
+            class="text-xs font-light uppercase tracking-wider px-3 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+          >
+            50
+          </button>
+          <button
+            phx-click="bulk_scan"
+            phx-value-limit="100"
+            class="text-xs font-light uppercase tracking-wider px-3 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+          >
+            100
+          </button>
+        </div>
+        <button
+          phx-click="export_csv"
+          phx-hook="CsvDownload"
+          id="cert-csv-export"
+          class="text-xs font-light uppercase tracking-wider px-4 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+        >
+          Export CSV
+        </button>
+      </div>
     </div>
 
     <div class="border border-neutral-200">

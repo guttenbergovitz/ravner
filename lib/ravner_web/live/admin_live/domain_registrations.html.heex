@@ -1,0 +1,116 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-light tracking-tight">Domain Registrations</h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Global overview of monitored domain registration expiry
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
+          <button
+            phx-click="bulk_scan"
+            phx-value-limit="10"
+            class="text-xs font-light uppercase tracking-wider px-3 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+          >
+            Scan top 10
+          </button>
+          <button
+            phx-click="bulk_scan"
+            phx-value-limit="50"
+            class="text-xs font-light uppercase tracking-wider px-3 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+          >
+            50
+          </button>
+          <button
+            phx-click="bulk_scan"
+            phx-value-limit="100"
+            class="text-xs font-light uppercase tracking-wider px-3 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+          >
+            100
+          </button>
+        </div>
+        <button
+          phx-click="export_csv"
+          phx-hook="CsvDownload"
+          id="domain-csv-export"
+          class="text-xs font-light uppercase tracking-wider px-4 py-2 border border-neutral-200 hover:border-neutral-900 hover:text-neutral-900 text-neutral-500 transition-colors"
+        >
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="border border-neutral-200">
+      <%= if @domains == [] do %>
+        <div class="p-12 text-center text-sm font-light text-neutral-400">
+          No domain registrations captured yet.
+        </div>
+      <% else %>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-neutral-200 text-left text-[10px] font-normal text-neutral-400 uppercase tracking-wider">
+              <th class="px-6 py-4">Domain</th>
+              <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4">Expires</th>
+              <th class="px-6 py-4">Registrar</th>
+              <th class="px-6 py-4">Registered</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100">
+            <%= for domain <- @domains do %>
+              <% expiring_soon = domain.days_remaining != nil && domain.days_remaining <= 14 %>
+              <% expired = domain.days_remaining != nil && domain.days_remaining < 0 %>
+              <tr class="hover:bg-neutral-50 transition-colors group">
+                <td class="px-6 py-4">
+                  <.link
+                    navigate={~p"/domains/#{domain.id}"}
+                    class="font-normal text-neutral-700 hover:underline"
+                  >
+                    {domain.name}
+                  </.link>
+                </td>
+                <td class="px-6 py-4">
+                  <span class={[
+                    "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider",
+                    expired && "text-red-700 bg-red-50 border-red-200",
+                    expiring_soon && !expired && "text-amber-700 bg-amber-50 border-amber-200",
+                    !expiring_soon && "text-green-700 bg-green-50 border-green-200"
+                  ]}>
+                    <%= if expired do %>
+                      Expired
+                    <% else %>
+                      {domain.days_remaining} days
+                    <% end %>
+                  </span>
+                </td>
+                <td class={[
+                  "px-6 py-4 font-light whitespace-nowrap",
+                  expired && "text-red-600",
+                  expiring_soon && !expired && "text-amber-600",
+                  !expiring_soon && "text-neutral-500"
+                ]}>
+                  {Calendar.strftime(domain.expiration_date, "%Y-%m-%d")}
+                </td>
+                <td
+                  class="px-6 py-4 text-neutral-500 font-light truncate max-w-[250px]"
+                  title={domain.registrar}
+                >
+                  {domain.registrar}
+                </td>
+                <td class="px-6 py-4 text-neutral-400 font-light whitespace-nowrap">
+                  <%= if domain.registration_date do %>
+                    {Calendar.strftime(domain.registration_date, "%Y-%m-%d")}
+                  <% else %>
+                    —
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>
