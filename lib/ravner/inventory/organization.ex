@@ -1,4 +1,7 @@
 defmodule Ravner.Inventory.Organization do
+  @moduledoc """
+  Ash resource representing an organization.
+  """
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
     data_layer: AshPostgres.DataLayer,

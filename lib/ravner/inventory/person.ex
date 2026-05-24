@@ -1,4 +1,7 @@
 defmodule Ravner.Inventory.Person do
+  @moduledoc """
+  Ash resource representing a person.
+  """
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
     data_layer: AshPostgres.DataLayer,

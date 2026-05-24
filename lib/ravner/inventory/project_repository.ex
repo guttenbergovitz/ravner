@@ -1,4 +1,7 @@
 defmodule Ravner.Inventory.ProjectRepository do
+  @moduledoc """
+  Ash resource representing a repository attached to a project.
+  """
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
     data_layer: AshPostgres.DataLayer,

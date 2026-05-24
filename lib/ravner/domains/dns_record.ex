@@ -1,4 +1,7 @@
 defmodule Ravner.Domains.DnsRecord do
+  @moduledoc """
+  Ecto schema representing a DNS record for a domain.
+  """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer

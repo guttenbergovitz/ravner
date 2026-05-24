@@ -1,4 +1,7 @@
 defmodule Ravner.Domains.Domain do
+  @moduledoc """
+  Ecto schema representing a discovered domain or subdomain.
+  """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer,

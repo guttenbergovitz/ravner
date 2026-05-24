@@ -53,7 +53,7 @@ defmodule Ravner.ScansTest do
              ],
              js_assets: ["https://example.com/assets/app.js"],
              forms: []
-           } = Scans.parse_katana_output(output)
+           } = Scans.Http.parse_katana_output(output)
   end
 
   test "parse_webanalyze_output extracts technology evidence from jsonl" do
@@ -76,6 +76,6 @@ defmodule Ravner.ScansTest do
                "source" => "webanalyze",
                "url" => "https://example.com"
              }
-           ] = Scans.parse_webanalyze_output(output)
+           ] = Scans.Http.parse_webanalyze_output(output)
   end
 end

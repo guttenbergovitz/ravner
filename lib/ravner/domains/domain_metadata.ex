@@ -1,4 +1,7 @@
 defmodule Ravner.Domains.DomainMetadata do
+  @moduledoc """
+  Ecto schema representing aggregated metadata for a domain.
+  """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer
