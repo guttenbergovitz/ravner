@@ -1171,14 +1171,12 @@ defmodule Ravner.Scans do
     try do
       case SystemCommand.run_with_timeout("dnsx", args, @dnsx_timeout) do
         {output, 0} ->
-          output = String.trim(output)
-
-          cond do
-            output == "" ->
+          case String.trim(output) do
+            "" ->
               {:ok, %{}}
 
-            true ->
-              case Jason.decode(output) do
+            trimmed ->
+              case Jason.decode(trimmed) do
                 {:ok, data} -> {:ok, data}
                 {:error, _} -> {:error, "Failed to parse dnsx output"}
               end
