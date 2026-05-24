@@ -24,7 +24,42 @@
     </div>
 
     <%!-- Row 1: High Level Risk & Status --%>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
+      <%!-- Domain Registration Health --%>
+      <div class="border border-neutral-200 bg-white p-8">
+        <div class="flex items-center justify-between mb-8">
+          <h2 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400">
+            Domain Registration
+          </h2>
+          <.icon name="hero-calendar" class="w-4 h-4 text-neutral-300" />
+        </div>
+        <div class="space-y-6">
+          <div class="flex items-end justify-between">
+            <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
+              Tracked Domains
+            </span>
+            <span class="text-xl font-light">
+              {@stats.domain.total}
+              <span class="text-[10px] opacity-40">/ {@stats.total_apex}</span>
+            </span>
+          </div>
+          <div class="grid grid-cols-3 gap-4 pt-4 border-t border-neutral-50">
+            <div class="text-center">
+              <div class="text-xl font-light text-red-600">{@stats.domain.expired}</div>
+              <div class="text-[9px] uppercase text-neutral-400 mt-1">Expired</div>
+            </div>
+            <div class="text-center border-l border-neutral-50">
+              <div class="text-xl font-light text-amber-600">{@stats.domain.soon_7d}</div>
+              <div class="text-[9px] uppercase text-neutral-400 mt-1">Exp 7d</div>
+            </div>
+            <div class="text-center border-l border-neutral-50">
+              <div class="text-xl font-light text-neutral-700">{@stats.domain.soon_30d}</div>
+              <div class="text-[9px] uppercase text-neutral-400 mt-1">Exp 30d</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <%!-- SSL Health --%>
       <div class="border border-neutral-200 bg-white p-8">
         <div class="flex items-center justify-between mb-8">
@@ -144,7 +179,7 @@
       </div>
     </div>
 
-    <%!-- Row 2: SSL Alerts & Freshness --%>
+    <%!-- Row 2: SSL & Domain Alerts --%>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
       <%!-- SSL Alerts --%>
       <div>
@@ -187,56 +222,97 @@
         <% end %>
       </div>
 
-      <%!-- Scan Freshness --%>
+      <%!-- Domain Alerts --%>
       <div>
         <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
-          Inventory Intelligence <span class="h-px flex-1 bg-neutral-100"></span>
+          Urgent Domain Actions <span class="h-px flex-1 bg-neutral-100"></span>
         </h3>
-        <div class="grid grid-cols-3 gap-6">
-          <div class="border border-neutral-200 p-6">
-            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
-              Top Issuers
-            </h4>
-            <div class="space-y-3">
-              <%= for {issuer, count} <- @stats.ssl.issuers do %>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-light text-neutral-600 truncate mr-4">{issuer}</span>
-                  <span class="font-normal text-neutral-900">{count}</span>
-                </div>
-              <% end %>
-            </div>
+        <%= if @stats.domain_alerts == [] do %>
+          <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400">
+            All domain registrations are within safe limits.
           </div>
-          <div class="border border-neutral-200 p-6">
-            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
-              Hosting Reach
-            </h4>
-            <div class="space-y-3">
-              <%= for {host, count} <- @stats.infra.hosting do %>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-light text-neutral-600 truncate mr-4">{host}</span>
-                  <span class="font-normal text-neutral-900">{count}</span>
+        <% else %>
+          <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 max-h-[400px] overflow-y-auto">
+            <%= for alert <- @stats.domain_alerts do %>
+              <.link
+                navigate={~p"/domains/#{alert.id}"}
+                class="block hover:bg-neutral-50 transition-colors p-6"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-normal text-neutral-900">{alert.name}</div>
+                    <div class="text-[10px] font-light text-neutral-400 mt-1 uppercase tracking-wider">
+                      Expires {Calendar.strftime(alert.expiration_date, "%d-%m-%Y")}
+                    </div>
+                  </div>
+                  <div class={[
+                    "text-[10px] font-normal px-3 py-1 border uppercase tracking-widest",
+                    if(alert.status == :expired,
+                      do: "text-red-700 bg-red-50 border-red-100",
+                      else: "text-amber-700 bg-amber-50 border-amber-100"
+                    )
+                  ]}>
+                    {if alert.status == :expired,
+                      do: "Expired",
+                      else: "#{alert.days_remaining}d left"}
+                  </div>
                 </div>
-              <% end %>
-            </div>
+              </.link>
+            <% end %>
           </div>
-          <div class="border border-neutral-200 p-6">
-            <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
-              Top Registrars
-            </h4>
-            <div class="space-y-3">
-              <%= for {registrar, count} <- @stats.infra.registrars do %>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-light text-neutral-600 truncate mr-4">{registrar}</span>
-                  <span class="font-normal text-neutral-900">{count}</span>
-                </div>
-              <% end %>
-            </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Row 3: Inventory Intelligence --%>
+    <div class="mb-12">
+      <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
+        Inventory Intelligence <span class="h-px flex-1 bg-neutral-100"></span>
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="border border-neutral-200 p-6">
+          <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+            Top Issuers
+          </h4>
+          <div class="space-y-3">
+            <%= for {issuer, count} <- @stats.ssl.issuers do %>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-light text-neutral-600 truncate mr-4">{issuer}</span>
+                <span class="font-normal text-neutral-900">{count}</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+        <div class="border border-neutral-200 p-6">
+          <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+            Hosting Reach
+          </h4>
+          <div class="space-y-3">
+            <%= for {host, count} <- @stats.infra.hosting do %>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-light text-neutral-600 truncate mr-4">{host}</span>
+                <span class="font-normal text-neutral-900">{count}</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+        <div class="border border-neutral-200 p-6">
+          <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
+            Top Registrars
+          </h4>
+          <div class="space-y-3">
+            <%= for {registrar, count} <- @stats.infra.registrars do %>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-light text-neutral-600 truncate mr-4">{registrar}</span>
+                <span class="font-normal text-neutral-900">{count}</span>
+              </div>
+            <% end %>
           </div>
         </div>
       </div>
     </div>
 
-    <%!-- Row 3: Business Insights --%>
+    <%!-- Row 4: Business Insights --%>
     <div class="mb-12">
       <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
         Business Insights <span class="h-px flex-1 bg-neutral-100"></span>
@@ -304,7 +380,7 @@
       </div>
     </div>
 
-    <%!-- Row 4: Lifecycle Breakdown --%>
+    <%!-- Row 5: Lifecycle Breakdown --%>
     <div>
       <h3 class="text-[10px] font-normal uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
         Asset Lifecycle Distribution <span class="h-px flex-1 bg-neutral-100"></span>

@@ -127,6 +127,7 @@ defmodule RavnerWeb.Router do
       live("/settings", AdminLive.Settings, :index)
       live("/settings/backup", AdminLive.Backup, :index)
       live("/certificates", AdminLive.Certificates, :index)
+      live("/domain-registrations", AdminLive.DomainRegistrations, :index)
       live("/brands", AdminLive.BrandLive.Index, :index)
       live("/brands/new", AdminLive.BrandLive.Index, :new)
       live("/brands/:id/edit", AdminLive.BrandLive.Index, :edit)
