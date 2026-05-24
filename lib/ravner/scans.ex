@@ -351,11 +351,25 @@ defmodule Ravner.Scans do
   end
 
   defp relink_existing_subdomains(existing, parent_id) do
-    existing
-    |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
-    |> Enum.each(fn {_name, {id, _pid}} ->
-      Domains.record_scanner_domain_update(id, %{parent_domain_id: parent_id})
-    end)
+    ids_to_relink =
+      existing
+      |> Enum.filter(fn {_name, {_id, pid}} -> pid != parent_id end)
+      |> Enum.map(fn {_name, {id, _pid}} -> id end)
+
+    case ids_to_relink do
+      [] ->
+        :ok
+
+      ids ->
+        {_count, _} =
+          Domain
+          |> where([d], d.id in ^ids)
+          |> Repo.update_all(
+            set: [parent_domain_id: parent_id, updated_at: DateTime.utc_now(:second)]
+          )
+
+        :ok
+    end
   end
 
   # HTTPX scan via Req (fast, non-blocking)
