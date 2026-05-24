@@ -89,11 +89,18 @@ defmodule Ravner.SystemCommand do
     ArgumentError -> :ok
   end
 
+  # Sends SIGTERM synchronously and schedules a SIGKILL escalation in a detached
+  # process so the caller (typically an Oban worker) is not blocked waiting for
+  # the grace period to elapse.
   defp kill_process_group(os_pid) do
     pgid_arg = "-#{os_pid}"
     _ = System.cmd("kill", ["-TERM", "--", pgid_arg], stderr_to_stdout: true)
-    Process.sleep(500)
-    _ = System.cmd("kill", ["-KILL", "--", pgid_arg], stderr_to_stdout: true)
+
+    spawn(fn ->
+      Process.sleep(500)
+      _ = System.cmd("kill", ["-KILL", "--", pgid_arg], stderr_to_stdout: true)
+    end)
+
     :ok
   end
 
