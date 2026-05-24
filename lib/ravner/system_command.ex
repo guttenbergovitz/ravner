@@ -105,9 +105,7 @@ defmodule Ravner.SystemCommand do
   end
 
   defp escape_args(args) do
-    args
-    |> Enum.map(&shell_escape/1)
-    |> Enum.join(" ")
+    Enum.map_join(args, " ", &shell_escape/1)
   end
 
   defp shell_escape(arg) do

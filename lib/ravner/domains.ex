@@ -3,6 +3,8 @@ defmodule Ravner.Domains do
   The Domains context.
   """
 
+  require Logger
+
   import Ecto.Query, warn: false
   alias Ravner.Domains.Domain
   alias Ravner.Domains.DomainMetadata
@@ -1026,11 +1028,25 @@ defmodule Ravner.Domains do
         end
 
       case result do
-        :ok -> {:ok, resource_or_record}
-        {:ok, record} -> {:ok, record}
-        {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Forbidden{} | _]}} -> {:error, :forbidden}
-        {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
-        {:error, _ash_err} -> {:error, fallback_changeset}
+        :ok ->
+          {:ok, resource_or_record}
+
+        {:ok, record} ->
+          {:ok, record}
+
+        {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Forbidden{} | _]}} ->
+          {:error, :forbidden}
+
+        {:error, %Ash.Error.Forbidden{}} ->
+          {:error, :forbidden}
+
+        {:error, ash_err} ->
+          Logger.warning(
+            "Ravner.Domains: Ash #{action_type} action failed, falling back to changeset: " <>
+              inspect(ash_err, limit: :infinity, printable_limit: 4096)
+          )
+
+          {:error, fallback_changeset}
       end
     else
       {:error, fallback_changeset}
