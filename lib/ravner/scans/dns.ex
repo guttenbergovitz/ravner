@@ -72,9 +72,13 @@ defmodule Ravner.Scans.Dns do
     end
   end
 
-  defp handle_dnsx_output({:error, :timeout}), do: {:error, "dnsx timed out after #{@dnsx_timeout}ms"}
+  defp handle_dnsx_output({:error, :timeout}),
+    do: {:error, "dnsx timed out after #{@dnsx_timeout}ms"}
+
   defp handle_dnsx_output({:error, reason}), do: {:error, reason}
-  defp handle_dnsx_output({output, code}), do: {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+
+  defp handle_dnsx_output({output, code}),
+    do: {:error, "dnsx failed (exit #{code}): #{String.slice(output, 0, 200)}"}
 
   defp parse_json(json) do
     case Jason.decode(json) do

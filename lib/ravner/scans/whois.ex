@@ -163,6 +163,7 @@ defmodule Ravner.Scans.Whois do
   end
 
   defp extract_vcard_value(nil, _), do: nil
+
   defp extract_vcard_value(vcard_data, key) do
     vcard_data
     |> List.wrap()
@@ -174,6 +175,7 @@ defmodule Ravner.Scans.Whois do
 
   defp parse_rdap_date_from_body(body, type) do
     key = if type == "registration", do: "registrationDate", else: "expirationDate"
+
     parse_rdap_date(
       Map.get(body, key) ||
         find_event_date(Map.get(body, "events"), type)
@@ -222,6 +224,7 @@ defmodule Ravner.Scans.Whois do
 
   defp parse_whois_output(output) do
     lines = String.split(output, "\n")
+
     Enum.reduce(lines, %{}, fn line, acc ->
       line |> String.trim() |> process_whois_line(acc)
     end)

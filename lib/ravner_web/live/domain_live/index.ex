@@ -222,7 +222,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:bulk_brand_menu_open, false)
@@ -258,7 +258,7 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("toggle_include_subdomains", _params, socket) do
-    {:noreply, assign(socket, :include_subdomains, !socket.assigns.include_subdomains)}
+    {:noreply, assign(socket, :bulk_include_subdomains, !socket.assigns.bulk_include_subdomains)}
   end
 
   def handle_event("open_lifecycle_menu", %{"id" => id}, socket) do
@@ -377,7 +377,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("scan_visible", _, socket) do
     ids = socket.assigns.domains |> Enum.map(& &1.id)
-    include_subdomains = socket.assigns.include_subdomains
+    include_subdomains = socket.assigns.bulk_include_subdomains
 
     execute_scan_on_ids(socket, ids, include_subdomains)
   end
@@ -450,6 +450,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:selection_mode, false)
     |> assign(:selected_ids, MapSet.new())
     |> assign(:include_subdomains, false)
+    |> assign(:bulk_include_subdomains, false)
     |> assign(:bulk_action, nil)
     |> assign(:bulk_actions_menu_open, false)
     |> assign(:scanning_ids, MapSet.new())
@@ -667,7 +668,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
@@ -679,7 +680,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp execute_bulk_scan(socket) do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
-    include_subdomains = socket.assigns.include_subdomains
+    include_subdomains = socket.assigns.bulk_include_subdomains
 
     execute_scan_on_ids(socket, ids, include_subdomains)
   end
@@ -713,7 +714,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, new_scanning)
@@ -760,7 +761,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
@@ -778,16 +779,28 @@ defmodule RavnerWeb.DomainLive.Index do
     search = Keyword.get(overrides, :search, Map.get(socket.assigns, :search, ""))
     ip = Keyword.get(overrides, :ip, Map.get(socket.assigns, :ip_filter, ""))
     page = Keyword.get(overrides, :page, Map.get(socket.assigns, :page, 1))
-    subdomains = Keyword.get(overrides, :include_subdomains, Map.get(socket.assigns, :include_subdomains, false))
+
+    subdomains =
+      Keyword.get(
+        overrides,
+        :include_subdomains,
+        Map.get(socket.assigns, :include_subdomains, false)
+      )
 
     [
       search: search,
       ip: ip,
       include_subdomains: if(subdomains, do: "true", else: ""),
       lifecycle: Enum.map_join(extract_param.(:lifecycle, :lifecycle_filter), ",", &to_string/1),
-      technical_status: Enum.map_join(extract_param.(:technical_status, :technical_status_filter), ",", &to_string/1),
+      technical_status:
+        Enum.map_join(
+          extract_param.(:technical_status, :technical_status_filter),
+          ",",
+          &to_string/1
+        ),
       project_id: Enum.map_join(extract_param.(:project_id, :project_filter), ",", &to_string/1),
-      organization_id: Enum.map_join(extract_param.(:organization_id, :org_filter), ",", &to_string/1),
+      organization_id:
+        Enum.map_join(extract_param.(:organization_id, :org_filter), ",", &to_string/1),
       brand_id: Enum.map_join(extract_param.(:brand_id, :brand_filter), ",", &to_string/1),
       page: page
     ]

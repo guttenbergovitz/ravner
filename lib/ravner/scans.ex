@@ -356,10 +356,8 @@ defmodule Ravner.Scans do
 
   # HTTPX scan via Req (fast, non-blocking)
 
-
   # ---------------------------------------------------------------------------
   # RDAP / WHOIS / NS-heuristics scan
   # Fallback chain: RDAP HTTP → WHOIS CLI → NS heuristics (from stored DNS data)
   # ---------------------------------------------------------------------------
-
 end
