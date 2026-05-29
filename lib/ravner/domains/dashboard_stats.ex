@@ -14,6 +14,7 @@ defmodule Ravner.Domains.DashboardStats do
   @doc """
   Returns aggregate dashboard statistics with business insights.
   """
+  @spec get() :: map()
   def get do
     # One query replaces the previous five (total / total_apex /
     # total_subdomains / lifecycle_apex / lifecycle_sub) by grouping on
@@ -427,7 +428,9 @@ defmodule Ravner.Domains.DashboardStats do
       from(m in DomainMetadata,
         join: d in Domain,
         on: m.domain_id == d.id,
-        where: m.ssl_valid_until < ^soon,
+        where:
+          m.ssl_valid_until < ^soon and d.lifecycle_state in [:active, :priority] and
+            m.http_status == 200,
         order_by: [asc: m.ssl_valid_until],
         select: %{
           id: d.id,
@@ -487,7 +490,9 @@ defmodule Ravner.Domains.DashboardStats do
       from(m in DomainMetadata,
         join: d in Domain,
         on: m.domain_id == d.id,
-        where: not is_nil(m.expiration_date) and m.expiration_date < ^soon,
+        where:
+          not is_nil(m.expiration_date) and m.expiration_date < ^soon and
+            d.lifecycle_state in [:active, :priority],
         order_by: [asc: m.expiration_date],
         select: %{
           id: d.id,

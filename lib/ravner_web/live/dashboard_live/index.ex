@@ -22,12 +22,18 @@ defmodule RavnerWeb.DashboardLive.Index do
      |> assign(:stats, stats)
      |> assign(:http_chart, http_chart)
      |> assign(:scan_chart, scan_chart)
-     |> assign(:top_subs_max, top_subs_max)}
+     |> assign(:top_subs_max, top_subs_max)
+     |> assign(:current_tab, "risks")}
   end
 
   @impl true
   def handle_params(_params, _url, socket) do
     {:noreply, assign(socket, :detail_popup, nil)}
+  end
+
+  @impl true
+  def handle_event("select_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :current_tab, tab)}
   end
 
   @impl true

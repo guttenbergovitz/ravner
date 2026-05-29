@@ -900,6 +900,7 @@ defmodule Ravner.Domains do
   @doc """
   Returns aggregate dashboard statistics.
   """
+  @spec dashboard_stats() :: map()
   defdelegate dashboard_stats(), to: Ravner.Domains.DashboardStats, as: :get
 
   @doc """
