@@ -21,25 +21,25 @@ defmodule Ravner.Workers.ScanWorker do
 
   def perform(%Oban.Job{args: %{"domain_id" => domain_id, "scan_type" => "httpx"}}) do
     Logger.info("Starting background HTTPX scan for domain #{domain_id}")
-    Scans.run_httpx_scan(domain_id)
+    Scans.Http.run_httpx_scan(domain_id)
     :ok
   end
 
   def perform(%Oban.Job{args: %{"domain_id" => domain_id, "scan_type" => "dnsx"}}) do
     Logger.info("Starting background DNSX scan for domain #{domain_id}")
-    Scans.run_dnsx_scan(domain_id)
+    Scans.Dns.run(domain_id)
     :ok
   end
 
   def perform(%Oban.Job{args: %{"domain_id" => domain_id, "scan_type" => "ssl"}}) do
     Logger.info("Starting background SSL scan for domain #{domain_id}")
-    Scans.run_ssl_scan(domain_id)
+    Scans.Ssl.run(domain_id)
     :ok
   end
 
   def perform(%Oban.Job{args: %{"domain_id" => domain_id, "scan_type" => "rdap"}}) do
     Logger.info("Starting background RDAP scan for domain #{domain_id}")
-    Scans.run_rdap_scan(domain_id)
+    Scans.Whois.run_rdap_scan(domain_id)
     :ok
   end
 

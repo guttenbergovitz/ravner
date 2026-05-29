@@ -144,7 +144,7 @@ defmodule RavnerWeb.DomainLive.Show do
       |> assign(:active_scan_kind, :httpx)
 
     start_background_scan(fn ->
-      result = Scans.run_httpx_scan(domain_id)
+      result = Scans.Http.run_httpx_scan(domain_id)
       send(liveview_pid, {:scan_done, :httpx, result})
     end)
 
@@ -166,7 +166,7 @@ defmodule RavnerWeb.DomainLive.Show do
       |> assign(:active_scan_kind, :deep_tech)
 
     start_background_scan(fn ->
-      result = Scans.run_deep_tech_scan(domain_id)
+      result = Scans.Http.run_deep_tech_scan(domain_id)
       send(liveview_pid, {:scan_done, :deep_tech, result})
     end)
 
@@ -188,7 +188,7 @@ defmodule RavnerWeb.DomainLive.Show do
       |> assign(:active_scan_kind, :dnsx)
 
     start_background_scan(fn ->
-      result = Scans.run_dnsx_scan(domain_id)
+      result = Scans.Dns.run(domain_id)
       send(liveview_pid, {:scan_done, :dnsx, result})
     end)
 
@@ -210,7 +210,7 @@ defmodule RavnerWeb.DomainLive.Show do
       |> assign(:active_scan_kind, :rdap)
 
     start_background_scan(fn ->
-      result = Scans.run_rdap_scan(domain_id)
+      result = Scans.Whois.run_rdap_scan(domain_id)
       send(liveview_pid, {:scan_done, :rdap, result})
     end)
 

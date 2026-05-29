@@ -1,4 +1,7 @@
 defmodule Ravner.Domains.DomainTag do
+  @moduledoc """
+  Ecto schema representing a tag associated with a domain.
+  """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer

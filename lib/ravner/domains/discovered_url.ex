@@ -1,4 +1,7 @@
 defmodule Ravner.Domains.DiscoveredUrl do
+  @moduledoc """
+  Ecto schema representing a URL discovered during crawling.
+  """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer

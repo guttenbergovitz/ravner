@@ -45,3 +45,6 @@ npm-debug.log
 
 # Ignore release artifacts
 /rel/
+
+# Antigravity CLI artifacts
+/.antigravitycli/

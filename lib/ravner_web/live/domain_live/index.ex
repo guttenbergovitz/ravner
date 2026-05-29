@@ -222,7 +222,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:bulk_brand_menu_open, false)
@@ -258,7 +258,7 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   def handle_event("toggle_include_subdomains", _params, socket) do
-    {:noreply, assign(socket, :include_subdomains, !socket.assigns.include_subdomains)}
+    {:noreply, assign(socket, :bulk_include_subdomains, !socket.assigns.bulk_include_subdomains)}
   end
 
   def handle_event("open_lifecycle_menu", %{"id" => id}, socket) do
@@ -377,7 +377,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   def handle_event("scan_visible", _, socket) do
     ids = socket.assigns.domains |> Enum.map(& &1.id)
-    include_subdomains = socket.assigns.include_subdomains
+    include_subdomains = socket.assigns.bulk_include_subdomains
 
     execute_scan_on_ids(socket, ids, include_subdomains)
   end
@@ -450,6 +450,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:selection_mode, false)
     |> assign(:selected_ids, MapSet.new())
     |> assign(:include_subdomains, false)
+    |> assign(:bulk_include_subdomains, false)
     |> assign(:bulk_action, nil)
     |> assign(:bulk_actions_menu_open, false)
     |> assign(:scanning_ids, MapSet.new())
@@ -534,15 +535,31 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   defp filters_changed?(socket, filters) do
-    filters.search != (socket.assigns[:search] || "") or
-      filters.ip != (socket.assigns[:ip_filter] || "") or
-      filters.include_subdomains != (socket.assigns[:include_subdomains] || false) or
-      Enum.sort(filters.technical_status) !=
-        Enum.sort(socket.assigns[:technical_status_filter] || []) or
-      Enum.sort(filters.lifecycle) != Enum.sort(socket.assigns[:lifecycle_filter] || []) or
-      Enum.sort(filters.project_id) != Enum.sort(socket.assigns[:project_filter] || []) or
-      Enum.sort(filters.org_id) != Enum.sort(socket.assigns[:org_filter] || []) or
-      Enum.sort(filters.brand_id) != Enum.sort(socket.assigns[:brand_filter] || [])
+    assigns = socket.assigns
+
+    current = %{
+      search: Map.get(assigns, :search, ""),
+      ip: Map.get(assigns, :ip_filter, ""),
+      include_subdomains: Map.get(assigns, :include_subdomains, false),
+      technical_status: Enum.sort(Map.get(assigns, :technical_status_filter, [])),
+      lifecycle: Enum.sort(Map.get(assigns, :lifecycle_filter, [])),
+      project_id: Enum.sort(Map.get(assigns, :project_filter, [])),
+      org_id: Enum.sort(Map.get(assigns, :org_filter, [])),
+      brand_id: Enum.sort(Map.get(assigns, :brand_filter, []))
+    }
+
+    new_filters = %{
+      search: filters.search,
+      ip: filters.ip,
+      include_subdomains: filters.include_subdomains,
+      technical_status: Enum.sort(filters.technical_status),
+      lifecycle: Enum.sort(filters.lifecycle),
+      project_id: Enum.sort(filters.project_id),
+      org_id: Enum.sort(filters.org_id),
+      brand_id: Enum.sort(filters.brand_id)
+    }
+
+    current != new_filters
   end
 
   defp parse_filters(params) do
@@ -597,13 +614,15 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp apply_metadata_preload(domains, expanded) do
     if MapSet.size(expanded) > 0 do
-      Enum.map(domains, fn d ->
-        if MapSet.member?(expanded, "#{d.id}") do
-          Domains.preload_subdomain_metadata(d)
-        else
-          d
-        end
-      end)
+      {to_load, _rest} =
+        Enum.split_with(domains, fn d -> MapSet.member?(expanded, "#{d.id}") end)
+
+      loaded_map =
+        to_load
+        |> Domains.preload_subdomain_metadata()
+        |> Map.new(&{&1.id, &1})
+
+      Enum.map(domains, fn d -> Map.get(loaded_map, d.id, d) end)
     else
       domains
     end
@@ -649,7 +668,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
@@ -661,7 +680,7 @@ defmodule RavnerWeb.DomainLive.Index do
 
   defp execute_bulk_scan(socket) do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.map(&String.to_integer/1)
-    include_subdomains = socket.assigns.include_subdomains
+    include_subdomains = socket.assigns.bulk_include_subdomains
 
     execute_scan_on_ids(socket, ids, include_subdomains)
   end
@@ -695,7 +714,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, new_scanning)
@@ -742,7 +761,7 @@ defmodule RavnerWeb.DomainLive.Index do
      socket
      |> assign(:selection_mode, false)
      |> assign(:selected_ids, MapSet.new())
-     |> assign(:include_subdomains, false)
+     |> assign(:bulk_include_subdomains, false)
      |> assign(:bulk_action, nil)
      |> assign(:bulk_lifecycle_menu_open, false)
      |> assign(:scanning_ids, MapSet.new())
@@ -753,30 +772,36 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   defp build_params(socket, overrides \\ []) do
-    search = Keyword.get(overrides, :search, socket.assigns[:search] || "")
-    ip = Keyword.get(overrides, :ip, socket.assigns[:ip_filter] || "")
-    page = Keyword.get(overrides, :page, socket.assigns[:page] || 1)
+    extract_param = fn key, socket_key ->
+      Keyword.get(overrides, key, Map.get(socket.assigns, socket_key, []))
+    end
 
-    include_subdomains =
-      Keyword.get(overrides, :include_subdomains, socket.assigns[:include_subdomains] || false)
+    search = Keyword.get(overrides, :search, Map.get(socket.assigns, :search, ""))
+    ip = Keyword.get(overrides, :ip, Map.get(socket.assigns, :ip_filter, ""))
+    page = Keyword.get(overrides, :page, Map.get(socket.assigns, :page, 1))
 
-    project_ids = Keyword.get(overrides, :project_id, socket.assigns[:project_filter] || [])
-    org_ids = Keyword.get(overrides, :organization_id, socket.assigns[:org_filter] || [])
-    brand_ids = Keyword.get(overrides, :brand_id, socket.assigns[:brand_filter] || [])
-    lifecycles = Keyword.get(overrides, :lifecycle, socket.assigns[:lifecycle_filter] || [])
-
-    technical_statuses =
-      Keyword.get(overrides, :technical_status, socket.assigns[:technical_status_filter] || [])
+    subdomains =
+      Keyword.get(
+        overrides,
+        :include_subdomains,
+        Map.get(socket.assigns, :include_subdomains, false)
+      )
 
     [
       search: search,
       ip: ip,
-      include_subdomains: if(include_subdomains, do: "true", else: ""),
-      lifecycle: Enum.map_join(lifecycles, ",", &to_string/1),
-      technical_status: Enum.map_join(technical_statuses, ",", &to_string/1),
-      project_id: Enum.map_join(project_ids, ",", &to_string/1),
-      organization_id: Enum.map_join(org_ids, ",", &to_string/1),
-      brand_id: Enum.map_join(brand_ids, ",", &to_string/1),
+      include_subdomains: if(subdomains, do: "true", else: ""),
+      lifecycle: Enum.map_join(extract_param.(:lifecycle, :lifecycle_filter), ",", &to_string/1),
+      technical_status:
+        Enum.map_join(
+          extract_param.(:technical_status, :technical_status_filter),
+          ",",
+          &to_string/1
+        ),
+      project_id: Enum.map_join(extract_param.(:project_id, :project_filter), ",", &to_string/1),
+      organization_id:
+        Enum.map_join(extract_param.(:organization_id, :org_filter), ",", &to_string/1),
+      brand_id: Enum.map_join(extract_param.(:brand_id, :brand_filter), ",", &to_string/1),
       page: page
     ]
     |> Enum.reject(fn {_, v} -> v == "" or v == 1 end)

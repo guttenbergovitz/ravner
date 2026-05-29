@@ -1,4 +1,7 @@
 defmodule Ravner.Inventory.ProjectRole do
+  @moduledoc """
+  Ash resource representing a role within a project.
+  """
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
     data_layer: AshPostgres.DataLayer,

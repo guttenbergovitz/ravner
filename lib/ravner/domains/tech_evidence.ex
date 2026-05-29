@@ -1,4 +1,7 @@
 defmodule Ravner.Domains.TechEvidence do
+  @moduledoc """
+  Ecto schema representing technology evidence discovered for a domain.
+  """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer

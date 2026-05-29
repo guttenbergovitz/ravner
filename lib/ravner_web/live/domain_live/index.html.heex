@@ -1260,13 +1260,13 @@
               phx-click="scan_visible"
               class="btn-line text-xs flex items-center gap-1.5 py-2"
               data-confirm={
-                if @include_subdomains,
+                if @bulk_include_subdomains,
                   do: "Scan all visible domains AND their subdomains?",
                   else: "Scan all visible domains?"
               }
             >
               <.icon name="hero-bolt" class="w-4 h-4" /> Scan visible
-              <%= if @include_subdomains do %>
+              <%= if @bulk_include_subdomains do %>
                 <span class="text-[9px] bg-neutral-100 px-1 rounded text-neutral-500 font-normal">
                   + subdomains
                 </span>
@@ -1277,7 +1277,7 @@
               phx-click="toggle_include_subdomains"
               class={[
                 "flex items-center gap-1.5 px-2.5 py-2 border text-[10px] font-light transition-colors uppercase tracking-tight",
-                if(@include_subdomains,
+                if(@bulk_include_subdomains,
                   do: "border-neutral-900 text-neutral-900 bg-neutral-50",
                   else: "border-neutral-200 text-neutral-400 hover:border-neutral-400"
                 )
@@ -1285,12 +1285,12 @@
             >
               <span class={[
                 "w-3 h-3 border flex items-center justify-center shrink-0",
-                if(@include_subdomains,
+                if(@bulk_include_subdomains,
                   do: "border-neutral-900 bg-neutral-900",
                   else: "border-neutral-300"
                 )
               ]}>
-                <%= if @include_subdomains do %>
+                <%= if @bulk_include_subdomains do %>
                   <.icon name="hero-check" class="w-2 h-2 text-white" />
                 <% end %>
               </span>
@@ -1392,7 +1392,7 @@
           <% _ -> %>
             This will update the selected metadata for all target domains.
         <% end %>
-        <%= if @include_subdomains && @bulk_action in [:delete, :scan] do %>
+        <%= if @bulk_include_subdomains && @bulk_action in [:delete, :scan] do %>
           <br />
           <span class="text-neutral-900 font-normal">
             This will also include all their subdomains.
