@@ -1,0 +1,192 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "migrate",
+            "image": "${IMAGE_REPOSITORY}:${IMAGE_TAG}",
+            "cpu": 256,
+            "memory": 512,
+            "memoryReservation": 512,
+            "essential": false,
+            "command": [
+                "/app/bin/migrate"
+            ],
+            "environment": [
+                {
+                    "name": "POOL_SIZE",
+                    "value": "2"
+                }
+            ],
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "secrets": [
+                {
+                    "name": "DB_USERNAME",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:username::"
+                },
+                {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:password::"
+                },
+                {
+                    "name": "DB_HOSTNAME",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:host::"
+                },
+                {
+                    "name": "DB_DATABASE",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:db::"
+                },
+                {
+                    "name": "SECRET_KEY_BASE",
+                    "valueFrom": "${APP_SECRET_ARN}:secret_key_base::"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/aws/ecs/${ECS_CLUSTER_NAME}/${ECS_SERVICE_NAME}",
+                    "awslogs-region": "${AWS_REGION}",
+                    "awslogs-stream-prefix": "task.migrate"
+                }
+            }
+        },
+        {
+            "name": "app",
+            "image": "${IMAGE_REPOSITORY}:${IMAGE_TAG}",
+            "cpu": 256,
+            "memory": 512,
+            "memoryReservation": 512,
+            "portMappings": [
+                {
+                    "containerPort": 4000,
+                    "hostPort": 0,
+                    "protocol": "tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "PHX_SERVER",
+                    "value": "true"
+                },
+                {
+                    "name": "PORT",
+                    "value": "4000"
+                },
+                {
+                    "name": "PHX_HOST",
+                    "value": "${PHX_HOST}"
+                },
+                {
+                    "name": "DB_POOL_SIZE",
+                    "value": "${DB_POOL_SIZE:-10}"
+                }
+            ],
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "secrets": [
+                {
+                    "name": "DB_USERNAME",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:username::"
+                },
+                {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:password::"
+                },
+                {
+                    "name": "DB_HOSTNAME",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:host::"
+                },
+                {
+                    "name": "DB_DATABASE",
+                    "valueFrom": "${DATABASE_SECRET_ARN}:db::"
+                },
+                {
+                    "name": "SECRET_KEY_BASE",
+                    "valueFrom": "${APP_SECRET_ARN}:secret_key_base::"
+                }
+            ],
+            "dependsOn": [
+                {
+                    "containerName": "migrate",
+                    "condition": "SUCCESS"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/aws/ecs/${ECS_CLUSTER_NAME}/${ECS_SERVICE_NAME}",
+                    "awslogs-region": "${AWS_REGION}",
+                    "awslogs-stream-prefix": "task.app"
+                }
+            },
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "bash -c 'exec 3<>/dev/tcp/127.0.0.1/4000' || exit 1"
+                ],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 15
+            }
+        }
+    ],
+    "family": "task-${ECS_PROJECT_SHORTNAME}-${ECS_ENVIRONMENT}",
+    "taskRoleArn": "${ECS_TASK_ROLE_ARN}",
+    "executionRoleArn": "${ECS_TASK_EXECUTION_ROLE_ARN}",
+    "cpu": "512",
+    "memory": "1024",
+    "runtimePlatform": {
+        "cpuArchitecture": "ARM64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "tags": [
+        {
+            "key": "environment",
+            "value": "${ECS_ENVIRONMENT}"
+        },
+        {
+            "key": "task",
+            "value": "hosting"
+        },
+        {
+            "key": "project-shortname",
+            "value": "${ECS_PROJECT_SHORTNAME}"
+        },
+        {
+            "key": "infrastructure-provisioner",
+            "value": "terraform"
+        },
+        {
+            "key": "infrastructure-repo",
+            "value": "git@bitbucket.org:foodforplanet/webplatform-aws-devops.git"
+        },
+        {
+            "key": "infrastructure-project",
+            "value": "webplatform"
+        },
+        {
+            "key": "EcsServiceShortname",
+            "value": "${ECS_PROJECT_SHORTNAME}"
+        },
+        {
+            "key": "project",
+            "value": "ravner"
+        },
+        {
+            "key": "company",
+            "value": "foodforplanet"
+        },
+        {
+            "key": "EcsServiceName",
+            "value": "svc-${ECS_PROJECT_SHORTNAME}-${ECS_ENVIRONMENT}"
+        },
+        {
+            "key": "Name",
+            "value": "task-${ECS_PROJECT_SHORTNAME}-${ECS_ENVIRONMENT}"
+        }
+    ]
+}
