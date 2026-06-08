@@ -7,7 +7,7 @@
             "memory": 512,
             "memoryReservation": 128,
             "essential": false,
-            "command": ["/app/bin/ravner", "eval", "Ravner.Release.migrate"]
+            "command": ["/app/bin/ravner", "eval", "Ravner.Release.migrate"],
             "environment": [
                 {
                     "name": "POOL_SIZE",
