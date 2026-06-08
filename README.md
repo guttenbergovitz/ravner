@@ -80,9 +80,11 @@ Deployment is handled via **Bitbucket Pipelines** → **AWS ECR** → **AWS ECS 
 
 The pipeline uses OIDC authentication to assume AWS roles, builds the Docker image, pushes it to ECR, then deploys the task definition to ECS.
 
-### Staging — repository variables
+## Variables
 
-These values are configured as Bitbucket repository variables under *Repository Settings > Pipelines > Repository variables*:
+### Repository variables
+
+These values are common for every deployments environment
 
 | Variable | Value |
 |---|---|
@@ -91,21 +93,22 @@ These values are configured as Bitbucket repository variables under *Repository 
 | `AWS_OIDC_ECS_ROLE_ARN` | `arn:aws:iam::195630935097:role/role-bitbucket-ecs-service-read-write` |
 | `IMAGE_NAME` | `foodforplanet/ravner` |
 | `IMAGE_REPOSITORY` | `195630935097.dkr.ecr.eu-central-1.amazonaws.com/foodforplanet/ravner` |
+| `ECS_PROJECT_SHORTNAME` | `ravner` |
+
+### Staging variables
+
+These values are configured as Bitbucket environment variables under *Repository Settings > Pipelines > Deployments > Staging variables*:
+
+| Variable | Value |
+|---|---|
 | `ECS_CLUSTER_NAME` | `ecs-webplatform-stage` |
 | `ECS_SERVICE_NAME` | `svc-ravner-stage` |
-| `ECS_PROJECT_SHORTNAME` | `ravner` |
 | `ECS_TASK_ROLE_ARN` | `arn:aws:iam::195630935097:role/ecstr-task-ravner-stage` |
 | `ECS_TASK_EXECUTION_ROLE_ARN` | `arn:aws:iam::195630935097:role/ecster-task-ravner-stage` |
-| `ECS_TASK_DEFINITION_TEMPLATE` | `ecs-task-definition.json.dist` |
 | `DATABASE_SECRET_ARN` | `arn:aws:secretsmanager:eu-central-1:195630935097:secret:sm-rds-webplatform-postgres-stage-ravnerstage-credentials-7WmXYF` |
 | `APP_SECRET_ARN` | `arn:aws:secretsmanager:eu-central-1:195630935097:secret:sm-webplatform-stage-ravnerstage-app-secrets-R7RdvD` |
-
-The `ECS_ENVIRONMENT` and `PHX_HOST` values are set per deployment environment (not as repository variables):
-
-| Environment | `ECS_ENVIRONMENT` | `PHX_HOST` |
-|---|---|---|
-| Staging | `stage` | `ravner.josera.click` |
-| Production | `production` | *(TBD)* |
+| `ECS_ENVIRONMENT` | `stage` |
+| `PHX_HOST` | `ravner.josera.click` |
 
 ### Triggering a deployment
 
