@@ -221,4 +221,5 @@ EXPOSE 4000
 
 # tini = proper PID 1 so signals reach the BEAM cleanly.
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/app/bin/server"]
+# CMD ["/app/bin/server"]
+CMD ["/app/bin/ravner", "start"]
