@@ -5,11 +5,9 @@
             "image": "${IMAGE_REPOSITORY}:${IMAGE_TAG}",
             "cpu": 256,
             "memory": 512,
-            "memoryReservation": 512,
+            "memoryReservation": 128,
             "essential": false,
-            "command": [
-                "/app/bin/migrate"
-            ],
+            "command": ["/app/bin/ravner", "eval", "Ravner.Release.migrate"]
             "environment": [
                 {
                     "name": "POOL_SIZE",
@@ -55,7 +53,7 @@
             "image": "${IMAGE_REPOSITORY}:${IMAGE_TAG}",
             "cpu": 256,
             "memory": 512,
-            "memoryReservation": 512,
+            "memoryReservation": 256,
             "portMappings": [
                 {
                     "containerPort": 4000,
