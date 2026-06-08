@@ -72,7 +72,7 @@ RUN mix assets.deploy
 COPY config/runtime.exs config/
 
 # 4. Release overlays (bin/server, bin/migrate) and assemble the OTP release.
-COPY rel rel
+#COPY rel rel
 RUN mix release
 
 # ─── Fetch dnsx (ProjectDiscovery) — kept tiny and parallelisable ────────────
