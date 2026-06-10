@@ -137,3 +137,10 @@ Two secrets must exist in the target account and region:
   "secret_key_base": "<run: mix phx.gen.secret>"
 }
 ```
+
+
+### HUMAN GENERATED CONTENT - DO NOT MODIFY
+
+In dir `priv/repo/manual` there are .sql files with commands that I had to run to fix the issue with non-existing column `inserted_at` in table `schema_migrations`
+
+### END OF HUMAN GENERATED CONTENT - DO NOT MODIFY
