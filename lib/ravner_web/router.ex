@@ -27,8 +27,12 @@ defmodule RavnerWeb.Router do
   end
 
   scope "/", RavnerWeb do
-    pipe_through(:browser)
+    get("/health", HealthController, :index)
+  end
 
+  scope "/", RavnerWeb do
+    pipe_through(:browser)
+    
     get("/setup", SetupController, :new)
     post("/setup", SetupController, :create)
   end
