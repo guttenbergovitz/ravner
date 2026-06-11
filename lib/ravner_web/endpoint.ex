@@ -42,7 +42,7 @@ defmodule RavnerWeb.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, 
-    event_prefix: [:phoenix, :endpoint]
+    event_prefix: [:phoenix, :endpoint],
     log: {__MODULE__, :log_level, []}
 
   plug Plug.Parsers,
