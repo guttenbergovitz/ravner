@@ -55,14 +55,15 @@ defmodule Ravner.Scans.SecurityRunner do
   reports `{:scan_progress, ...}` / `{:scan_done, :security_scan, ...}` to
   the calling LiveView pid.
   """
-  @spec run_security_scan(integer(), pid()) ::
+  @spec run_security_scan(integer(), pid(), integer() | nil) ::
           {:ok, SecurityScan.t()} | {:error, String.t()}
-  def run_security_scan(domain_id, liveview_pid) do
+  def run_security_scan(domain_id, liveview_pid, user_id \\ nil) do
     with {:ok, domain} <- fetch_domain_for_scan(domain_id),
          {:ok, scan} <- create_security_scan(domain_id, "security_scan", domain.name) do
       send_progress(scan.id, 5, liveview_pid)
 
       Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+        if user_id, do: Ravner.ActivityLog.set_user(user_id)
         do_security_scan(scan, domain.name, liveview_pid)
       end)
 
@@ -121,27 +122,72 @@ defmodule Ravner.Scans.SecurityRunner do
 
   defp run_pipeline(scan, domain_name, liveview_pid) do
     # Phase 1: httpx (tech, status, server, CDN, redirect)
+    Ravner.ActivityLog.emit(:step, "Security — HTTP fingerprinting #{domain_name}…")
     send_progress(scan.id, 10, liveview_pid)
     {httpx_output, httpx_metadata} = run_httpx(domain_name)
 
+    server = httpx_metadata[:server_header]
+    tech = httpx_metadata[:tech_stack] || []
+
+    if server || tech != [] do
+      tech_info = if tech != [], do: " [#{Enum.join(tech, ", ")}]", else: ""
+      Ravner.ActivityLog.emit(:step, "Detected: #{server || "unknown server"}#{tech_info}")
+    end
+
     # Phase 2: naabu port discovery
+    Ravner.ActivityLog.emit(:step, "Security — port scanning #{domain_name} (top 100)…")
     send_progress(scan.id, 35, liveview_pid)
 
     case run_naabu(domain_name) do
       {:ok, naabu_output, ports} ->
         naabu_findings = SecurityScans.parse_naabu_output(naabu_output)
 
-        # Phase 3: lightweight nuclei against the HTTP/HTTPS surface only
-        # Templates are pre-baked in the Docker image. Manual updates available via admin settings.
+        # Fallback: if naabu finds nothing (SYN blocked by firewall) but httpx
+        # detected a port, include the httpx-observed port
+        ports =
+          if ports == [] do
+            extract_httpx_port(httpx_output)
+          else
+            ports
+          end
+
+        port_info = if ports != [], do: ": #{Enum.join(ports, ", ")}", else: ""
+        Ravner.ActivityLog.emit(:step, "Found #{length(ports)} open ports#{port_info}")
+
+        # Phase 3: nuclei vulnerability scan
+        Ravner.ActivityLog.emit(
+          :step,
+          "Security — running nuclei templates (critical/high/medium)…"
+        )
+
         send_progress(scan.id, 60, liveview_pid)
 
         case run_nuclei(domain_name) do
           {:ok, nuclei_findings} ->
             send_progress(scan.id, 90, liveview_pid)
 
+            if nuclei_findings != [] do
+              Enum.each(Enum.take(nuclei_findings, 5), fn f ->
+                severity = f["severity"] || "medium"
+                name = f["name"] || f["template_id"] || "unknown"
+                Ravner.ActivityLog.emit(:step, "  ⚠ [#{severity}] #{name}")
+              end)
+
+              if length(nuclei_findings) > 5 do
+                Ravner.ActivityLog.emit(
+                  :step,
+                  "  … and #{length(nuclei_findings) - 5} more findings"
+                )
+              end
+            else
+              Ravner.ActivityLog.emit(:step, "No vulnerabilities found — clean scan")
+            end
+
+            all_findings = naabu_findings ++ nuclei_findings
+
             summary =
               "#{length(ports)} open ports, " <>
-                "#{length(nuclei_findings)} critical/high findings"
+                "#{length(nuclei_findings)} findings"
 
             metadata_attrs =
               httpx_metadata
@@ -152,17 +198,19 @@ defmodule Ravner.Scans.SecurityRunner do
 
             finalize_scan(
               scan,
-              naabu_findings ++ nuclei_findings,
+              all_findings,
               naabu_output <> "\n---\n" <> httpx_output,
               summary,
               liveview_pid
             )
 
           {:error, reason} ->
+            Ravner.ActivityLog.emit(:error, "Nuclei failed: #{reason}")
             fail_scan(scan, "nuclei: #{reason}", liveview_pid)
         end
 
       {:error, reason} ->
+        Ravner.ActivityLog.emit(:error, "Port scan failed: #{reason}")
         fail_scan(scan, "naabu: #{reason}", liveview_pid)
     end
   end
@@ -219,23 +267,17 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   defp run_nuclei(domain_name) do
-    # Phase 1: framework-specific + severity filter for targeted scan
-    # (WordPress, Drupal, PHP, Node.js, Django, FastAPI, etc.)
-    framework_tags = "wordpress,drupal,php,nodejs,express,django,fastapi,astro,nextjs"
-
     args =
       [
         "-u",
         domain_name,
-        "-tags",
-        framework_tags,
         "-severity",
-        "critical,high",
+        "critical,high,medium",
         "-jsonl",
         "-silent",
         "-timeout",
         "10"
-      ] ++ @nuclei_perf_flags
+      ] ++ nuclei_template_flags() ++ @nuclei_perf_flags
 
     case SystemCommand.run_with_timeout("nuclei", args, @nuclei_timeout) do
       {output, 0} ->
@@ -253,6 +295,28 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   # ─── Output extraction ────────────────────────────────────────────────────
+
+  defp extract_httpx_port(httpx_output) do
+    httpx_output
+    |> String.split("\n")
+    |> Enum.flat_map(fn line ->
+      case Jason.decode(line) do
+        {:ok, %{"port" => port}} when is_binary(port) ->
+          case Integer.parse(port) do
+            {p, _} -> [p]
+            _ -> []
+          end
+
+        {:ok, %{"port" => port}} when is_integer(port) ->
+          [port]
+
+        _ ->
+          []
+      end
+    end)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
   defp extract_httpx_metadata(httpx_output) do
     httpx_output
@@ -331,6 +395,19 @@ defmodule Ravner.Scans.SecurityRunner do
     end
   end
 
+  @nuclei_template_paths [
+    "/app/.nuclei-templates",
+    "/app/nuclei-templates",
+    "/root/nuclei-templates"
+  ]
+
+  defp nuclei_template_flags do
+    case Enum.find(@nuclei_template_paths, &File.dir?/1) do
+      nil -> []
+      path -> ["-t", path]
+    end
+  end
+
   # ─── Scan lifecycle helpers ───────────────────────────────────────────────
 
   defp finalize_scan(scan, findings, raw_output, summary, liveview_pid) do
@@ -347,6 +424,8 @@ defmodule Ravner.Scans.SecurityRunner do
 
     # Prune old scans now that we have a fresh successful one
     SecurityScans.prune_old_scans(scan.domain_id)
+
+    Ravner.ActivityLog.emit(:done, "Security scan done — #{summary}")
 
     final_scan = SecurityScans.get_scan!(updated_scan.id)
     send(liveview_pid, {:scan_done, :security_scan, {:ok, final_scan}})

@@ -78,4 +78,35 @@ defmodule Ravner.ScansTest do
              }
            ] = Scans.Http.parse_webanalyze_output(output)
   end
+
+  describe "external_redirect?/2" do
+    test "returns false for nil final_url" do
+      refute Scans.external_redirect?("example.com", nil)
+    end
+
+    test "returns false for same domain" do
+      refute Scans.external_redirect?("example.com", "https://example.com/page")
+    end
+
+    test "returns false for www variant" do
+      refute Scans.external_redirect?("example.com", "https://www.example.com/page")
+    end
+
+    test "returns false for subdomain of same root" do
+      refute Scans.external_redirect?("example.com", "https://blog.example.com/page")
+    end
+
+    test "returns true for different apex domain" do
+      assert Scans.external_redirect?("old-brand.com", "https://josera.com/page")
+    end
+
+    test "returns true for different apex with subdomain source" do
+      assert Scans.external_redirect?("shop.old-brand.com", "https://josera.com/")
+    end
+
+    test "handles two-part TLDs correctly" do
+      refute Scans.external_redirect?("example.co.uk", "https://www.example.co.uk/page")
+      assert Scans.external_redirect?("example.co.uk", "https://other.co.uk/page")
+    end
+  end
 end

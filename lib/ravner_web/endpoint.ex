@@ -41,7 +41,8 @@ defmodule RavnerWeb.Endpoint do
     cookie_key: "request_logger"
 
   plug Plug.RequestId
-  plug Plug.Telemetry, 
+
+  plug Plug.Telemetry,
     event_prefix: [:phoenix, :endpoint],
     log: {__MODULE__, :log_level, []}
 

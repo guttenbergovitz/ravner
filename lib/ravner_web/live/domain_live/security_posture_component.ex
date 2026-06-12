@@ -34,19 +34,25 @@ defmodule RavnerWeb.DomainLive.SecurityPostureComponent do
         </div>
 
         <div class="flex flex-col gap-3 mb-6">
-          <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
-            <button
-              phx-click="run_security_scan"
-              phx-target={@myself}
-              id="run-security-scan"
-              class={[
-                "btn-line w-full justify-center text-xs",
-                (!is_nil(@running_security_scan) || @scanning) && "opacity-50 cursor-not-allowed"
-              ]}
-              disabled={!is_nil(@running_security_scan) || @scanning}
-            >
-              <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Security Scan
-            </button>
+          <%= if @domain.technical_status == :redirect do %>
+            <p class="text-[10px] text-neutral-400 italic text-center py-1">
+              Security scan unavailable — domain redirects externally
+            </p>
+          <% else %>
+            <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
+              <button
+                phx-click="run_security_scan"
+                phx-target={@myself}
+                id="run-security-scan"
+                class={[
+                  "btn-line w-full justify-center text-xs",
+                  (!is_nil(@running_security_scan) || @scanning) && "opacity-50 cursor-not-allowed"
+                ]}
+                disabled={!is_nil(@running_security_scan) || @scanning}
+              >
+                <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Security Scan
+              </button>
+            <% end %>
           <% end %>
         </div>
 
@@ -280,11 +286,12 @@ defmodule RavnerWeb.DomainLive.SecurityPostureComponent do
   def handle_event("run_security_scan", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     if socket.assigns.running_security_scan do
       {:noreply, put_flash(socket, :error, "A security scan is already in progress.")}
     else
-      case SecurityRunner.run_security_scan(domain_id, liveview_pid) do
+      case SecurityRunner.run_security_scan(domain_id, liveview_pid, user_id) do
         {:ok, _scan} ->
           send(liveview_pid, :refresh_security_scans)
           {:noreply, socket}

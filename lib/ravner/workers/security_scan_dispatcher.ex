@@ -6,15 +6,16 @@ defmodule Ravner.Workers.SecurityScanDispatcher do
 
   import Ecto.Query
   alias Ravner.Repo
+  alias Ravner.Domains.Domain
   alias Ravner.Domains.DomainMetadata
 
   @impl Oban.Worker
   def perform(_job) do
-    # Find domains where scan_interval_days is not null AND
-    # (last_security_scan_at is null OR last_security_scan_at + interval < NOW())
-
     query =
       from(m in DomainMetadata,
+        join: d in Domain,
+        on: d.id == m.domain_id,
+        where: d.technical_status != :redirect,
         where: not is_nil(m.scan_interval_days),
         where:
           is_nil(m.last_security_scan_at) or

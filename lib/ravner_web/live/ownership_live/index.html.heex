@@ -1,0 +1,109 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <%!-- Header --%>
+    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8">
+      <div>
+        <h1 class="text-3xl font-light tracking-tight text-neutral-900">Ownership Overview</h1>
+        <p class="text-xs font-light text-neutral-500 mt-2 uppercase tracking-widest">
+          Brand &rarr; Organization &rarr; Project &rarr; People
+        </p>
+      </div>
+      <div class="flex gap-8">
+        <div class="text-right">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Brands
+          </div>
+          <div class="text-2xl font-light text-neutral-900">{@stats.brands_count}</div>
+        </div>
+        <div class="text-right border-l border-neutral-100 pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Organizations
+          </div>
+          <div class="text-2xl font-light text-neutral-900">{@stats.organizations_count}</div>
+        </div>
+        <div class="text-right border-l border-neutral-100 pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Projects
+          </div>
+          <div class="text-2xl font-light text-neutral-900">{@stats.projects_count}</div>
+        </div>
+        <div class="text-right border-l border-neutral-100 pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            People
+          </div>
+          <div class="text-2xl font-light text-neutral-900">{@stats.people_count}</div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Brands Grid --%>
+    <div class="space-y-6">
+      <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3">
+        Brands <span class="h-px flex-1 bg-neutral-100"></span>
+      </h2>
+
+      <%= if @brands == [] do %>
+        <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+          <div class="text-sm font-light text-neutral-400 mb-4">No brands configured yet.</div>
+          <.link
+            href={~p"/admin/brands"}
+            class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+          >
+            Add brands in Admin
+          </.link>
+        </div>
+      <% else %>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <%= for brand <- @brands do %>
+            <.link
+              navigate={~p"/ownership/brands/#{brand.id}"}
+              class="block border border-neutral-200 bg-white p-6 hover:border-neutral-400 transition-colors group"
+            >
+              <div class="flex items-start justify-between mb-4">
+                <div>
+                  <h3 class="text-lg font-light text-neutral-900 group-hover:text-neutral-700">
+                    {brand.display_name || brand.name}
+                  </h3>
+                  <%= if brand.display_name && brand.display_name != brand.name do %>
+                    <div class="text-[10px] text-neutral-400 mt-0.5">{brand.name}</div>
+                  <% end %>
+                </div>
+                <.icon
+                  name="hero-chevron-right"
+                  class="w-5 h-5 text-neutral-300 group-hover:text-neutral-500 transition-colors"
+                />
+              </div>
+
+              <div class="grid grid-cols-4 gap-4 text-center border-t border-neutral-100 pt-4">
+                <div>
+                  <div class="text-lg font-light text-neutral-900">{brand.orgs_count}</div>
+                  <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                    Orgs
+                  </div>
+                </div>
+                <div class="border-l border-neutral-100">
+                  <div class="text-lg font-light text-neutral-900">{brand.projects_count}</div>
+                  <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                    Projects
+                  </div>
+                </div>
+                <div class="border-l border-neutral-100">
+                  <div class="text-lg font-light text-neutral-900">{brand.people_count}</div>
+                  <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                    People
+                  </div>
+                </div>
+                <div class="border-l border-neutral-100">
+                  <div class="text-lg font-light text-neutral-900">{brand.domains_count}</div>
+                  <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                    Domains
+                  </div>
+                </div>
+              </div>
+            </.link>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</Layouts.app>

@@ -191,36 +191,43 @@
         <%= if @domain.domain_metadata do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">HTTP</h2>
-            <div class="grid grid-cols-2 gap-6 text-sm">
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Status
-                </span>
-                <span :if={@domain.domain_metadata.http_status} class="font-light">
-                  {@domain.domain_metadata.http_status}
-                </span>
-                <span
-                  :if={!@domain.domain_metadata.http_status}
-                  class="text-neutral-400 font-light"
-                >
-                  —
-                </span>
-              </div>
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Server
-                </span>
-                <span :if={@domain.domain_metadata.server_header} class="font-light">
-                  {@domain.domain_metadata.server_header}
-                </span>
-                <span
-                  :if={!@domain.domain_metadata.server_header}
-                  class="text-neutral-400 font-light"
-                >
-                  —
-                </span>
-              </div>
-            </div>
+            <%= case @domain_class do %>
+              <% {:external_redirect, target} -> %>
+                <p class="text-sm font-light text-neutral-500 italic mb-4">
+                  N/A — redirects to <span class="font-normal text-neutral-700">{target}</span>
+                </p>
+              <% _ -> %>
+                <div class="grid grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                      Status
+                    </span>
+                    <span :if={@domain.domain_metadata.http_status} class="font-light">
+                      {@domain.domain_metadata.http_status}
+                    </span>
+                    <span
+                      :if={!@domain.domain_metadata.http_status}
+                      class="text-neutral-400 font-light"
+                    >
+                      —
+                    </span>
+                  </div>
+                  <div>
+                    <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
+                      Server
+                    </span>
+                    <span :if={@domain.domain_metadata.server_header} class="font-light">
+                      {@domain.domain_metadata.server_header}
+                    </span>
+                    <span
+                      :if={!@domain.domain_metadata.server_header}
+                      class="text-neutral-400 font-light"
+                    >
+                      —
+                    </span>
+                  </div>
+                </div>
+            <% end %>
 
             <div class="mt-4">
               <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
@@ -291,21 +298,24 @@
               </div>
             <% end %>
 
-            <%= if @domain.domain_metadata.security_headers && @domain.domain_metadata.security_headers != %{} do %>
-              <div class="mt-6 border-t border-neutral-100 pt-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
-                  Security Headers
-                </span>
-                <div class="space-y-1">
-                  <%= for {key, val} <- @domain.domain_metadata.security_headers do %>
-                    <div class="flex justify-between text-xs font-light">
-                      <span class="text-neutral-500">{key}</span>
-                      <span :if={val} class="text-green-700 ml-2">✓</span>
-                      <span :if={!val} class="text-neutral-400 ml-2">—</span>
-                    </div>
-                  <% end %>
+            <%= if match?({:external_redirect, _}, @domain_class) do %>
+            <% else %>
+              <%= if @domain.domain_metadata.security_headers && @domain.domain_metadata.security_headers != %{} do %>
+                <div class="mt-6 border-t border-neutral-100 pt-4">
+                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
+                    Security Headers
+                  </span>
+                  <div class="space-y-1">
+                    <%= for {key, val} <- @domain.domain_metadata.security_headers do %>
+                      <div class="flex justify-between text-xs font-light">
+                        <span class="text-neutral-500">{key}</span>
+                        <span :if={val} class="text-green-700 ml-2">✓</span>
+                        <span :if={!val} class="text-neutral-400 ml-2">—</span>
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
-              </div>
+              <% end %>
             <% end %>
 
             <div
@@ -445,7 +455,7 @@
           </div>
         <% end %>
 
-        <%= if infrastructure_metadata?(@domain) do %>
+        <%= if infrastructure_metadata?(@domain) && !match?({:external_redirect, _}, @domain_class) do %>
           <div class="card-line">
             <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
             <div class="grid grid-cols-2 gap-6 text-sm">

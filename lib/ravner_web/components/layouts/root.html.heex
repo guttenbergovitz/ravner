@@ -45,10 +45,22 @@
                   Domains
                 </.link>
               </li>
+              <li>
+                <.link
+                  href={~p"/ownership"}
+                  class={[
+                    "hover:text-neutral-500 transition-colors",
+                    (String.starts_with?(@conn.request_path, "/ownership") &&
+                       "text-neutral-900 font-normal") || "text-neutral-500"
+                  ]}
+                >
+                  Ownership
+                </.link>
+              </li>
               <%= if @current_scope.user.role == :admin do %>
                 <li class="relative group">
                   <button class="hover:text-neutral-500 transition-colors cursor-pointer flex items-center gap-1">
-                    Ownership <.icon name="hero-chevron-down" class="w-3 h-3" />
+                    Admin <.icon name="hero-chevron-down" class="w-3 h-3" />
                   </button>
                   <div class="absolute top-full left-0 mt-1 w-44 border border-neutral-200 bg-white opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
                     <.link
@@ -127,9 +139,17 @@
       </nav>
     </header>
 
-    <main class="flex-1">
+    <main class="flex-1 pb-8">
       {@inner_content}
     </main>
+
+    <%= if assigns[:current_scope] do %>
+      {live_render(@conn, RavnerWeb.ActivityDrawerLive,
+        id: "activity-drawer",
+        session: %{"user_id" => @current_scope.user.id},
+        sticky: true
+      )}
+    <% end %>
 
     <footer class="bg-neutral-900 text-white">
       <div class="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between text-xs font-light text-neutral-500 tracking-wide">
