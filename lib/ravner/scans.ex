@@ -12,6 +12,45 @@ defmodule Ravner.Scans do
   alias Ravner.Domains.Domain
   alias Ravner.Repo
 
+  @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
+
+  @doc """
+  Returns true when `final_url` points to a different apex domain than `domain_name`.
+  """
+  @spec external_redirect?(String.t(), String.t() | nil) :: boolean()
+  def external_redirect?(_domain_name, nil), do: false
+
+  def external_redirect?(domain_name, final_url) when is_binary(final_url) do
+    current_root = extract_root_domain(domain_name)
+
+    final_root =
+      final_url
+      |> URI.parse()
+      |> Map.get(:host)
+      |> Kernel.||("")
+      |> extract_root_domain()
+
+    final_root != "" && final_root != current_root
+  end
+
+  defp extract_root_domain(host) when is_binary(host) do
+    parts = host |> String.replace_prefix("www.", "") |> String.split(".")
+    count = length(parts)
+
+    cond do
+      count >= 3 && Enum.join(Enum.take(parts, -2), ".") in @two_part_tlds ->
+        parts |> Enum.take(-3) |> Enum.join(".")
+
+      count >= 2 ->
+        parts |> Enum.take(-2) |> Enum.join(".")
+
+      true ->
+        host
+    end
+  end
+
+  defp extract_root_domain(_), do: ""
+
   @chaos_api "https://dns.projectdiscovery.io"
   @hackertarget_api "https://api.hackertarget.com/hostsearch"
   @crtsh_api "https://crt.sh"
@@ -22,11 +61,18 @@ defmodule Ravner.Scans do
     dnsx = Ravner.Scans.Dns.run(domain_id)
 
     if dns_scan_allows_network_steps?(dnsx) do
+      httpx = Ravner.Scans.Http.run_httpx_scan(domain_id)
+
+      subdomains =
+        if httpx_is_external_redirect?(domain.name, httpx),
+          do: {:error, :external_redirect},
+          else: maybe_run_subdomain_scan(domain)
+
       %{
         dnsx: dnsx,
-        httpx: Ravner.Scans.Http.run_httpx_scan(domain_id),
+        httpx: httpx,
         rdap: Ravner.Scans.Whois.run_rdap_scan(domain_id),
-        subdomains: maybe_run_subdomain_scan(domain)
+        subdomains: subdomains
       }
     else
       skipped = mark_unreachable_after_dns(domain)
@@ -39,6 +85,11 @@ defmodule Ravner.Scans do
       }
     end
   end
+
+  defp httpx_is_external_redirect?(domain_name, {:ok, %{final_url: final_url}}),
+    do: external_redirect?(domain_name, final_url)
+
+  defp httpx_is_external_redirect?(_domain_name, _httpx_result), do: false
 
   defp maybe_run_subdomain_scan(%Domain{type: :domain, id: id}), do: run_subdomain_scan(id)
 

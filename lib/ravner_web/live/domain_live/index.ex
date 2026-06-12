@@ -856,20 +856,9 @@ defmodule RavnerWeb.DomainLive.Index do
     ]
   end
 
-  # Returns true if final_url points to a different host than the domain name.
-  def external_redirect?(domain_name, final_url) when is_binary(final_url) do
-    final_host =
-      final_url
-      |> URI.parse()
-      |> Map.get(:host)
-      |> Kernel.||("")
-      |> String.replace_leading("www.", "")
-
-    own_host = String.replace_leading(domain_name, "www.", "")
-    final_host != "" && final_host != own_host
-  end
-
-  def external_redirect?(_domain_name, _final_url), do: false
+  # Returns true if final_url points to a different apex domain than the domain name.
+  def external_redirect?(domain_name, final_url),
+    do: Ravner.Scans.external_redirect?(domain_name, final_url)
 
   defp open_url(domain, nil), do: preferred_domain_url(domain, nil)
   defp open_url(domain, metadata), do: preferred_domain_url(domain, metadata.final_url)

@@ -17,7 +17,7 @@ config :ravner, RavnerWeb.Endpoint,
       hosts: ["localhost", "127.0.0.1"],
       paths: ["/health"]
     ]
-]
+  ]
 
 # Configure Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req

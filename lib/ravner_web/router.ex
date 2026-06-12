@@ -32,7 +32,7 @@ defmodule RavnerWeb.Router do
 
   scope "/", RavnerWeb do
     pipe_through(:browser)
-    
+
     get("/setup", SetupController, :new)
     post("/setup", SetupController, :create)
   end
