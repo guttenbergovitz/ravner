@@ -538,6 +538,7 @@ defmodule RavnerWeb.DomainLive.Show do
       [
         :parent_domain,
         :domain_metadata,
+        :domain_tags,
         :project,
         :brand,
         :organization,

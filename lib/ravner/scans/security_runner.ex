@@ -142,6 +142,15 @@ defmodule Ravner.Scans.SecurityRunner do
       {:ok, naabu_output, ports} ->
         naabu_findings = SecurityScans.parse_naabu_output(naabu_output)
 
+        # Fallback: if naabu finds nothing (SYN blocked by firewall) but httpx
+        # detected a port, include the httpx-observed port
+        ports =
+          if ports == [] do
+            extract_httpx_port(httpx_output)
+          else
+            ports
+          end
+
         port_info = if ports != [], do: ": #{Enum.join(ports, ", ")}", else: ""
         Ravner.ActivityLog.emit(:step, "Found #{length(ports)} open ports#{port_info}")
 
@@ -286,6 +295,28 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   # ─── Output extraction ────────────────────────────────────────────────────
+
+  defp extract_httpx_port(httpx_output) do
+    httpx_output
+    |> String.split("\n")
+    |> Enum.flat_map(fn line ->
+      case Jason.decode(line) do
+        {:ok, %{"port" => port}} when is_binary(port) ->
+          case Integer.parse(port) do
+            {p, _} -> [p]
+            _ -> []
+          end
+
+        {:ok, %{"port" => port}} when is_integer(port) ->
+          [port]
+
+        _ ->
+          []
+      end
+    end)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
   defp extract_httpx_metadata(httpx_output) do
     httpx_output
