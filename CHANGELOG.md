@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Ownership Hierarchy Section** — New `/ownership` read-only views for navigating Brand → Organization → Project → People relationships with drill-down navigation, aggregated stats, and breadcrumbs. Separate from admin CRUD pages.
+
 ## [0.5.0] - 2026-05-09
 
 ### Added

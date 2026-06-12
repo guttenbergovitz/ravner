@@ -6,6 +6,17 @@ Domain and infrastructure inventory management system. Built for speed, precisio
 
 Ravner is an automated discovery and security auditing engine designed to map infrastructure and surface risks without the bloat. It handles everything from DNS/RDAP lookups to deep technology stack detection and port-level vulnerability scanning.
 
+## Ownership Hierarchy
+
+Ravner tracks domain ownership through a four-tier hierarchy:
+
+- **Brand** — Top-level corporate identity (e.g., company umbrella)
+- **Organization** — Business unit or subsidiary within a brand
+- **Project** — Product or initiative within an organization
+- **People** — Team members with roles assigned to projects
+
+The `/ownership` section provides read-only drill-down views with aggregated statistics (domain counts, team sizes, repository links). Admin CRUD operations remain in `/admin/*` routes.
+
 ## Core Discovery Pipeline
 
 The system operates on a multi-stage discovery model, which can be triggered manually or automated via schedules:
