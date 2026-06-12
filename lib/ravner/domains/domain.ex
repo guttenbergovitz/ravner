@@ -82,7 +82,7 @@ defmodule Ravner.Domains.Domain do
     end
 
     update :assign_organization do
-      accept([:organization_id, :project_id])
+      accept([:organization_id, :project_id, :brand_id])
     end
   end
 
