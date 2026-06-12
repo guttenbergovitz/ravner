@@ -61,19 +61,16 @@ defmodule Ravner.Scans do
     dnsx = Ravner.Scans.Dns.run(domain_id)
 
     if dns_scan_allows_network_steps?(dnsx) do
+      rdap_task = Task.async(fn -> Ravner.Scans.Whois.run_rdap_scan(domain_id) end)
       httpx = Ravner.Scans.Http.run_httpx_scan(domain_id)
+      rdap = Task.await(rdap_task, :infinity)
 
       subdomains =
         if httpx_is_external_redirect?(domain.name, httpx),
           do: {:error, :external_redirect},
           else: maybe_run_subdomain_scan(domain)
 
-      %{
-        dnsx: dnsx,
-        httpx: httpx,
-        rdap: Ravner.Scans.Whois.run_rdap_scan(domain_id),
-        subdomains: subdomains
-      }
+      %{dnsx: dnsx, httpx: httpx, rdap: rdap, subdomains: subdomains}
     else
       skipped = mark_unreachable_after_dns(domain)
 

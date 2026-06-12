@@ -358,20 +358,15 @@ defmodule RavnerWeb.DomainLive.Show do
 
   @impl true
   def handle_info({:scan_done, :subdomains, {:ok, results}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
+     |> reload_domain([:domain_tags, subdomains: [:domain_metadata]])
      |> finish_scan()
      |> assign(:scan_results, results)
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
   end
 
   def handle_info({:scan_done, :httpx, {:ok, %{error: kind}}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     label =
       case kind do
         :nxdomain -> "DNS resolution failed (NXDOMAIN)"
@@ -384,26 +379,20 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:error, "HTTP scan error: #{label}")}
   end
 
   def handle_info({:scan_done, :httpx, {:ok, _}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "HTTP scan completed")}
   end
 
   def handle_info({:scan_done, :deep_tech, {:ok, results}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     suffix =
       if results.errors == [] do
         ""
@@ -413,9 +402,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
+     |> reload_domain([:tech_evidence, :discovered_urls])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(
        :info,
        "Deep tech scan completed: #{results.evidence} findings, #{results.urls} URLs#{suffix}"
@@ -423,19 +411,14 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
+     |> reload_domain([:dns_records])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "DNS scan completed")}
   end
 
   def handle_info({:scan_done, :rdap, {:ok, %{source: source}}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     source_label =
       %{
         "rdap" => "RDAP",
@@ -446,9 +429,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "Registration scan completed via #{source_label}")}
   end
 
@@ -470,12 +452,9 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   def handle_info({:scan_done, :security_scan, {:ok, scan}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
+     |> reload_domain([])
      |> refresh_security_scan_assigns()
      |> put_flash(:info, "Security scan completed — #{scan.summary}")}
   end
@@ -551,6 +530,24 @@ defmodule RavnerWeb.DomainLive.Show do
     else
       socket
     end
+  end
+
+  # Reloads domain with minimal preloads (always includes core associations)
+  defp reload_domain(socket, extra_preloads) do
+    domain =
+      Domains.get_domain!(socket.assigns.domain.id)
+      |> Ash.load!([
+        :parent_domain,
+        :domain_metadata,
+        :project,
+        :brand,
+        :organization
+        | extra_preloads
+      ])
+
+    socket
+    |> assign(:domain, domain)
+    |> assign(:domain_class, compute_domain_class(domain))
   end
 
   defp parse_interval(""), do: nil
