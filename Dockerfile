@@ -210,7 +210,7 @@ USER ravner:ravner
 COPY --from=dnsx    /usr/local/bin/dnsx              /usr/local/bin/dnsx
 COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
 COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
-COPY --from=nuclei  /root/.nuclei-templates          /home/ravner/.nuclei-templates
+COPY --from=nuclei  /root/.nuclei-templates          /app/.nuclei-templates
 COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=katana  /usr/local/bin/katana            /usr/local/bin/katana
 COPY --from=webanalyze /usr/local/bin/webanalyze     /usr/local/bin/webanalyze
