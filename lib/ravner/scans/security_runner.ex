@@ -147,9 +147,11 @@ defmodule Ravner.Scans.SecurityRunner do
           {:ok, nuclei_findings} ->
             send_progress(scan.id, 90, liveview_pid)
 
+            all_findings = naabu_findings ++ nuclei_findings
+
             summary =
               "#{length(ports)} open ports, " <>
-                "#{length(nuclei_findings)} critical/high findings"
+                "#{length(nuclei_findings)} findings"
 
             metadata_attrs =
               httpx_metadata
@@ -160,7 +162,7 @@ defmodule Ravner.Scans.SecurityRunner do
 
             finalize_scan(
               scan,
-              naabu_findings ++ nuclei_findings,
+              all_findings,
               naabu_output <> "\n---\n" <> httpx_output,
               summary,
               liveview_pid
@@ -227,18 +229,12 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   defp run_nuclei(domain_name) do
-    # Phase 1: framework-specific + severity filter for targeted scan
-    # (WordPress, Drupal, PHP, Node.js, Django, FastAPI, etc.)
-    framework_tags = "wordpress,drupal,php,nodejs,express,django,fastapi,astro,nextjs"
-
     args =
       [
         "-u",
         domain_name,
-        "-tags",
-        framework_tags,
         "-severity",
-        "critical,high",
+        "critical,high,medium",
         "-jsonl",
         "-silent",
         "-timeout",
