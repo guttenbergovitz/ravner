@@ -360,7 +360,7 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_info({:scan_done, :subdomains, {:ok, results}}, socket) do
     {:noreply,
      socket
-     |> reload_domain([:domain_tags, subdomains: [:domain_metadata]])
+     |> reload_domain([])
      |> finish_scan()
      |> assign(:scan_results, results)
      |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
@@ -402,7 +402,7 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
-     |> reload_domain([:tech_evidence, :discovered_urls])
+     |> reload_domain([])
      |> finish_scan()
      |> put_flash(
        :info,
@@ -413,7 +413,7 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
     {:noreply,
      socket
-     |> reload_domain([:dns_records])
+     |> reload_domain([])
      |> finish_scan()
      |> put_flash(:info, "DNS scan completed")}
   end
@@ -532,18 +532,24 @@ defmodule RavnerWeb.DomainLive.Show do
     end
   end
 
-  # Reloads domain with minimal preloads (always includes core associations)
+  # Reloads domain with template-required associations
   defp reload_domain(socket, extra_preloads) do
-    domain =
-      Domains.get_domain!(socket.assigns.domain.id)
-      |> Ash.load!([
+    preloads =
+      [
         :parent_domain,
         :domain_metadata,
         :project,
         :brand,
-        :organization
-        | extra_preloads
-      ])
+        :organization,
+        :dns_records,
+        :tech_evidence,
+        :discovered_urls,
+        subdomains: [:domain_metadata]
+      ] ++ extra_preloads
+
+    domain =
+      Domains.get_domain!(socket.assigns.domain.id)
+      |> Ash.load!(preloads)
 
     socket
     |> assign(:domain, domain)

@@ -243,7 +243,7 @@ defmodule Ravner.Scans.SecurityRunner do
         "-silent",
         "-timeout",
         "10"
-      ] ++ @nuclei_perf_flags
+      ] ++ nuclei_template_flags() ++ @nuclei_perf_flags
 
     case SystemCommand.run_with_timeout("nuclei", args, @nuclei_timeout) do
       {output, 0} ->
@@ -336,6 +336,19 @@ defmodule Ravner.Scans.SecurityRunner do
       :ok
     else
       {:error, "#{name} executable not found. Install it or use the container image."}
+    end
+  end
+
+  @nuclei_template_paths [
+    "/app/.nuclei-templates",
+    "/app/nuclei-templates",
+    "/root/nuclei-templates"
+  ]
+
+  defp nuclei_template_flags do
+    case Enum.find(@nuclei_template_paths, &File.dir?/1) do
+      nil -> []
+      path -> ["-t", path]
     end
   end
 
