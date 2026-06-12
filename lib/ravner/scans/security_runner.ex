@@ -122,30 +122,57 @@ defmodule Ravner.Scans.SecurityRunner do
 
   defp run_pipeline(scan, domain_name, liveview_pid) do
     # Phase 1: httpx (tech, status, server, CDN, redirect)
-    Ravner.ActivityLog.emit(:step, "Security scan — probing #{domain_name}…")
+    Ravner.ActivityLog.emit(:step, "Security — HTTP fingerprinting #{domain_name}…")
     send_progress(scan.id, 10, liveview_pid)
     {httpx_output, httpx_metadata} = run_httpx(domain_name)
 
+    server = httpx_metadata[:server_header]
+    tech = httpx_metadata[:tech_stack] || []
+
+    if server || tech != [] do
+      tech_info = if tech != [], do: " [#{Enum.join(tech, ", ")}]", else: ""
+      Ravner.ActivityLog.emit(:step, "Detected: #{server || "unknown server"}#{tech_info}")
+    end
+
     # Phase 2: naabu port discovery
-    Ravner.ActivityLog.emit(:step, "Scanning ports on #{domain_name}…")
+    Ravner.ActivityLog.emit(:step, "Security — port scanning #{domain_name} (top 100)…")
     send_progress(scan.id, 35, liveview_pid)
 
     case run_naabu(domain_name) do
       {:ok, naabu_output, ports} ->
         naabu_findings = SecurityScans.parse_naabu_output(naabu_output)
 
+        port_info = if ports != [], do: ": #{Enum.join(ports, ", ")}", else: ""
+        Ravner.ActivityLog.emit(:step, "Found #{length(ports)} open ports#{port_info}")
+
+        # Phase 3: nuclei vulnerability scan
         Ravner.ActivityLog.emit(
           :step,
-          "Found #{length(ports)} open ports — running vulnerability checks…"
+          "Security — running nuclei templates (critical/high/medium)…"
         )
 
-        # Phase 3: lightweight nuclei against the HTTP/HTTPS surface only
-        # Templates are pre-baked in the Docker image. Manual updates available via admin settings.
         send_progress(scan.id, 60, liveview_pid)
 
         case run_nuclei(domain_name) do
           {:ok, nuclei_findings} ->
             send_progress(scan.id, 90, liveview_pid)
+
+            if nuclei_findings != [] do
+              Enum.each(Enum.take(nuclei_findings, 5), fn f ->
+                severity = f["severity"] || "medium"
+                name = f["name"] || f["template_id"] || "unknown"
+                Ravner.ActivityLog.emit(:step, "  ⚠ [#{severity}] #{name}")
+              end)
+
+              if length(nuclei_findings) > 5 do
+                Ravner.ActivityLog.emit(
+                  :step,
+                  "  … and #{length(nuclei_findings) - 5} more findings"
+                )
+              end
+            else
+              Ravner.ActivityLog.emit(:step, "No vulnerabilities found — clean scan")
+            end
 
             all_findings = naabu_findings ++ nuclei_findings
 
@@ -169,10 +196,12 @@ defmodule Ravner.Scans.SecurityRunner do
             )
 
           {:error, reason} ->
+            Ravner.ActivityLog.emit(:error, "Nuclei failed: #{reason}")
             fail_scan(scan, "nuclei: #{reason}", liveview_pid)
         end
 
       {:error, reason} ->
+        Ravner.ActivityLog.emit(:error, "Port scan failed: #{reason}")
         fail_scan(scan, "naabu: #{reason}", liveview_pid)
     end
   end
