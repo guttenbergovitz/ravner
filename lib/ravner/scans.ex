@@ -149,12 +149,19 @@ defmodule Ravner.Scans do
       Logger.info("Skipping subdomain scan for non-apex domain #{domain.name}")
       {:error, "Subdomain scan only supported for apex domains"}
     else
+      Ravner.ActivityLog.emit(:step, "Discovering subdomains for #{domain.name}…")
       result = run_subdomain_sources(domain.name, domain.id)
 
       case result do
-        {:ok, _} = ok ->
+        {:ok, data} ->
           Domains.upsert_domain_metadata(domain_id, %{subdomains_scanned_at: DateTime.utc_now()})
-          ok
+
+          Ravner.ActivityLog.emit(
+            :done,
+            "Subdomains done — #{data.found} found for #{domain.name}"
+          )
+
+          {:ok, data}
 
         error ->
           error

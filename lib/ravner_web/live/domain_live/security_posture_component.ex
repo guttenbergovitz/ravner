@@ -286,11 +286,12 @@ defmodule RavnerWeb.DomainLive.SecurityPostureComponent do
   def handle_event("run_security_scan", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     if socket.assigns.running_security_scan do
       {:noreply, put_flash(socket, :error, "A security scan is already in progress.")}
     else
-      case SecurityRunner.run_security_scan(domain_id, liveview_pid) do
+      case SecurityRunner.run_security_scan(domain_id, liveview_pid, user_id) do
         {:ok, _scan} ->
           send(liveview_pid, :refresh_security_scans)
           {:noreply, socket}

@@ -366,8 +366,9 @@ defmodule RavnerWeb.DomainLive.Index do
   def handle_event("quick_scan", %{"id" => id}, socket) do
     domain_id = String.to_integer(id)
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       Scans.run_quick_scan(domain_id)
       send(liveview_pid, {:quick_scan_done, domain_id})
     end)
@@ -688,15 +689,17 @@ defmodule RavnerWeb.DomainLive.Index do
   defp execute_scan_on_ids(socket, ids, include_subdomains) do
     scan_targets = get_scan_targets(ids, include_subdomains)
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     # IDs to show as "scanning" in UI
     target_ids = Enum.map(scan_targets, &to_string(&1.id))
     new_scanning = MapSet.union(socket.assigns.scanning_ids, MapSet.new(target_ids))
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       Task.async_stream(
         scan_targets,
         fn domain ->
+          Ravner.ActivityLog.set_user(user_id)
           Scans.run_quick_scan(domain.id)
           send(liveview_pid, {:quick_scan_done, domain.id})
         end,
@@ -908,7 +911,10 @@ defmodule RavnerWeb.DomainLive.Index do
     if MapSet.member?(set, member), do: MapSet.delete(set, member), else: MapSet.put(set, member)
   end
 
-  defp start_background_scan(fun) when is_function(fun, 0) do
-    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fun)
+  defp start_background_scan(user_id, fun) when is_function(fun, 0) do
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+      if user_id, do: Ravner.ActivityLog.set_user(user_id)
+      fun.()
+    end)
   end
 end

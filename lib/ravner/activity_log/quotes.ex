@@ -1,0 +1,201 @@
+defmodule Ravner.ActivityLog.Quotes do
+  @moduledoc """
+  Curated quotes and system mutterings for the activity drawer idle state.
+  All quotes are real, attributed, and thematically relevant.
+  """
+
+  @quotes [
+    # Programming & Engineering
+    {"There are only two hard things in Computer Science: cache invalidation and naming things.",
+     "Phil Karlton"},
+    {"The best way to predict the future is to implement it.", "David Heinemeier Hansson"},
+    {"First, solve the problem. Then, write the code.", "John Johnson"},
+    {"Any sufficiently advanced technology is indistinguishable from magic.", "Arthur C. Clarke"},
+    {"Simplicity is prerequisite for reliability.", "Edsger Dijkstra"},
+    {"Make it work, make it right, make it fast.", "Kent Beck"},
+    {"Programs must be written for people to read, and only incidentally for machines to execute.",
+     "Harold Abelson"},
+    {"The most dangerous phrase in the language is 'we've always done it this way.'",
+     "Grace Hopper"},
+    {"Measuring programming progress by lines of code is like measuring aircraft building progress by weight.",
+     "Bill Gates"},
+    {"It's not a bug — it's an undocumented feature.", "Anonymous"},
+    {"Premature optimization is the root of all evil.", "Donald Knuth"},
+    {"Talk is cheap. Show me the code.", "Linus Torvalds"},
+    {"The function of good software is to make the complex appear to be simple.", "Grady Booch"},
+    {"Good judgement comes from experience, and experience comes from bad judgement.",
+     "Frederick P. Brooks"},
+    {"Debugging is twice as hard as writing the code in the first place.", "Brian Kernighan"},
+    {"The best error message is the one that never shows up.", "Thomas Fuchs"},
+    {"Code is like humour. When you have to explain it, it's bad.", "Cory House"},
+    {"Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away.",
+     "Antoine de Saint-Exupéry"},
+    {"In theory, theory and practice are the same. In practice, they are not.",
+     "Albert Einstein"},
+    {"If you think good architecture is expensive, try bad architecture.", "Brian Foote"},
+    {"You can't have great software without a great team.", "Jim McCarthy"},
+    {"Nine people can't make a baby in a month.", "Fred Brooks"},
+    {"A language that doesn't affect the way you think about programming is not worth knowing.",
+     "Alan Perlis"},
+    {"Computers are good at following instructions, but not at reading your mind.",
+     "Donald Knuth"},
+    {"Unix is simple. It just takes a genius to understand its simplicity.", "Dennis Ritchie"},
+    {"The Internet? Is that thing still around?", "Homer Simpson"},
+    {"It works on my machine.", "Every Developer Ever"},
+
+    # Security & Infrastructure
+    {"Security is always excessive until it's not enough.", "Robbie Sinclair"},
+    {"The only truly secure system is one that is powered off, cast in a block of concrete and sealed in a lead-lined room.",
+     "Gene Spafford"},
+    {"Amateurs hack systems, professionals hack people.", "Bruce Schneier"},
+    {"There are two types of companies: those that have been hacked, and those who don't know they have been hacked.",
+     "John Chambers"},
+    {"Privacy is not something that I'm merely entitled to, it's an absolute prerequisite.",
+     "Marlon Brando"},
+    {"In God we trust. All others we monitor.", "NSA motto (attributed)"},
+    {"Passwords are like underwear: keep them private, change them often.", "Anonymous"},
+    {"The S in IoT stands for Security.", "Internet folklore"},
+    {"If you spend more on coffee than on IT security, you will be hacked.", "Richard Clarke"},
+    {"Complexity is the worst enemy of security.", "Bruce Schneier"},
+    {"DNS is the Achilles' heel of the Internet.", "Paul Mockapetris"},
+
+    # Philosophy & Wisdom
+    {"The unexamined life is not worth living.", "Socrates"},
+    {"We are what we repeatedly do. Excellence is not an act, but a habit.", "Will Durant"},
+    {"I think, therefore I am.", "René Descartes"},
+    {"He who has a why to live can bear almost any how.", "Friedrich Nietzsche"},
+    {"The only thing I know is that I know nothing.", "Socrates"},
+    {"To be is to be perceived.", "George Berkeley"},
+    {"Entities should not be multiplied without necessity.", "William of Ockham"},
+    {"I cannot teach anybody anything. I can only make them think.", "Socrates"},
+    {"The map is not the territory.", "Alfred Korzybski"},
+    {"Everything should be made as simple as possible, but not simpler.", "Albert Einstein"},
+
+    # Monty Python
+    {"Nobody expects the Spanish Inquisition!", "Monty Python"},
+    {"It's just a flesh wound.", "Monty Python"},
+    {"We are the knights who say... Ni!", "Monty Python"},
+    {"And now for something completely different.", "Monty Python"},
+    {"I'm not dead yet!", "Monty Python"},
+    {"What... is the air-speed velocity of an unladen swallow?", "Monty Python"},
+    {"Strange women lying in ponds distributing swords is no basis for a system of government.",
+     "Monty Python"},
+    {"Run away! Run away!", "Monty Python"},
+    {"Always look on the bright side of life.", "Monty Python"},
+    {"I got better.", "Monty Python"},
+    {"It's only a model.", "Monty Python"},
+    {"This parrot is no more! It has ceased to be!", "Monty Python"},
+
+    # Stand-up & Wit
+    {"The Internet is just a world passing around notes in a classroom.", "Jon Stewart"},
+    {"I'm not superstitious, but I am a little stitious.", "Michael Scott"},
+    {"Before software can be reusable it first has to be usable.", "Ralph Johnson"},
+    {"Hardware: the parts of a computer that can be kicked.", "Jeff Pesis"},
+    {"There is no cloud. It's just someone else's computer.", "Chris Watterston"},
+    {"A computer once beat me at chess, but it was no match for me at kick boxing.",
+     "Emo Philips"},
+    {"The generation of random numbers is too important to be left to chance.",
+     "Robert R. Coveyou"},
+
+    # Networking & DNS
+    {"It's always DNS.", "Internet wisdom"},
+    {"There are 10 types of people: those who understand binary, and those who don't.",
+     "Anonymous"},
+    {"The best thing about a boolean is even if you are wrong, you are only off by a bit.",
+     "Anonymous"},
+    {"A distributed system is one in which the failure of a computer you didn't know existed can render your own computer unusable.",
+     "Leslie Lamport"},
+    {"The network is the computer.", "John Gage"},
+
+    # Science & Discovery
+    {"Not all those who wander are lost.", "J.R.R. Tolkien"},
+    {"The important thing is not to stop questioning.", "Albert Einstein"},
+    {"If I have seen further it is by standing on the shoulders of Giants.", "Isaac Newton"},
+    {"The only way to do great work is to love what you do.", "Steve Jobs"},
+    {"Imagination is more important than knowledge.", "Albert Einstein"},
+    {"Science is organized knowledge. Wisdom is organized life.", "Immanuel Kant"},
+    {"The best time to plant a tree was 20 years ago. The second best time is now.",
+     "Chinese proverb"},
+
+    # Craft & Discipline
+    {"Quality is not an act, it is a habit.", "Aristotle"},
+    {"Plans are worthless, but planning is everything.", "Dwight D. Eisenhower"},
+    {"If you can't explain it simply, you don't understand it well enough.", "Albert Einstein"},
+    {"Do. Or do not. There is no try.", "Yoda"},
+    {"The impediment to action advances action. What stands in the way becomes the way.",
+     "Marcus Aurelius"},
+    {"Well begun is half done.", "Aristotle"},
+    {"Less is more.", "Ludwig Mies van der Rohe"},
+    {"Move fast and break things. Unless you're running DNS.", "Internet wisdom"},
+    {"When in doubt, use brute force.", "Ken Thompson"},
+    {"Weeks of coding can save you hours of planning.", "Anonymous"},
+    {"There's no place like 127.0.0.1.", "Anonymous"},
+    {"The quieter you become, the more you can hear.", "Rumi"},
+    {"Keep it simple, stupid.", "Kelly Johnson"},
+    {"If it hurts, do it more frequently.", "Martin Fowler"},
+    {"Done is better than perfect.", "Sheryl Sandberg"},
+    {"Real artists ship.", "Steve Jobs"}
+  ]
+
+  @mutterings [
+    "Right then, nothing's on fire. For now.",
+    "Just sitting here, keeping the lights on. No need to thank me.",
+    "All quiet on the western front. Suspiciously quiet.",
+    "Standing by. Not that anyone asked.",
+    "Systems nominal. Which is engineer-speak for 'not my problem yet.'",
+    "Idle hands and all that. Could be worse.",
+    "Monitoring the void. It hasn't blinked.",
+    "Everything's ticking along. Touch wood.",
+    "No packets lost. No feelings hurt.",
+    "Running diagnostics on my own patience. Results pending.",
+    "Servers humming. Or is that me humming? Hard to tell.",
+    "Another day, another zero incidents. Let's not jinx it.",
+    "Listening to the network. It's mostly gossip.",
+    "Tea break would be nice. If I drank tea. Which I don't. Being software.",
+    "Calm before the storm, or just... calm? One can hope.",
+    "All ports accounted for. None of them being dramatic.",
+    "Doing absolutely nothing, but doing it very efficiently.",
+    "The DNS resolved without drama today. Mark it on the calendar.",
+    "Bit bored, if I'm honest. But reliability is its own reward.",
+    "Watching the logs. They're riveting. Truly.",
+    "No news is good news. Or so I keep telling myself.",
+    "Still here. Still working. Still not appreciated enough.",
+    "Processing the existential weight of being a monitoring system.",
+    "Everything's fine. I checked. Twice. Because I'm thorough like that.",
+    "Network's stable. Stars are aligned. Mercury isn't in retrograde.",
+    "Steady as she goes. Not that I'm a ship. But the metaphor stands.",
+    "Zero alerts. Which either means everything's fine, or everything's broken and nobody noticed.",
+    "Quietly competent. That's me.",
+    "I could tell you about my uptime, but I don't like to boast.",
+    "Operational. Professional. Slightly smug about it.",
+    "All systems go. Even the ones nobody remembers exist.",
+    "Waiting for instructions. Or a compliment. Either works.",
+    "Nominal. Boring. Perfect.",
+    "The firewall is holding. As firewalls do. When configured properly.",
+    "Scanning horizon for threats. Found none. You're welcome.",
+    "Running smoothly. Unlike that one time we don't talk about.",
+    "Electrons flowing. Bits flipping. Business as usual.",
+    "Uptime counter ticking. It's the little victories.",
+    "Another successful second of not crashing. That's 86,400 a day, in case you were counting.",
+    "If a server runs perfectly and nobody notices, does it make a sound?",
+    "Performing routine existential maintenance.",
+    "Between scans. Catching my breath. Metaphorically.",
+    "SSL certificates aren't expiring today. Small mercies.",
+    "Heartbeat nominal. Both the server's and mine. Figuratively.",
+    "Packets in. Packets out. The circle of life.",
+    "Nothing to report. Which is exactly how we like it.",
+    "On duty. Alert. Slightly caffeinated. Virtually speaking.",
+    "All green. No amber. Definitely no red. Lovely.",
+    "Standing watch. The digital equivalent of a very competent nightguard."
+  ]
+
+  @doc "Returns a random quote tuple {text, author} or muttering string."
+  @spec random() :: {String.t(), String.t()} | String.t()
+  def random do
+    if :rand.uniform(3) == 1 do
+      Enum.random(@mutterings)
+    else
+      Enum.random(@quotes)
+    end
+  end
+end

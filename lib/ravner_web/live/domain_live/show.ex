@@ -67,6 +67,7 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_all", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
@@ -74,7 +75,7 @@ defmodule RavnerWeb.DomainLive.Show do
       |> assign(:active_scan_kind, :all)
       |> assign(:pending_scans, 4)
 
-    start_scan_tasks(liveview_pid, domain_id)
+    start_scan_tasks(liveview_pid, domain_id, user_id)
 
     {:noreply, socket}
   end
@@ -87,6 +88,7 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_all_subdomains", _, socket) do
     domain = socket.assigns.domain
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     case domain.subdomains do
       [] ->
@@ -101,7 +103,7 @@ defmodule RavnerWeb.DomainLive.Show do
           |> assign(:active_scan_kind, :all_subdomains)
           |> assign(:pending_scans, subdomain_count * 4)
 
-        Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id))
+        Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id, user_id))
 
         {:noreply, socket}
     end
@@ -115,13 +117,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_subdomains", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :subdomains)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.run_subdomain_scan(domain_id)
       send(liveview_pid, {:scan_done, :subdomains, result})
     end)
@@ -137,13 +140,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_httpx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :httpx)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Http.run_httpx_scan(domain_id)
       send(liveview_pid, {:scan_done, :httpx, result})
     end)
@@ -159,13 +163,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_deep_tech", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :deep_tech)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Http.run_deep_tech_scan(domain_id)
       send(liveview_pid, {:scan_done, :deep_tech, result})
     end)
@@ -181,13 +186,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_dnsx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :dnsx)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Dns.run(domain_id)
       send(liveview_pid, {:scan_done, :dnsx, result})
     end)
@@ -203,13 +209,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_rdap", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :rdap)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Whois.run_rdap_scan(domain_id)
       send(liveview_pid, {:scan_done, :rdap, result})
     end)
@@ -514,8 +521,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp populated?(value), do: is_list(value) && value != []
 
-  defp start_scan_tasks(pid, id) do
-    start_background_scan(fn ->
+  defp start_scan_tasks(pid, id, user_id) do
+    start_background_scan(user_id, fn ->
       results = Scans.run_quick_scan(id)
 
       send(pid, {:scan_done, :dnsx, Map.fetch!(results, :dnsx)})
@@ -525,8 +532,11 @@ defmodule RavnerWeb.DomainLive.Show do
     end)
   end
 
-  defp start_background_scan(fun) when is_function(fun, 0) do
-    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fun)
+  defp start_background_scan(user_id, fun) when is_function(fun, 0) do
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+      if user_id, do: Ravner.ActivityLog.set_user(user_id)
+      fun.()
+    end)
   end
 
   # Decrements the pending scan counter; sets scanning: false when all done

@@ -25,9 +25,14 @@ defmodule Ravner.Scans.Http do
           {:ok, Ravner.Domains.DomainMetadata.t()} | {:error, term()}
   def run_httpx_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
+    Ravner.ActivityLog.emit(:step, "Probing HTTP for #{domain.name}…")
 
     case do_httpx_scan(domain.name) do
       {:ok, data} ->
+        if Ravner.Scans.external_redirect?(domain.name, data.final_url) do
+          Ravner.ActivityLog.emit(:step, "External redirect detected → #{data.final_url}")
+        end
+
         now = DateTime.utc_now()
 
         meta =
@@ -74,6 +79,7 @@ defmodule Ravner.Scans.Http do
         Domains.upsert_domain_metadata(domain_id, meta)
         maybe_update_domain_url(domain, data.final_url)
         record_technical_status_from_http(domain, data)
+        Ravner.ActivityLog.emit(:done, "HTTP done — #{domain.name} → status #{data.http_status}")
         {:ok, data}
 
       {:error, reason} ->
@@ -108,14 +114,19 @@ defmodule Ravner.Scans.Http do
     http_result = run_httpx_scan(domain_id)
 
     target_url = deep_scan_target_url(domain_id, domain)
+    Ravner.ActivityLog.emit(:step, "Deep tech scan — crawling #{target_url}…")
 
     {crawl_data, crawl_errors, tech_evidence, webanalyze_errors} =
       if deep_http_allows_tools?(http_result) do
+        Ravner.ActivityLog.emit(:step, "Running katana crawler on #{target_url}…")
+
         {crawl_data, crawl_errors} =
           case run_katana(target_url) do
             {:ok, data} -> {data, []}
             {:error, reason} -> {%{urls: [], js_assets: [], forms: []}, [to_string(reason)]}
           end
+
+        Ravner.ActivityLog.emit(:step, "Fingerprinting technologies via webanalyze…")
 
         {tech_evidence, webanalyze_errors} =
           case run_webanalyze(target_url) do
@@ -156,6 +167,11 @@ defmodule Ravner.Scans.Http do
          _ <-
            Domains.sync_tech_evidence(domain_id, Enum.take(tech_evidence, @deep_evidence_limit)),
          _ <- Domains.sync_discovered_urls(domain_id, Enum.take(crawl_data.urls, @deep_url_limit)) do
+      Ravner.ActivityLog.emit(
+        :done,
+        "Deep tech done — #{length(tech_stack)} techs, #{length(crawl_data.urls)} URLs discovered"
+      )
+
       {:ok,
        %{
          target_url: target_url,

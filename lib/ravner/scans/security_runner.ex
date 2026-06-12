@@ -55,14 +55,15 @@ defmodule Ravner.Scans.SecurityRunner do
   reports `{:scan_progress, ...}` / `{:scan_done, :security_scan, ...}` to
   the calling LiveView pid.
   """
-  @spec run_security_scan(integer(), pid()) ::
+  @spec run_security_scan(integer(), pid(), integer() | nil) ::
           {:ok, SecurityScan.t()} | {:error, String.t()}
-  def run_security_scan(domain_id, liveview_pid) do
+  def run_security_scan(domain_id, liveview_pid, user_id \\ nil) do
     with {:ok, domain} <- fetch_domain_for_scan(domain_id),
          {:ok, scan} <- create_security_scan(domain_id, "security_scan", domain.name) do
       send_progress(scan.id, 5, liveview_pid)
 
       Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+        if user_id, do: Ravner.ActivityLog.set_user(user_id)
         do_security_scan(scan, domain.name, liveview_pid)
       end)
 
@@ -121,15 +122,22 @@ defmodule Ravner.Scans.SecurityRunner do
 
   defp run_pipeline(scan, domain_name, liveview_pid) do
     # Phase 1: httpx (tech, status, server, CDN, redirect)
+    Ravner.ActivityLog.emit(:step, "Security scan — probing #{domain_name}…")
     send_progress(scan.id, 10, liveview_pid)
     {httpx_output, httpx_metadata} = run_httpx(domain_name)
 
     # Phase 2: naabu port discovery
+    Ravner.ActivityLog.emit(:step, "Scanning ports on #{domain_name}…")
     send_progress(scan.id, 35, liveview_pid)
 
     case run_naabu(domain_name) do
       {:ok, naabu_output, ports} ->
         naabu_findings = SecurityScans.parse_naabu_output(naabu_output)
+
+        Ravner.ActivityLog.emit(
+          :step,
+          "Found #{length(ports)} open ports — running vulnerability checks…"
+        )
 
         # Phase 3: lightweight nuclei against the HTTP/HTTPS surface only
         # Templates are pre-baked in the Docker image. Manual updates available via admin settings.
@@ -347,6 +355,8 @@ defmodule Ravner.Scans.SecurityRunner do
 
     # Prune old scans now that we have a fresh successful one
     SecurityScans.prune_old_scans(scan.domain_id)
+
+    Ravner.ActivityLog.emit(:done, "Security scan done — #{summary}")
 
     final_scan = SecurityScans.get_scan!(updated_scan.id)
     send(liveview_pid, {:scan_done, :security_scan, {:ok, final_scan}})

@@ -127,9 +127,17 @@
       </nav>
     </header>
 
-    <main class="flex-1">
+    <main class="flex-1 pb-8">
       {@inner_content}
     </main>
+
+    <%= if assigns[:current_scope] do %>
+      {live_render(@conn, RavnerWeb.ActivityDrawerLive,
+        id: "activity-drawer",
+        session: %{"user_id" => @current_scope.user.id},
+        sticky: true
+      )}
+    <% end %>
 
     <footer class="bg-neutral-900 text-white">
       <div class="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between text-xs font-light text-neutral-500 tracking-wide">

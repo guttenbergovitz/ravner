@@ -11,6 +11,7 @@ defmodule Ravner.Scans.Dns do
   @spec run(integer()) :: {:ok, map()} | {:error, term()}
   def run(domain_id) do
     domain = Domains.get_domain!(domain_id)
+    Ravner.ActivityLog.emit(:step, "Resolving DNS for #{domain.name}…")
 
     case do_dnsx_scan(domain.name) do
       {:ok, data} ->
@@ -42,9 +43,11 @@ defmodule Ravner.Scans.Dns do
 
         Domains.upsert_domain_metadata(domain_id, meta)
         Domains.sync_dns_records(domain_id, records)
+        Ravner.ActivityLog.emit(:done, "DNS done — #{length(records)} records for #{domain.name}")
         {:ok, Map.put(meta, :dns_records, records)}
 
       {:error, reason} ->
+        Ravner.ActivityLog.emit(:error, "DNS failed for #{domain.name}: #{reason}")
         {:error, reason}
     end
   end
