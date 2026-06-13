@@ -79,11 +79,69 @@
       </div>
     </div>
 
+    <%!-- Context info --%>
+    <div class={[
+      "mb-8 border p-4",
+      if(@stats.projects_count == 0 and @stats.people_count == 0,
+        do: "border-amber-200 bg-amber-50/30",
+        else: "border-neutral-200 bg-neutral-50/50"
+      )
+    ]}>
+      <div class="flex items-start gap-3">
+        <.icon
+          name="hero-information-circle"
+          class="w-4 h-4 text-neutral-400 flex-shrink-0 mt-0.5"
+        />
+        <div>
+          <p class="text-xs font-light text-neutral-500 leading-relaxed">
+            An <span class="font-normal text-neutral-700">Organization</span>
+            represents a legal entity,
+            department, or team that executes work. Under each organization you add
+            <span class="font-normal text-neutral-700">Projects</span>
+            (specific initiatives) and assign
+            <span class="font-normal text-neutral-700">People</span>
+            to those projects with defined roles.
+          </p>
+          <%= if @stats.projects_count == 0 and @stats.people_count == 0 do %>
+            <p class="text-xs font-light text-amber-600 mt-2">
+              This organization is empty. Add a project or people to get started.
+            </p>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Search & Filter --%>
+    <div class="flex items-center gap-4 mb-6">
+      <div class="relative flex-1 max-w-sm">
+        <.icon
+          name="hero-magnifying-glass"
+          class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+        />
+        <input
+          type="text"
+          name="query"
+          value={@search_query}
+          placeholder="Search across all tabs..."
+          phx-change="search"
+          class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors"
+        />
+      </div>
+      <%= if @search_query != "" do %>
+        <button
+          phx-click="search"
+          phx-value-query=""
+          class="text-xs font-normal text-neutral-500 hover:text-neutral-900 transition-colors"
+        >
+          Clear
+        </button>
+      <% end %>
+    </div>
+
     <%!-- Tabs --%>
     <div class="flex items-center gap-6 border-b border-neutral-100 mb-8 pb-px">
-      <button
-        phx-click="select_tab"
-        phx-value-tab="projects"
+      <.link
+        patch={~p"/ownership/organizations/#{@org.id}?tab=projects"}
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "projects",
@@ -93,10 +151,9 @@
         ]}
       >
         Projects ({length(@projects)})
-      </button>
-      <button
-        phx-click="select_tab"
-        phx-value-tab="people"
+      </.link>
+      <.link
+        patch={~p"/ownership/organizations/#{@org.id}?tab=people"}
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "people",
@@ -106,10 +163,9 @@
         ]}
       >
         People ({length(@people)})
-      </button>
-      <button
-        phx-click="select_tab"
-        phx-value-tab="domains"
+      </.link>
+      <.link
+        patch={~p"/ownership/organizations/#{@org.id}?tab=domains"}
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "domains",
@@ -119,30 +175,54 @@
         ]}
       >
         Domains ({length(@domains)})
-      </button>
+      </.link>
     </div>
 
     <%!-- Tab Content --%>
     <%= cond do %>
       <% @current_tab == "projects" -> %>
         <%= if @projects == [] do %>
-          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
-            <div class="text-sm font-light text-neutral-400 mb-4">
-              No projects in this organization yet.
+          <%= if @search_query != "" do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <div class="text-sm font-light text-neutral-400 mb-4">
+                No projects matching "{@search_query}".
+              </div>
+              <button
+                phx-click="search"
+                phx-value-query=""
+                class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+              >
+                Clear search
+              </button>
             </div>
-            <.link
-              href={~p"/admin/projects"}
-              class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
-            >
-              Add projects in Admin
-            </.link>
-          </div>
+          <% else %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <.icon name="hero-folder" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
+              <h3 class="text-sm font-light text-neutral-500 mb-2">No projects yet</h3>
+              <p class="text-xs font-light text-neutral-400 max-w-md mx-auto mb-4 leading-relaxed">
+                Projects are specific work efforts — websites, apps, migrations — that belong to this organization.
+                Create a project to start assigning team members, repositories, and domains.
+              </p>
+              <.link
+                href={~p"/admin/projects/new"}
+                class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+              >
+                Create a project
+              </.link>
+            </div>
+          <% end %>
         <% else %>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <%= for project <- @projects do %>
               <.link
                 navigate={~p"/ownership/projects/#{project.id}"}
-                class="block border border-neutral-200 bg-white p-6 hover:border-neutral-400 transition-colors group"
+                class={[
+                  "block border bg-white p-6 hover:border-neutral-400 transition-colors group",
+                  if(project.team_size == 0,
+                    do: "border-amber-200/50 bg-amber-50/20",
+                    else: "border-neutral-200"
+                  )
+                ]}
               >
                 <div class="flex items-start justify-between mb-4">
                   <div>
@@ -187,17 +267,35 @@
         <% end %>
       <% @current_tab == "people" -> %>
         <%= if @people == [] do %>
-          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
-            <div class="text-sm font-light text-neutral-400 mb-4">
-              No people in this organization yet.
+          <%= if @search_query != "" do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <div class="text-sm font-light text-neutral-400 mb-4">
+                No people matching "{@search_query}".
+              </div>
+              <button
+                phx-click="search"
+                phx-value-query=""
+                class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+              >
+                Clear search
+              </button>
             </div>
-            <.link
-              href={~p"/admin/people"}
-              class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
-            >
-              Add people in Admin
-            </.link>
-          </div>
+          <% else %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <.icon name="hero-users" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
+              <h3 class="text-sm font-light text-neutral-500 mb-2">No people yet</h3>
+              <p class="text-xs font-light text-neutral-400 max-w-md mx-auto mb-4 leading-relaxed">
+                People are the individuals who work on projects. Add team members here, then assign them
+                to projects with specific roles like Owner, Developer, or Manager.
+              </p>
+              <.link
+                href={~p"/admin/people/new"}
+                class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+              >
+                Add a person
+              </.link>
+            </div>
+          <% end %>
         <% else %>
           <div class="border border-neutral-200 bg-white divide-y divide-neutral-100">
             <%= for person <- @people do %>
@@ -239,11 +337,29 @@
         <% end %>
       <% @current_tab == "domains" -> %>
         <%= if @domains == [] do %>
-          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
-            <div class="text-sm font-light text-neutral-400">
-              No domains assigned to this organization.
+          <%= if @search_query != "" do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <div class="text-sm font-light text-neutral-400">
+                No domains matching "{@search_query}".
+              </div>
+              <button
+                phx-click="search"
+                phx-value-query=""
+                class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+              >
+                Clear search
+              </button>
             </div>
-          </div>
+          <% else %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <.icon name="hero-globe-alt" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
+              <h3 class="text-sm font-light text-neutral-500 mb-2">No domains assigned</h3>
+              <p class="text-xs font-light text-neutral-400 max-w-md mx-auto leading-relaxed">
+                Domains linked to this organization will appear here. Assign domains from the
+                Domain detail page to connect them to your organizational structure.
+              </p>
+            </div>
+          <% end %>
         <% else %>
           <div class="border border-neutral-200 bg-white divide-y divide-neutral-100">
             <%= for domain <- @domains do %>

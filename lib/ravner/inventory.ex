@@ -115,7 +115,8 @@ defmodule Ravner.Inventory do
   end
 
   @spec get_person!(integer() | String.t()) :: Person.t()
-  def get_person!(id), do: Person |> Ash.get!(id) |> Ash.load!([:organization, :project_roles])
+  def get_person!(id),
+    do: Person |> Ash.get!(id) |> Ash.load!([:project_roles, organization: [:brand]])
 
   @spec create_person(map(), keyword()) ::
           {:ok, Person.t()} | {:error, Ecto.Changeset.t() | atom()}
@@ -171,7 +172,7 @@ defmodule Ravner.Inventory do
   def get_project!(id) do
     Project
     |> Ash.get!(id)
-    |> Ash.load!([:organization, :project_roles])
+    |> Ash.load!([:project_roles, organization: [:brand]])
   end
 
   @spec create_project(map(), keyword()) ::

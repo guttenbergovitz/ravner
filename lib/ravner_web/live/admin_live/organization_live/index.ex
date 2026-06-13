@@ -3,6 +3,7 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
 
   alias Ravner.Inventory
   alias Ravner.Inventory.Organization
+  alias Ravner.Inventory.OwnershipStats
 
   @impl true
   def mount(_params, _session, socket) do
@@ -17,19 +18,12 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Organizations")
-    |> assign(:orgs, Inventory.list_organizations())
-    |> assign(:org, nil)
-    |> assign(:form, nil)
-  end
-
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Organization")
-    |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, %Organization{})
+    |> assign(:stats, nil)
+    |> assign(:form, nil)
     |> assign(
       :form,
       AshPhoenix.Form.for_create(Organization, :create,
@@ -45,8 +39,9 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
 
     socket
     |> assign(:page_title, "Edit Organization")
-    |> assign(:orgs, Inventory.list_organizations())
     |> assign(:org, org)
+    |> assign(:stats, OwnershipStats.organization_stats(id))
+    |> assign(:form, nil)
     |> assign(
       :form,
       AshPhoenix.Form.for_update(org, :update,
@@ -66,11 +61,11 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
   @impl true
   def handle_event("save", %{"organization" => params}, socket) do
     case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
-      {:ok, _org} ->
+      {:ok, org} ->
         {:noreply,
          socket
          |> put_flash(:info, "Organization saved")
-         |> push_patch(to: ~p"/admin/organizations")}
+         |> push_navigate(to: ~p"/ownership/organizations/#{org.id}")}
 
       {:error, form} ->
         {:noreply, assign(socket, :form, form)}
@@ -78,15 +73,16 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
+  def handle_event("delete", _, socket) do
+    org = socket.assigns.org
     actor = socket.assigns.current_scope.user
 
-    case Inventory.delete_organization(Inventory.get_organization!(id), actor: actor) do
+    case Inventory.delete_organization(org, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Organization deleted")
-         |> assign(:orgs, Inventory.list_organizations())}
+         |> push_navigate(to: ~p"/ownership")}
 
       {:error, :forbidden} ->
         {:noreply,

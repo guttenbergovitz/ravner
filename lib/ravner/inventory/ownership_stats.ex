@@ -423,4 +423,146 @@ defmodule Ravner.Inventory.OwnershipStats do
 
   defp to_integer(id) when is_integer(id), do: id
   defp to_integer(id) when is_binary(id), do: String.to_integer(id)
+
+  @doc """
+  List domains directly assigned to a brand.
+  """
+  @spec list_domains_for_brand(integer() | String.t()) :: [map()]
+  def list_domains_for_brand(brand_id) do
+    brand_id = to_integer(brand_id)
+
+    from(d in Domain,
+      where: d.brand_id == ^brand_id,
+      order_by: [asc: d.name],
+      select: %{
+        id: d.id,
+        name: d.name,
+        lifecycle_state: d.lifecycle_state,
+        organization_id: d.organization_id
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  List projects under a brand (through organizations) with team/repo/domain counts.
+  """
+  @spec list_projects_for_brand(integer() | String.t()) :: [map()]
+  def list_projects_for_brand(brand_id) do
+    brand_id = to_integer(brand_id)
+
+    roles_subq =
+      from(pr in ProjectRole,
+        group_by: pr.project_id,
+        select: %{project_id: pr.project_id, team_size: count(pr.id)}
+      )
+
+    repos_subq =
+      from(r in ProjectRepository,
+        group_by: r.project_id,
+        select: %{project_id: r.project_id, repos_count: count(r.id)}
+      )
+
+    domains_subq =
+      from(d in Domain,
+        where: not is_nil(d.project_id),
+        group_by: d.project_id,
+        select: %{project_id: d.project_id, domains_count: count(d.id)}
+      )
+
+    from(p in Project,
+      join: o in Organization,
+      on: p.organization_id == o.id,
+      where: o.brand_id == ^brand_id,
+      left_join: rs in subquery(roles_subq),
+      on: rs.project_id == p.id,
+      left_join: rps in subquery(repos_subq),
+      on: rps.project_id == p.id,
+      left_join: ds in subquery(domains_subq),
+      on: ds.project_id == p.id,
+      order_by: [asc: o.name, asc: p.name],
+      select: %{
+        id: p.id,
+        name: p.name,
+        display_name: p.display_name,
+        slug: p.slug,
+        description: p.description,
+        organization_id: o.id,
+        organization_name: o.name,
+        team_size: coalesce(rs.team_size, 0),
+        repos_count: coalesce(rps.repos_count, 0),
+        domains_count: coalesce(ds.domains_count, 0)
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  List people under a brand (through organizations) with role counts.
+  """
+  @spec list_people_for_brand(integer() | String.t()) :: [map()]
+  def list_people_for_brand(brand_id) do
+    brand_id = to_integer(brand_id)
+
+    roles_subq =
+      from(pr in ProjectRole,
+        group_by: pr.person_id,
+        select: %{person_id: pr.person_id, roles_count: count(pr.id)}
+      )
+
+    from(pe in Person,
+      join: o in Organization,
+      on: pe.organization_id == o.id,
+      where: o.brand_id == ^brand_id,
+      left_join: rs in subquery(roles_subq),
+      on: rs.person_id == pe.id,
+      order_by: [asc: pe.last_name, asc: pe.first_name],
+      select: %{
+        id: pe.id,
+        first_name: pe.first_name,
+        last_name: pe.last_name,
+        email: pe.email,
+        title: pe.title,
+        default_role: pe.default_role,
+        organization_name: o.name,
+        roles_count: coalesce(rs.roles_count, 0)
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Orphaned/at-risk entity counts for the overview "Needs Attention" panel.
+  """
+  @spec orphaned_stats() :: map()
+  def orphaned_stats do
+    %{
+      domains_without_project:
+        Repo.aggregate(from(d in Domain, where: is_nil(d.project_id)), :count, :id),
+      domains_without_brand:
+        Repo.aggregate(from(d in Domain, where: is_nil(d.brand_id)), :count, :id),
+      empty_organizations:
+        Repo.aggregate(
+          from(o in Organization,
+            left_join: p in Project,
+            on: p.organization_id == o.id,
+            left_join: pe in Person,
+            on: pe.organization_id == o.id,
+            where: is_nil(p.id) and is_nil(pe.id)
+          ),
+          :count,
+          :id
+        ),
+      projects_without_team:
+        Repo.aggregate(
+          from(p in Project,
+            left_join: pr in ProjectRole,
+            on: pr.project_id == p.id,
+            where: is_nil(pr.id)
+          ),
+          :count,
+          :id
+        )
+    }
+  end
 end

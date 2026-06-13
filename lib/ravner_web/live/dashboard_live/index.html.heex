@@ -405,45 +405,54 @@
               Track orphaned infrastructure and administrative metadata gaps. Every registered domain name must resolve to an owner or an explicit parent brand to prevent compliance breaches.
             </p>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="border border-neutral-100 p-6 flex flex-col justify-between">
+              <.link
+                navigate={~p"/domains"}
+                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group"
+              >
                 <div>
                   <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
                     Missing PM / PO
                   </h4>
-                  <p class="text-2xl font-light text-neutral-900">
+                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors">
                     {@stats.governance.missing_pm}
                   </p>
                 </div>
                 <div class="mt-4 text-[10px] font-light text-neutral-500">
                   Domains without assigned project managers or product owners.
                 </div>
-              </div>
-              <div class="border border-neutral-100 p-6 flex flex-col justify-between">
+              </.link>
+              <.link
+                navigate={~p"/ownership"}
+                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group"
+              >
                 <div>
                   <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
                     Unassigned Projects
                   </h4>
-                  <p class="text-2xl font-light text-neutral-900">
+                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors">
                     {@stats.governance.missing_project}
                   </p>
                 </div>
                 <div class="mt-4 text-[10px] font-light text-neutral-500">
                   Domains not connected to an active cost-center project.
                 </div>
-              </div>
-              <div class="border border-neutral-100 p-6 flex flex-col justify-between">
+              </.link>
+              <.link
+                navigate={~p"/ownership"}
+                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group"
+              >
                 <div>
                   <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
                     Orphaned Brands
                   </h4>
-                  <p class="text-2xl font-light text-neutral-900">
+                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors">
                     {@stats.governance.missing_brand}
                   </p>
                 </div>
                 <div class="mt-4 text-[10px] font-light text-neutral-500">
                   Domains not mapped to any corporate brand umbrella.
                 </div>
-              </div>
+              </.link>
             </div>
           </div>
         </div>
