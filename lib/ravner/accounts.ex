@@ -483,8 +483,8 @@ defmodule Ravner.Accounts do
   - Cannot delete yourself.
   - Cannot delete the last admin.
   """
-  def admin_delete_user(%User{} = user, opts \\ []) do
-    actor = Keyword.get(opts, :actor, %{role: :admin})
+  def admin_delete_user(%User{} = user, opts) do
+    actor = Keyword.fetch!(opts, :actor)
 
     cond do
       actor && actor.id == user.id ->

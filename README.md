@@ -46,6 +46,34 @@ The project follows idiomatic Elixir/Phoenix patterns with a hybrid architecture
 - **Clean Execution**: External tools are wrapped by `Ravner.SystemCommand` to ensure proper process group cleanup and timeout management.
 - **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for both developers and LLM-based agents.
 
+## Access Control & Authentication
+
+Ravner implements role-based access control with three user roles:
+
+| Role | Capabilities |
+|------|-------------|
+| **Admin** | Full system access — user management, password resets, user deletion, all CRUD operations, scan triggers, settings |
+| **Editor** | Create/edit governance entities (organizations, projects, people, brands), trigger scans, manage domains |
+| **Viewer** | Read-only access to all views — scan buttons disabled, edit links hidden, bulk tools unavailable |
+
+### Authentication paths
+
+All authentication paths enforce an `active` flag check:
+
+- **Password login** — rejected if `user.active == false`
+- **Session token** — invalidated for inactive users (pattern match on `active: true`)
+- **Magic link** — returns `{:error, :inactive}` with a user-facing message
+
+### Admin user management
+
+Admins can manage users through `/admin/users`:
+
+- **Create users** with email, role, name, and temporary password
+- **Edit** role, name, and active status
+- **Reset passwords** via three methods: token link (email), random password (email), or manual entry
+- **Delete users** with safeguards (cannot delete self, cannot delete last admin)
+- **Invite flow** with time-limited tokens for onboarding new team members
+
 ## Development
 
 ### Prerequisites
@@ -73,7 +101,7 @@ mix phx.server
 
 Detailed specifications and architectural notes are kept in the `/documentation` directory:
 
-- `/documentation/features` — Specific feature designs (Bulk ops, Security scans).
+- `/documentation/features` — Specific feature designs (Bulk ops, Security scans, Access control).
 - `/documentation/architecture` — System design, command execution, and scheduling.
 - `/documentation/architecture/roadmap.md` — Identified bottlenecks and future scaling plans.
 - `/documentation/architecture/ash-migration-plan.md` — Ash Framework adoption strategy.

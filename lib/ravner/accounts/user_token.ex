@@ -10,6 +10,7 @@ defmodule Ravner.Accounts.UserToken do
   # since someone with access to the email may take over the account.
   @magic_link_validity_in_minutes 15
   @change_email_validity_in_days 7
+  @reset_password_validity_in_days 1
   @session_validity_in_days 14
 
   schema "users_tokens" do
@@ -163,7 +164,7 @@ defmodule Ravner.Accounts.UserToken do
         query =
           from token in by_token_and_context_query(hashed_token, "reset_password"),
             join: user in assoc(token, :user),
-            where: token.inserted_at > ago(@change_email_validity_in_days, "day"),
+            where: token.inserted_at > ago(@reset_password_validity_in_days, "day"),
             where: token.sent_to == user.email,
             select: {user, token}
 

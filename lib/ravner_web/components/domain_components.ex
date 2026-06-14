@@ -199,9 +199,9 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-                (@scanning || !is_nil(@running_security_scan)) &&
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
                   "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                !(@scanning || !is_nil(@running_security_scan)) &&
+                !(@scanning || !is_nil(@running_security_scan) || @viewer?) &&
                   "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
               ]}
             >
@@ -232,7 +232,7 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :subdomains do %>
@@ -257,7 +257,7 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :httpx do %>
@@ -282,7 +282,7 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :dnsx do %>
@@ -307,7 +307,7 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :rdap do %>
