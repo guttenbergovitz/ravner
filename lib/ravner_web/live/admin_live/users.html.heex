@@ -121,6 +121,72 @@
           </button>
         </div>
       </.form>
+
+      <%= if @live_action == :edit do %>
+        <div class="border-t border-neutral-200 pt-6 mt-6 space-y-4">
+          <h3 class="text-sm font-light tracking-wide uppercase text-neutral-500">
+            Password Management
+          </h3>
+
+          <button
+            type="button"
+            phx-click="reset_password_token"
+            phx-value-id={@user.id}
+            data-confirm={"Send password reset link to #{@user.email}?"}
+            class="w-full px-4 py-2 border border-neutral-200 text-xs font-light tracking-wide uppercase transition-all hover:bg-neutral-50"
+          >
+            Send reset link via email
+          </button>
+
+          <button
+            type="button"
+            phx-click="reset_password_random"
+            phx-value-id={@user.id}
+            data-confirm={"Generate and send a random password to #{@user.email}?"}
+            class="w-full px-4 py-2 border border-neutral-200 text-xs font-light tracking-wide uppercase transition-all hover:bg-neutral-50"
+          >
+            Generate random password
+          </button>
+
+          <div class="border-t border-neutral-100 pt-4">
+            <p class="text-xs font-light text-neutral-500 mb-3">Set password manually</p>
+
+            <.form
+              for={@manual_password_form}
+              id="manual-password-form"
+              phx-submit="reset_password_manual"
+              class="space-y-3"
+            >
+              <.input
+                field={@manual_password_form[:password]}
+                type="password"
+                label="New password"
+                placeholder="Min. 12 characters"
+              />
+              <.input
+                field={@manual_password_form[:password_confirmation]}
+                type="password"
+                label="Confirm password"
+              />
+              <button type="submit" class="btn-line-filled w-full justify-center text-xs">
+                Set password
+              </button>
+            </.form>
+          </div>
+        </div>
+
+        <div class="border-t border-red-100 pt-6 mt-6">
+          <button
+            type="button"
+            phx-click="delete_user"
+            phx-value-id={@user.id}
+            data-confirm={"Are you sure you want to delete #{@user.email}? This cannot be undone."}
+            class="w-full px-4 py-2 border border-red-200 text-red-600 text-xs font-light tracking-wide uppercase transition-all hover:bg-red-50 cursor-pointer"
+          >
+            Delete user
+          </button>
+        </div>
+      <% end %>
     </div>
   <% end %>
 </Layouts.app>

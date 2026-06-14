@@ -157,5 +157,8 @@ defmodule RavnerWeb.Router do
     get("/users/log-in/:token", UserSessionController, :confirm)
     post("/users/log-in", UserSessionController, :create)
     delete("/users/log-out", UserSessionController, :delete)
+
+    get("/users/reset-password/:token", UserResetPasswordController, :new)
+    post("/users/reset-password", UserResetPasswordController, :create)
   end
 end

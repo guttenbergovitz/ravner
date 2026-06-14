@@ -150,6 +150,30 @@ defmodule Ravner.Accounts.UserToken do
     end
   end
 
+  @doc """
+  Checks if the password reset token is valid and returns its underlying lookup query.
+
+  If found, the query returns a tuple of the form `{user, token}`.
+  """
+  def verify_password_reset_token_query(token) do
+    case Base.url_decode64(token, padding: false) do
+      {:ok, decoded_token} ->
+        hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
+
+        query =
+          from token in by_token_and_context_query(hashed_token, "reset_password"),
+            join: user in assoc(token, :user),
+            where: token.inserted_at > ago(@change_email_validity_in_days, "day"),
+            where: token.sent_to == user.email,
+            select: {user, token}
+
+        {:ok, query}
+
+      :error ->
+        :error
+    end
+  end
+
   defp by_token_and_context_query(token, context) do
     from UserToken, where: [token: ^token, context: ^context]
   end

@@ -38,12 +38,14 @@
             <h1 class="text-3xl font-light tracking-tight text-neutral-900">
               {@person.first_name} {@person.last_name}
             </h1>
-            <.link
-              href={~p"/admin/people/#{@person.id}/edit"}
-              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors"
-            >
-              Edit
-            </.link>
+            <%= if @current_scope.user.role in [:admin, :editor] do %>
+              <.link
+                href={~p"/admin/people/#{@person.id}/edit"}
+                class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors"
+              >
+                Edit
+              </.link>
+            <% end %>
           </div>
           <%= if @person.title do %>
             <p class="text-sm font-light text-neutral-500">{@person.title}</p>
