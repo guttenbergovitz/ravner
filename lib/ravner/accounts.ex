@@ -496,7 +496,7 @@ defmodule Ravner.Accounts do
 
       true ->
         with {:ok, resource} <- Ash.get(UserResource, user.id, actor: actor),
-             {:ok, _} <- Ash.destroy(resource, actor: actor) do
+             :ok <- Ash.destroy(resource, actor: actor) do
           :ok
         else
           {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}

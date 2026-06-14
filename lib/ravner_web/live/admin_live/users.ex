@@ -33,12 +33,19 @@ defmodule RavnerWeb.AdminLive.Users do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
-    changeset = User.role_changeset(user, %{})
 
-    socket
-    |> assign(:user, user)
-    |> assign(:form, to_form(changeset))
-    |> assign(:manual_password_form, to_form(User.password_changeset(user, %{})))
+    if is_nil(user) do
+      socket
+      |> put_flash(:error, "User not found.")
+      |> push_patch(to: ~p"/admin/users")
+    else
+      changeset = User.role_changeset(user, %{})
+
+      socket
+      |> assign(:user, user)
+      |> assign(:form, to_form(changeset))
+      |> assign(:manual_password_form, to_form(User.password_changeset(user, %{})))
+    end
   end
 
   @impl true
