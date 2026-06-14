@@ -204,7 +204,12 @@ defmodule RavnerWeb.AdminLive.Users do
     end
   end
 
-  defp changeset_for_action(user, :new, params), do: User.admin_changeset(user, params)
+  defp changeset_for_action(user, :new, params) do
+    user
+    |> User.admin_changeset(params)
+    |> User.password_changeset(params)
+  end
+
   defp changeset_for_action(user, :edit, params), do: User.role_changeset(user, params)
   defp changeset_for_action(user, _, params), do: User.role_changeset(user, params)
 end
