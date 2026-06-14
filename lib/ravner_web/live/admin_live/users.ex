@@ -33,11 +33,19 @@ defmodule RavnerWeb.AdminLive.Users do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
-    changeset = User.role_changeset(user, %{})
 
-    socket
-    |> assign(:user, user)
-    |> assign(:form, to_form(changeset))
+    if is_nil(user) do
+      socket
+      |> put_flash(:error, "User not found.")
+      |> push_patch(to: ~p"/admin/users")
+    else
+      changeset = User.role_changeset(user, %{})
+
+      socket
+      |> assign(:user, user)
+      |> assign(:form, to_form(changeset))
+      |> assign(:manual_password_form, to_form(User.password_changeset(user, %{})))
+    end
   end
 
   @impl true
@@ -91,6 +99,77 @@ defmodule RavnerWeb.AdminLive.Users do
     end
   end
 
+  def handle_event("reset_password_token", %{"id" => id}, socket) do
+    user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
+
+    url_fun = fn token ->
+      Phoenix.VerifiedRoutes.url(socket, ~p"/users/reset-password/#{token}")
+    end
+
+    case Accounts.admin_reset_password_token(user, url_fun) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Password reset link sent to #{user.email}.")
+         |> assign(:users, Accounts.list_users())}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not send password reset link.")}
+    end
+  end
+
+  def handle_event("reset_password_random", %{"id" => id}, socket) do
+    user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
+
+    case Accounts.admin_reset_password_random(user) do
+      {:ok, _updated_user} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "New random password sent to #{user.email}.")
+         |> assign(:users, Accounts.list_users())}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not reset password.")}
+    end
+  end
+
+  def handle_event("reset_password_manual", %{"user" => params}, socket) do
+    case Accounts.admin_reset_password_manual(socket.assigns.user, params) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Password updated successfully.")
+         |> assign(:users, Accounts.list_users())
+         |> assign(
+           :manual_password_form,
+           to_form(User.password_changeset(socket.assigns.user, %{}))
+         )
+         |> push_patch(to: ~p"/admin/users")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :manual_password_form, to_form(changeset))}
+    end
+  end
+
+  def handle_event("delete_user", %{"id" => id}, socket) do
+    user = Enum.find(socket.assigns.users, &(&1.id == String.to_integer(id)))
+
+    case Accounts.admin_delete_user(user, actor: socket.assigns.current_scope.user) do
+      :ok ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "User deleted.")
+         |> assign(:users, Accounts.list_users())
+         |> push_patch(to: ~p"/admin/users")}
+
+      {:error, message} when is_binary(message) ->
+        {:noreply, put_flash(socket, :error, message)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not delete user.")}
+    end
+  end
+
   def handle_event("cancel", _params, socket) do
     {:noreply, push_patch(socket, to: ~p"/admin/users")}
   end
@@ -125,7 +204,12 @@ defmodule RavnerWeb.AdminLive.Users do
     end
   end
 
-  defp changeset_for_action(user, :new, params), do: User.admin_changeset(user, params)
+  defp changeset_for_action(user, :new, params) do
+    user
+    |> User.admin_changeset(params)
+    |> User.password_changeset(params)
+  end
+
   defp changeset_for_action(user, :edit, params), do: User.role_changeset(user, params)
   defp changeset_for_action(user, _, params), do: User.role_changeset(user, params)
 end

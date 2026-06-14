@@ -84,4 +84,46 @@ defmodule Ravner.Accounts.UserNotifier do
     ==============================
     """)
   end
+
+  @doc """
+  Deliver instructions to reset a user password (admin-initiated).
+  """
+  def deliver_password_reset_instructions(user, url) do
+    deliver(user.email, "Reset password instructions", """
+
+    ==============================
+
+    Hi #{user.email},
+
+    An administrator has requested to reset your password.
+
+    You can reset your password by visiting the URL below:
+
+    #{url}
+
+    If you didn't request this change, please contact your administrator.
+
+    ==============================
+    """)
+  end
+
+  @doc """
+  Deliver a new temporary password to a user (admin-initiated).
+  """
+  def deliver_new_password_instructions(user, password) do
+    deliver(user.email, "Your new password", """
+
+    ==============================
+
+    Hi #{user.email},
+
+    Your password has been reset by an administrator.
+
+    Your new temporary password is: #{password}
+
+    Please log in and change your password as soon as possible.
+
+    ==============================
+    """)
+  end
 end

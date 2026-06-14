@@ -29,6 +29,14 @@ defmodule RavnerWeb.UserSessionController do
         conn
         |> put_flash(:error, "The link is invalid or it has expired.")
         |> render(:new, form: Phoenix.Component.to_form(%{}, as: "user"))
+
+      {:error, :inactive} ->
+        conn
+        |> put_flash(
+          :error,
+          "Your account has been deactivated. Please contact an administrator."
+        )
+        |> render(:new, form: Phoenix.Component.to_form(%{}, as: "user"))
     end
   end
 

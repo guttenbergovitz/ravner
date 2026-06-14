@@ -48,7 +48,7 @@ defmodule Ravner.Accounts do
   def get_user_by_email_and_password(email, password)
       when is_binary(email) and is_binary(password) do
     user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
+    if user && user.active && User.valid_password?(user, password), do: user
   end
 
   @doc """
@@ -209,7 +209,11 @@ defmodule Ravner.Accounts do
   """
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
-    Repo.one(query)
+
+    case Repo.one(query) do
+      {%User{active: true} = user, inserted_at} -> {user, inserted_at}
+      _ -> nil
+    end
   end
 
   @doc """
@@ -246,6 +250,9 @@ defmodule Ravner.Accounts do
     {:ok, query} = UserToken.verify_magic_link_token_query(token)
 
     case Repo.one(query) do
+      {%User{active: false}, _token} ->
+        {:error, :inactive}
+
       # Prevent session fixation attacks by disallowing magic links for unconfirmed users with password
       {%User{confirmed_at: nil, hashed_password: hash}, _token} when not is_nil(hash) ->
         raise """
@@ -339,6 +346,91 @@ defmodule Ravner.Accounts do
 
   alias Ravner.Accounts.UserInvite
 
+  @doc """
+  Gets the user with the given reset password token.
+  """
+  def get_user_by_reset_password_token(token) do
+    with {:ok, query} <- UserToken.verify_password_reset_token_query(token),
+         {%User{} = user, _token} <- Repo.one(query) do
+      user
+    else
+      _ -> nil
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Admin: password reset
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Generates a password reset token and sends instructions to the user.
+  """
+  def admin_reset_password_token(%User{} = user, reset_password_url_fun)
+      when is_function(reset_password_url_fun, 1) do
+    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+    insert_user_token!(user_token)
+    UserNotifier.deliver_password_reset_instructions(user, reset_password_url_fun.(encoded_token))
+  end
+
+  @doc """
+  Resets the user password using a token.
+  """
+  def reset_user_password(token, attrs) do
+    {:ok, query} = UserToken.verify_password_reset_token_query(token)
+
+    Repo.transact(fn ->
+      with {%User{} = user, token_record} <- Repo.one(query),
+           {:ok, {user, _tokens}} <-
+             update_user_password(
+               user,
+               Map.put(attrs, "password_confirmation", attrs["password"])
+             ) do
+        Repo.delete!(token_record)
+        {:ok, user}
+      else
+        nil -> {:error, :invalid_token}
+        {:error, changeset} -> {:error, changeset}
+      end
+    end)
+  end
+
+  @doc """
+  Generates a random password and updates the user directly (admin flow).
+  """
+  def admin_reset_password_random(%User{} = user) do
+    password =
+      :crypto.strong_rand_bytes(16)
+      |> Base.url_encode64(padding: false)
+      |> binary_part(0, 16)
+
+    changeset =
+      user
+      |> User.password_changeset(%{
+        "password" => password,
+        "password_confirmation" => password
+      })
+
+    with {:ok, {updated_user, _tokens}} <- update_user_and_delete_all_tokens(changeset) do
+      UserNotifier.deliver_new_password_instructions(updated_user, password)
+      {:ok, updated_user}
+    end
+  end
+
+  @doc """
+  Updates user password directly with a given password (admin flow).
+  """
+  def admin_reset_password_manual(%User{} = user, attrs) do
+    changeset = User.password_changeset(user, attrs)
+
+    with {:ok, {updated_user, _tokens}} <- update_user_and_delete_all_tokens(changeset) do
+      {:ok, updated_user}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Admin: user management
+  # ---------------------------------------------------------------------------
+
   @doc "Returns all users ordered by inserted_at."
   def list_users do
     Repo.all(from u in User, order_by: [asc: u.inserted_at])
@@ -381,6 +473,35 @@ defmodule Ravner.Accounts do
       update_user_resource(user, changeset, actor)
     else
       {:error, changeset}
+    end
+  end
+
+  @doc """
+  Deletes a user (admin flow).
+
+  Safeguards:
+  - Cannot delete yourself.
+  - Cannot delete the last admin.
+  """
+  def admin_delete_user(%User{} = user, opts) do
+    actor = Keyword.fetch!(opts, :actor)
+
+    cond do
+      actor && actor.id == user.id ->
+        {:error, "Cannot delete your own account"}
+
+      user.role == :admin and
+          Repo.one(from u in User, where: u.role == :admin, select: count(u.id)) <= 1 ->
+        {:error, "Cannot delete the last admin"}
+
+      true ->
+        with {:ok, resource} <- Ash.get(UserResource, user.id, actor: actor),
+             :ok <- Ash.destroy(resource, actor: actor) do
+          :ok
+        else
+          {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
+          {:error, error} -> {:error, error}
+        end
     end
   end
 

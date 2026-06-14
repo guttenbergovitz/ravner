@@ -1241,12 +1241,14 @@
           <%!-- Primary Actions --%>
           <div class="flex items-center gap-3">
             <.link
+              :if={@current_scope && @current_scope.user.role in [:admin, :editor]}
               patch={~p"/domains/new"}
               class="btn-line text-xs flex items-center gap-1.5 py-2"
             >
               <.icon name="hero-plus" class="w-4 h-4" /> Add domain
             </.link>
             <.link
+              :if={@current_scope && @current_scope.user.role in [:admin, :editor]}
               patch={~p"/domains/import"}
               class="btn-line text-xs flex items-center gap-1.5 py-2"
             >
@@ -1255,7 +1257,10 @@
           </div>
 
           <%!-- Bulk Discovery Tools (Moved to bottom) --%>
-          <div class="flex items-center gap-4 border-l border-r border-neutral-100 px-6">
+          <div
+            :if={@current_scope && @current_scope.user.role in [:admin, :editor]}
+            class="flex items-center gap-4 border-l border-r border-neutral-100 px-6"
+          >
             <button
               phx-click="scan_visible"
               class="btn-line text-xs flex items-center gap-1.5 py-2"
