@@ -104,6 +104,26 @@
                 {
                     "name": "SECRET_KEY_BASE",
                     "valueFrom": "${APP_SECRET_ARN}:secret_key_base::"
+                },
+                {
+                    "name": "SMTP_USERNAME",
+                    "valueFrom": "${SMTP_SECRET_ARN}:username::"
+                },
+                {
+                    "name": "SMTP_PASSWORD",
+                    "valueFrom": "${SMTP_SECRET_ARN}:password::"
+                },
+                {
+                    "name": "SMTP_HOST",
+                    "valueFrom": "${SMTP_SECRET_ARN}:host::"
+                },
+                {
+                    "name": "SMTP_PORT",
+                    "valueFrom": "${SMTP_SECRET_ARN}:port::"
+                },
+                {
+                    "name": "SMTP_MAIL_FROM",
+                    "valueFrom": "${SMTP_SECRET_ARN}:mail_from::"
                 }
             ],
             "dependsOn": [
