@@ -177,6 +177,20 @@ Two secrets must exist in the target account and region:
 }
 ```
 
+### Email / SMTP
+
+Production email delivery uses SMTP via Swoosh. The following environment variables must be set in the ECS task definition:
+
+| Variable | Description |
+|---|---|
+| `SMTP_HOST` | SMTP server hostname |
+| `SMTP_PORT` | SMTP port (typically `587` for STARTTLS) |
+| `SMTP_USERNAME` | SMTP authentication username |
+| `SMTP_PASSWORD` | SMTP authentication password |
+| `SMTP_MAIL_FROM` | Sender address for all outgoing emails (e.g., `noreply@ravner.josera.click`) |
+
+In development, emails are captured locally and viewable at `/dev/mailbox` (Swoosh Local adapter).
+
 
 ### HUMAN GENERATED CONTENT - DO NOT MODIFY
 

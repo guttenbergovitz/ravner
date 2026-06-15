@@ -9,10 +9,12 @@ defmodule Ravner.Accounts.UserNotifier do
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
+    sender = Application.get_env(:ravner, :mail_from, "noreply@example.com")
+
     email =
       new()
       |> to(recipient)
-      |> from({"Ravner", "contact@example.com"})
+      |> from({"Ravner", sender})
       |> subject(subject)
       |> text_body(body)
 
