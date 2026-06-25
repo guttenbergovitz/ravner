@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-25
+
+### Fixed
+
+- **Account settings discoverability** — Added visible "Account" link in the navigation for all authenticated users. Previously, non-admin users had no UI path to change their password or email (the route existed but was undiscoverable).
+
 ## [0.6.0] - 2026-06-14
 
 ### Added

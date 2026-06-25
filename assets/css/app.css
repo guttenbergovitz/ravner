@@ -8,6 +8,8 @@
 @source "../js";
 @source "../../lib/ravner_web";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Heroicons */
 @plugin "../vendor/heroicons";
 
@@ -29,12 +31,24 @@
     @apply bg-white text-neutral-900 antialiased;
   }
 
+  .dark body {
+    @apply bg-neutral-900 text-neutral-100;
+  }
+
   a {
     @apply text-neutral-900 transition-colors duration-200;
   }
 
+  .dark a {
+    @apply text-neutral-200;
+  }
+
   a:hover {
     @apply text-neutral-600;
+  }
+
+  .dark a:hover {
+    @apply text-neutral-400;
   }
 }
 
@@ -48,6 +62,14 @@
     @apply bg-neutral-900 text-white;
   }
 
+  .dark .btn-line {
+    @apply border-neutral-400 text-neutral-200;
+  }
+
+  .dark .btn-line:hover {
+    @apply bg-neutral-200 text-neutral-900 border-neutral-200;
+  }
+
   .btn-line-filled {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 bg-neutral-900 text-white text-sm font-light tracking-wide uppercase transition-all duration-200 cursor-pointer;
   }
@@ -56,9 +78,21 @@
     @apply bg-neutral-700 border-neutral-700;
   }
 
+  .dark .btn-line-filled {
+    @apply border-neutral-100 bg-neutral-100 text-neutral-900;
+  }
+
+  .dark .btn-line-filled:hover {
+    @apply bg-neutral-300 border-neutral-300;
+  }
+
   /* Inputs */
   .input-line {
     @apply w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors;
+  }
+
+  .dark .input-line {
+    @apply border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:border-neutral-300;
   }
 
   /* Cards */
@@ -68,6 +102,14 @@
 
   .card-line:hover {
     @apply border-neutral-900;
+  }
+
+  .dark .card-line {
+    @apply border-neutral-700;
+  }
+
+  .dark .card-line:hover {
+    @apply border-neutral-400;
   }
 
   /* Alerts */
@@ -81,6 +123,18 @@
 
   .alert-line-error {
     @apply border-red-300 bg-red-50 text-red-800;
+  }
+
+  .dark .alert-line {
+    @apply border-neutral-700;
+  }
+
+  .dark .alert-line-info {
+    @apply border-neutral-500 bg-neutral-800;
+  }
+
+  .dark .alert-line-error {
+    @apply border-red-700 bg-red-900/30 text-red-300;
   }
 
   /* Tables */
@@ -100,6 +154,18 @@
     @apply bg-neutral-50;
   }
 
+  .dark .table-line th {
+    @apply text-neutral-400 border-neutral-700;
+  }
+
+  .dark .table-line td {
+    @apply border-neutral-800;
+  }
+
+  .dark .table-line tbody tr:hover {
+    @apply bg-neutral-800;
+  }
+
   /* Lists */
   .list-line {
     @apply divide-y divide-neutral-100;
@@ -109,9 +175,17 @@
     @apply py-4 flex items-center justify-between;
   }
 
+  .dark .list-line {
+    @apply divide-neutral-800;
+  }
+
   /* Form elements */
   .checkbox-line {
     @apply w-4 h-4 border border-neutral-300 rounded-none appearance-none cursor-pointer transition-all checked:bg-neutral-900 checked:border-neutral-900;
+  }
+
+  .dark .checkbox-line {
+    @apply border-neutral-600 checked:bg-neutral-200 checked:border-neutral-200;
   }
 
   /* Toasts / flashes */

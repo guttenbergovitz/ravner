@@ -8,11 +8,19 @@
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <script>
+      (function(){
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
   </head>
   <body class="h-full flex flex-col">
-    <header class="border-b border-neutral-200">
+    <header class="border-b border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900">
       <nav class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-10">
           <.link href={~p"/"} class="text-lg font-light tracking-[0.2em] uppercase shrink-0">
@@ -26,8 +34,9 @@
                   href={~p"/dashboard"}
                   class={[
                     "hover:text-neutral-500 transition-colors",
-                    (@conn.request_path == "/dashboard" && "text-neutral-900 font-normal") ||
-                      "text-neutral-500"
+                    (@conn.request_path == "/dashboard" &&
+                       "text-neutral-900 dark:text-neutral-100 font-normal") ||
+                      "text-neutral-500 dark:text-neutral-400"
                   ]}
                 >
                   Dashboard
@@ -39,7 +48,8 @@
                   class={[
                     "hover:text-neutral-500 transition-colors",
                     (String.starts_with?(@conn.request_path, "/domains") &&
-                       "text-neutral-900 font-normal") || "text-neutral-500"
+                       "text-neutral-900 dark:text-neutral-100 font-normal") ||
+                      "text-neutral-500 dark:text-neutral-400"
                   ]}
                 >
                   Domains
@@ -51,7 +61,8 @@
                   class={[
                     "hover:text-neutral-500 transition-colors",
                     (String.starts_with?(@conn.request_path, "/ownership") &&
-                       "text-neutral-900 font-normal") || "text-neutral-500"
+                       "text-neutral-900 dark:text-neutral-100 font-normal") ||
+                      "text-neutral-500 dark:text-neutral-400"
                   ]}
                 >
                   Ownership
@@ -62,16 +73,16 @@
                   <button class="hover:text-neutral-500 transition-colors cursor-pointer flex items-center gap-1">
                     Admin <.icon name="hero-chevron-down" class="w-3 h-3" />
                   </button>
-                  <div class="absolute top-full left-0 mt-1 w-44 border border-neutral-200 bg-white opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
+                  <div class="absolute top-full left-0 mt-1 w-44 border border-neutral-200 bg-white opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 dark:border-neutral-700 dark:bg-neutral-800">
                     <.link
                       href={~p"/admin/certificates"}
-                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100 dark:hover:bg-neutral-700 dark:border-neutral-700"
                     >
                       SSL Certificates
                     </.link>
                     <.link
                       href={~p"/admin/domain-registrations"}
-                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700"
                     >
                       Domain Registrations
                     </.link>
@@ -83,6 +94,17 @@
         </div>
 
         <div class="flex items-center gap-5 text-sm font-light tracking-wide">
+          <button
+            id="theme-toggle"
+            phx-hook=".ThemeToggle"
+            type="button"
+            class="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+            title="Toggle theme"
+            aria-label="Toggle dark mode"
+          >
+            <.icon name="hero-moon" class="w-4 h-4 block dark:hidden" />
+            <.icon name="hero-sun" class="w-4 h-4 hidden dark:block" />
+          </button>
           <%= if @current_scope do %>
             <%= if @current_scope.user.role == :admin do %>
               <.link href={~p"/admin/users"} class="hover:text-neutral-500 transition-colors">
@@ -95,6 +117,14 @@
                 Settings
               </.link>
             <% end %>
+            <.link
+              href={~p"/users/settings"}
+              class="flex items-center gap-1.5 text-neutral-400 hover:text-neutral-700 transition-colors"
+              title="Account settings"
+            >
+              <.icon name="hero-user-circle" class="w-4 h-4" />
+              <span class="hidden sm:inline">Account</span>
+            </.link>
             <.link
               href={~p"/users/log-out"}
               method="delete"
@@ -127,11 +157,23 @@
       )}
     <% end %>
 
-    <footer class="bg-neutral-900 text-white">
+    <footer class="bg-neutral-900 text-white dark:bg-neutral-950">
       <div class="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between text-xs font-light text-neutral-500 tracking-wide">
         <span class="tracking-[0.2em] uppercase text-neutral-400">ravner</span>
-        <span>Domain &amp; DNS management</span>
+        <span>v{Application.spec(:ravner, :vsn)}</span>
       </div>
     </footer>
+
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".ThemeToggle">
+      export default {
+        mounted() {
+          this.el.addEventListener("click", () => {
+            const html = document.documentElement;
+            const isDark = html.classList.toggle("dark");
+            localStorage.setItem("theme", isDark ? "dark" : "light");
+          });
+        }
+      }
+    </script>
   </body>
 </html>

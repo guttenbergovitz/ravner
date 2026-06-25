@@ -39,7 +39,7 @@ defmodule RavnerWeb.CoreComponents do
         <.icon :if={@kind == :error} name="hero-exclamation-circle" class="w-5 h-5 shrink-0 mt-0.5" />
         <div class="flex-1">
           <p :if={@title} class="font-normal mb-1">{@title}</p>
-          <p class="text-neutral-600">{msg}</p>
+          <p class="text-neutral-600 dark:text-neutral-300">{msg}</p>
         </div>
         <button
           type="button"
@@ -160,7 +160,9 @@ defmodule RavnerWeb.CoreComponents do
           class="checkbox-line"
           {@rest}
         />
-        <span :if={@label} class="text-sm font-light text-neutral-600">{@label}</span>
+        <span :if={@label} class="text-sm font-light text-neutral-600 dark:text-neutral-400">
+          {@label}
+        </span>
       </label>
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
@@ -173,7 +175,7 @@ defmodule RavnerWeb.CoreComponents do
       <label>
         <span
           :if={@label}
-          class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2"
+          class="block text-xs font-light tracking-wide uppercase text-neutral-500 dark:text-neutral-400 mb-2"
         >
           {@label}
         </span>
@@ -181,7 +183,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           multiple={@multiple}
@@ -202,7 +204,7 @@ defmodule RavnerWeb.CoreComponents do
       <label>
         <span
           :if={@label}
-          class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2"
+          class="block text-xs font-light tracking-wide uppercase text-neutral-500 dark:text-neutral-400 mb-2"
         >
           {@label}
         </span>
@@ -210,7 +212,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light resize-none",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light resize-none dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           {@rest}
@@ -227,7 +229,7 @@ defmodule RavnerWeb.CoreComponents do
       <label>
         <span
           :if={@label}
-          class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-2"
+          class="block text-xs font-light tracking-wide uppercase text-neutral-500 dark:text-neutral-400 mb-2"
         >
           {@label}
         </span>
@@ -237,7 +239,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light dark:border-neutral-600 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           {@rest}
@@ -250,7 +252,7 @@ defmodule RavnerWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="mt-2 flex gap-2 items-center text-sm text-red-600 font-light">
+    <p class="mt-2 flex gap-2 items-center text-sm text-red-600 dark:text-red-400 font-light">
       <.icon name="hero-exclamation-circle" class="w-4 h-4 shrink-0" />
       {render_slot(@inner_block)}
     </p>
@@ -268,13 +270,16 @@ defmodule RavnerWeb.CoreComponents do
     ~H"""
     <header class={[
       @actions != [] && "flex items-center justify-between gap-6",
-      "pb-6 mb-6 border-b border-neutral-100"
+      "pb-6 mb-6 border-b border-neutral-100 dark:border-neutral-800"
     ]}>
       <div>
         <h1 class="text-xl font-light tracking-tight">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm font-light text-neutral-500 mt-1">
+        <p
+          :if={@subtitle != []}
+          class="text-sm font-light text-neutral-500 dark:text-neutral-400 mt-1"
+        >
           {render_slot(@subtitle)}
         </p>
       </div>
@@ -352,7 +357,7 @@ defmodule RavnerWeb.CoreComponents do
     <ul class="list-line">
       <li :for={item <- @item} class="list-line-item">
         <div>
-          <div class="text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+          <div class="text-xs font-light tracking-wide uppercase text-neutral-500 dark:text-neutral-400 mb-1">
             {item.title}
           </div>
           <div class="text-sm font-light">{render_slot(item)}</div>
