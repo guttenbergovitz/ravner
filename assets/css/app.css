@@ -114,7 +114,7 @@
 
   /* Alerts */
   .alert-line {
-    @apply border border-neutral-200 p-4 text-sm font-light;
+    @apply border border-neutral-200 p-4 text-sm;
   }
 
   .alert-line-info {
@@ -147,7 +147,7 @@
   }
 
   .table-line td {
-    @apply border-b border-neutral-100 py-4 px-4 font-light;
+    @apply border-b border-neutral-100 py-4 px-4;
   }
 
   .table-line tbody tr:hover {

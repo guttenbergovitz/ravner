@@ -160,7 +160,7 @@ defmodule RavnerWeb.CoreComponents do
           class="checkbox-line"
           {@rest}
         />
-        <span :if={@label} class="text-sm font-light text-neutral-600 dark:text-neutral-400">
+        <span :if={@label} class="text-sm text-neutral-700 dark:text-neutral-300">
           {@label}
         </span>
       </label>
@@ -183,7 +183,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           multiple={@multiple}
@@ -212,7 +212,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light resize-none dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm resize-none dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           {@rest}
@@ -239,7 +239,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm font-light dark:border-neutral-600 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm dark:border-neutral-600 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           {@rest}
@@ -252,7 +252,7 @@ defmodule RavnerWeb.CoreComponents do
 
   def error(assigns) do
     ~H"""
-    <p class="mt-2 flex gap-2 items-center text-sm text-red-600 dark:text-red-400 font-light">
+    <p class="mt-2 flex gap-2 items-center text-sm text-red-600 dark:text-red-400">
       <.icon name="hero-exclamation-circle" class="w-4 h-4 shrink-0" />
       {render_slot(@inner_block)}
     </p>
@@ -278,7 +278,7 @@ defmodule RavnerWeb.CoreComponents do
         </h1>
         <p
           :if={@subtitle != []}
-          class="text-sm font-light text-neutral-500 dark:text-neutral-400 mt-1"
+          class="text-sm text-neutral-500 dark:text-neutral-400 mt-1"
         >
           {render_slot(@subtitle)}
         </p>
@@ -360,7 +360,7 @@ defmodule RavnerWeb.CoreComponents do
           <div class="text-xs font-light tracking-wide uppercase text-neutral-500 dark:text-neutral-400 mb-1">
             {item.title}
           </div>
-          <div class="text-sm font-light">{render_slot(item)}</div>
+          <div class="text-sm">{render_slot(item)}</div>
         </div>
       </li>
     </ul>
