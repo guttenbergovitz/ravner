@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-06-25
+
+### Fixed
+
+- **Typography accessibility** — Bumped body/data text from `font-light` (300) to `font-normal` (400) for WCAG-compliant readability. Thin weight preserved only on decorative uppercase labels, H1 headings, and buttons where large size or letter-spacing compensate.
+
 ## [0.6.1] - 2026-06-25
 
 ### Fixed
