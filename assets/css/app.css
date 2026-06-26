@@ -10,6 +10,10 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --font-weight-light: 400;
+}
+
 /* Heroicons */
 @plugin "../vendor/heroicons";
 
