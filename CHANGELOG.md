@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-06-26
+
+### Added
+
+- **Full dark theme** — All 15 LiveView page templates now have `dark:` Tailwind variants. Surfaces, borders, text, hovers, active toggles, modals, filter chips, and pagination all adapt to dark mode. Toggle via the header moon/sun icon.
+- **Keyboard-accessible admin dropdown** — Implemented WAI-ARIA Menu Button pattern: `tabindex="-1"` on menu items (arrow-key nav only), `aria-controls`, `focusout` handler for Tab, Home/End key support, fixed ArrowUp bug.
+- **Focus-visible indicators** — Global `:focus-visible` outline rule for all interactive elements with dark mode variant.
+- **Nav link contrast** — Inactive nav links upgraded from `neutral-500` to `neutral-600` for WCAG AA compliance.
+
 ## [0.6.2] - 2026-06-25
 
 ### Fixed

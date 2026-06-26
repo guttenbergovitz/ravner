@@ -46,6 +46,12 @@ The project follows idiomatic Elixir/Phoenix patterns with a hybrid architecture
 - **Clean Execution**: External tools are wrapped by `Ravner.SystemCommand` to ensure proper process group cleanup and timeout management.
 - **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for both developers and LLM-based agents.
 
+## UI & Theming
+
+- **Dark mode** — Full dark theme with class-based toggle (`.dark` on `<html>`). All pages, components, and admin views support both light and dark modes.
+- **Accessibility** — WCAG AA contrast ratios, keyboard-navigable dropdowns (WAI-ARIA Menu Button), global focus-visible indicators.
+- **Design system** — Custom Tailwind CSS component classes (`.btn-line`, `.input-line`, `.card-line`, `.table-line`) with automatic dark mode support via `app.css` layer.
+
 ## Access Control & Authentication
 
 Ravner implements role-based access control with three user roles:
