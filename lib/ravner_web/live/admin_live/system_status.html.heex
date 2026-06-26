@@ -37,7 +37,8 @@
         phx-click="send_test_email"
         class="btn-line text-xs flex items-center gap-1.5"
       >
-        <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send test email to {@current_scope.user.email}
+        <.icon name="hero-paper-airplane" class="w-4 h-4" />
+        Send test email to {@current_scope.user.email}
       </button>
     </div>
 
@@ -51,7 +52,11 @@
           </span>
         <% else %>
           <span class="flex items-center gap-1 text-xs text-red-500">
-            <.icon name="hero-x-circle" class="w-4 h-4" /> {Map.get(@checks.database, :message, "Error")}
+            <.icon name="hero-x-circle" class="w-4 h-4" /> {Map.get(
+              @checks.database,
+              :message,
+              "Error"
+            )}
           </span>
         <% end %>
       </div>
@@ -80,7 +85,10 @@
         <%= for {tool, available?} <- @checks.tools do %>
           <div class={[
             "flex items-center gap-2 px-3 py-2 border text-sm font-mono",
-            if(available?, do: "border-green-200 text-green-700 bg-green-50", else: "border-red-200 text-red-600 bg-red-50")
+            if(available?,
+              do: "border-green-200 text-green-700 bg-green-50",
+              else: "border-red-200 text-red-600 bg-red-50"
+            )
           ]}>
             <%= if available? do %>
               <.icon name="hero-check" class="w-3.5 h-3.5" />

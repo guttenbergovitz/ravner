@@ -30,12 +30,12 @@
     <%!-- Header --%>
     <div class="flex items-start justify-between mb-10 border-b border-neutral-100 pb-8">
       <div class="flex items-start gap-6">
-        <div class="w-20 h-20 rounded-full bg-neutral-100 flex items-center justify-center text-2xl font-light text-neutral-500">
+        <div class="w-20 h-20 rounded-full bg-neutral-100 flex items-center justify-center text-2xl font-light text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
           {String.first(@person.first_name)}{String.first(@person.last_name)}
         </div>
         <div>
           <div class="flex items-center gap-3 mb-2">
-            <h1 class="text-3xl font-light tracking-tight text-neutral-900">
+            <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
               {@person.first_name} {@person.last_name}
             </h1>
             <%= if @current_scope.user.role in [:admin, :editor] do %>
@@ -104,7 +104,7 @@
       "mb-8 border p-4",
       if(@stats.roles_count == 0,
         do: "border-amber-200 bg-amber-50/30",
-        else: "border-neutral-200 bg-neutral-50/50"
+        else: "border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50"
       )
     ]}>
       <div class="flex items-start gap-3">
@@ -114,13 +114,14 @@
         />
         <div>
           <p class="text-xs font-light text-neutral-500 leading-relaxed">
-            A <span class="font-normal text-neutral-700">Person</span>
+            A <span class="font-normal text-neutral-700 dark:text-neutral-300">Person</span>
             is someone who contributes to projects.
             They can be assigned to multiple projects with different roles — for example, someone might be the
-            <span class="font-normal text-neutral-700">Owner</span>
-            of one project and a <span class="font-normal text-neutral-700">Developer</span>
+            <span class="font-normal text-neutral-700 dark:text-neutral-300">Owner</span>
+            of one project and a
+            <span class="font-normal text-neutral-700 dark:text-neutral-300">Developer</span>
             on another.
-            Each person belongs to one <span class="font-normal text-neutral-700">Organization</span>.
+            Each person belongs to one <span class="font-normal text-neutral-700 dark:text-neutral-300">Organization</span>.
           </p>
           <%= if @stats.roles_count == 0 do %>
             <p class="text-xs font-light text-amber-600 mt-2">
@@ -133,7 +134,7 @@
 
     <%!-- Notes --%>
     <%= if @person.notes do %>
-      <div class="mb-8 p-4 bg-neutral-50 border border-neutral-100">
+      <div class="mb-8 p-4 bg-neutral-50 border border-neutral-100 dark:bg-neutral-800 dark:border-neutral-700">
         <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2">
           Notes
         </div>
@@ -154,7 +155,7 @@
           value={@search_query}
           placeholder="Search project assignments..."
           phx-change="search"
-          class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors"
+          class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300"
         />
       </div>
       <%= if @search_query != "" do %>
@@ -173,13 +174,13 @@
 
     <%!-- Project Roles --%>
     <div class="space-y-6">
-      <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3">
-        Project Assignments <span class="h-px flex-1 bg-neutral-100"></span>
+      <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3 dark:text-neutral-200">
+        Project Assignments <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
       </h2>
 
       <%= if @roles == [] do %>
         <%= if @search_query != "" do %>
-          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
             <div class="text-sm font-light text-neutral-400 mb-4">
               No assignments matching "{@search_query}".
             </div>
@@ -192,7 +193,7 @@
             </button>
           </div>
         <% else %>
-          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+          <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
             <.icon name="hero-folder" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
             <h3 class="text-sm font-light text-neutral-500 mb-2">Not assigned to any projects</h3>
             <p class="text-xs font-light text-neutral-400 max-w-md mx-auto mb-4 leading-relaxed">
@@ -208,11 +209,11 @@
           </div>
         <% end %>
       <% else %>
-        <div class="border border-neutral-200 bg-white divide-y divide-neutral-100">
+        <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
           <%= for role <- @roles do %>
             <.link
               navigate={~p"/ownership/projects/#{role.project_id}"}
-              class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group"
+              class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-700"
             >
               <div>
                 <div class="text-sm font-normal text-neutral-900">{role.project_name}</div>

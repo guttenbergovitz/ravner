@@ -50,12 +50,20 @@
   .dark a:hover {
     @apply text-neutral-400;
   }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-neutral-900;
+  }
+
+  .dark :focus-visible {
+    @apply outline-neutral-400;
+  }
 }
 
 @layer components {
   /* Buttons */
   .btn-line {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 text-sm font-light tracking-wide uppercase transition-all duration-200 bg-transparent cursor-pointer;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 text-sm font-light tracking-wide uppercase transition-all duration-200 bg-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2;
   }
 
   .btn-line:hover {
@@ -71,7 +79,7 @@
   }
 
   .btn-line-filled {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 bg-neutral-900 text-white text-sm font-light tracking-wide uppercase transition-all duration-200 cursor-pointer;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-900 bg-neutral-900 text-white text-sm font-light tracking-wide uppercase transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2;
   }
 
   .btn-line-filled:hover {
@@ -88,11 +96,11 @@
 
   /* Inputs */
   .input-line {
-    @apply w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors;
+    @apply w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus-visible:ring-2 focus-visible:ring-neutral-900/10 transition-colors;
   }
 
   .dark .input-line {
-    @apply border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:border-neutral-300;
+    @apply border-neutral-600 text-neutral-100 placeholder-neutral-500 focus:border-neutral-300 focus-visible:ring-neutral-300/20;
   }
 
   /* Cards */

@@ -1,9 +1,11 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <div class="max-w-[1400px] mx-auto px-6 py-10">
     <%!-- Dashboard Header --%>
-    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8">
+    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8 dark:border-neutral-800">
       <div>
-        <h1 class="text-3xl font-light tracking-tight text-neutral-900">Portfolio Dashboard</h1>
+        <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+          Portfolio Dashboard
+        </h1>
         <p class="text-xs font-light text-neutral-500 mt-2 uppercase tracking-widest">
           Risk Mitigation & Asset Lifecycle Command Center
         </p>
@@ -13,27 +15,33 @@
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Total Assets
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.total}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.total}
+          </div>
         </div>
-        <div class="text-right border-l border-neutral-100 pl-10">
+        <div class="text-right border-l border-neutral-100 pl-10 dark:border-neutral-800">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Apex Domains
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.total_apex}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.total_apex}
+          </div>
         </div>
       </div>
     </div>
 
     <%!-- Sleek Minimal Tabs Navigation --%>
-    <div class="flex items-center gap-6 border-b border-neutral-100 mb-10 pb-px">
+    <div class="flex items-center gap-6 border-b border-neutral-100 mb-10 pb-px dark:border-neutral-800">
       <button
         phx-click="select_tab"
         phx-value-tab="risks"
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "risks",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -45,8 +53,10 @@
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "governance",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -58,8 +68,10 @@
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "infrastructure",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -71,8 +83,10 @@
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "lifecycle",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -105,49 +119,64 @@
               else
                 {100.0, 0.0, 0.0, 0.0}
               end %>
-            <div class="border border-neutral-200 bg-white p-8 flex flex-col md:flex-row items-center gap-8">
+            <div class="border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col md:flex-row items-center gap-8 dark:border-neutral-700 dark:bg-neutral-800">
               <%!-- CSS Conic Gradient Donut --%>
               <div
                 class="relative w-40 h-40 rounded-full shrink-0 flex items-center justify-center"
                 style={"background: conic-gradient(#10b981 0% #{p_ssl_healthy}%, #ef4444 #{p_ssl_healthy}% #{p_ssl_healthy + p_ssl_expired}%, #f59e0b #{p_ssl_healthy + p_ssl_expired}% #{p_ssl_healthy + p_ssl_expired + p_ssl_soon_7d}%, #737373 #{p_ssl_healthy + p_ssl_expired + p_ssl_soon_7d}% 100%)"}
               >
-                <div class="absolute w-28 h-28 bg-white rounded-full flex flex-col items-center justify-center">
-                  <span class="text-2xl font-light text-neutral-900">{ssl_total}</span>
+                <div class="absolute w-28 h-28 bg-white rounded-full flex flex-col items-center justify-center dark:bg-neutral-800">
+                  <span class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+                    {ssl_total}
+                  </span>
                   <span class="text-[9px] uppercase tracking-wider text-neutral-400 font-normal">
                     Certs
                   </span>
                 </div>
               </div>
               <div class="flex-1 w-full space-y-4">
-                <div class="flex items-center justify-between border-b border-neutral-50 pb-2">
-                  <h2 class="text-sm font-normal text-neutral-800">SSL / TLS Health</h2>
+                <div class="flex items-center justify-between border-b border-neutral-50 dark:border-neutral-700 pb-2">
+                  <h2 class="text-sm font-normal text-neutral-800 dark:text-neutral-200">
+                    SSL / TLS Health
+                  </h2>
                   <.icon name="hero-shield-check" class="w-4 h-4 text-neutral-400" />
                 </div>
                 <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
-                      Healthy: <strong class="text-neutral-900 font-medium">{ssl_healthy}</strong>
+                      Healthy:
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
+                        {ssl_healthy}
+                      </strong>
                     </span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-red-500 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
-                      Expired: <strong class="text-neutral-900 font-medium">{ssl_expired}</strong>
+                      Expired:
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
+                        {ssl_expired}
+                      </strong>
                     </span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-amber-50 rounded border border-amber-500 flex items-center justify-center shrink-0">
                     </span>
                     <span class="text-neutral-500 font-light">
-                      Exp 7d: <strong class="text-neutral-900 font-medium">{ssl_soon_7d}</strong>
+                      Exp 7d:
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
+                        {ssl_soon_7d}
+                      </strong>
                     </span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-neutral-500 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
                       Exp 30d:
-                      <strong class="text-neutral-900 font-medium">{ssl_soon_30d}</strong>
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
+                        {ssl_soon_30d}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -170,14 +199,14 @@
               else
                 {0.0, 0.0, 0.0, 100.0}
               end %>
-            <div class="border border-neutral-200 bg-white p-8 flex flex-col md:flex-row items-center gap-8">
+            <div class="border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col md:flex-row items-center gap-8 dark:border-neutral-700 dark:bg-neutral-800">
               <%!-- CSS Conic Gradient Donut --%>
               <div
                 class="relative w-40 h-40 rounded-full shrink-0 flex items-center justify-center"
                 style={"background: conic-gradient(#10b981 0% #{p200}%, #3b82f6 #{p200}% #{p200 + p3xx}%, #ef4444 #{p200 + p3xx}% #{p200 + p3xx + p4xx_5xx}%, #e5e5e5 #{p200 + p3xx + p4xx_5xx}% 100%)"}
               >
-                <div class="absolute w-28 h-28 bg-white rounded-full flex flex-col items-center justify-center">
-                  <span class="text-2xl font-light text-neutral-900">
+                <div class="absolute w-28 h-28 bg-white rounded-full flex flex-col items-center justify-center dark:bg-neutral-800">
+                  <span class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
                     {@stats.http.http_200 + @stats.http.http_3xx + @stats.http.http_4xx_5xx}
                   </span>
                   <span class="text-[9px] uppercase tracking-wider text-neutral-400 font-normal">
@@ -186,8 +215,10 @@
                 </div>
               </div>
               <div class="flex-1 w-full space-y-4">
-                <div class="flex items-center justify-between border-b border-neutral-50 pb-2">
-                  <h2 class="text-sm font-normal text-neutral-800">Operational Connectivity</h2>
+                <div class="flex items-center justify-between border-b border-neutral-50 dark:border-neutral-700 pb-2">
+                  <h2 class="text-sm font-normal text-neutral-800 dark:text-neutral-200">
+                    Operational Connectivity
+                  </h2>
                   <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-400" />
                 </div>
                 <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
@@ -195,21 +226,25 @@
                     <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
                       200 OK:
-                      <strong class="text-neutral-900 font-medium">{@stats.http.http_200}</strong>
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
+                        {@stats.http.http_200}
+                      </strong>
                     </span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-blue-500 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
                       3xx Redirect:
-                      <strong class="text-neutral-900 font-medium">{@stats.http.http_3xx}</strong>
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
+                        {@stats.http.http_3xx}
+                      </strong>
                     </span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 bg-red-500 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
                       4xx/5xx Err:
-                      <strong class="text-neutral-900 font-medium">
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
                         {@stats.http.http_4xx_5xx}
                       </strong>
                     </span>
@@ -218,7 +253,7 @@
                     <span class="w-2.5 h-2.5 bg-neutral-200 rounded-full shrink-0"></span>
                     <span class="text-neutral-500 font-light">
                       Unscanned:
-                      <strong class="text-neutral-900 font-medium">
+                      <strong class="text-neutral-900 font-medium dark:text-neutral-100">
                         {@stats.http.http_unscanned}
                       </strong>
                     </span>
@@ -231,11 +266,11 @@
           <%!-- Overview Metrics Row --%>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <%!-- Domain Registration Summary --%>
-            <div class="border border-neutral-200 bg-white p-6">
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
               <span class="text-[9px] font-normal uppercase tracking-widest text-neutral-400">
                 Domain Registration Overview
               </span>
-              <div class="flex items-end justify-between mt-3 pb-3 border-b border-neutral-50">
+              <div class="flex items-end justify-between mt-3 pb-3 border-b border-neutral-50 dark:border-neutral-700">
                 <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
                   Tracked Apex
                 </span>
@@ -251,14 +286,16 @@
                     Expired
                   </div>
                 </div>
-                <div class="border-l border-neutral-50">
+                <div class="border-l border-neutral-50 dark:border-neutral-700">
                   <div class="text-lg font-light text-amber-600">{@stats.domain.soon_7d}</div>
                   <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                     Expires 7d
                   </div>
                 </div>
-                <div class="border-l border-neutral-50">
-                  <div class="text-lg font-light text-neutral-700">{@stats.domain.soon_30d}</div>
+                <div class="border-l border-neutral-50 dark:border-neutral-700">
+                  <div class="text-lg font-light text-neutral-700 dark:text-neutral-300">
+                    {@stats.domain.soon_30d}
+                  </div>
                   <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                     Expires 30d
                   </div>
@@ -267,11 +304,11 @@
             </div>
 
             <%!-- SSL Certificate Overview --%>
-            <div class="border border-neutral-200 bg-white p-6">
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
               <span class="text-[9px] font-normal uppercase tracking-widest text-neutral-400">
                 SSL Health Summary
               </span>
-              <div class="flex items-end justify-between mt-3 pb-3 border-b border-neutral-50">
+              <div class="flex items-end justify-between mt-3 pb-3 border-b border-neutral-50 dark:border-neutral-700">
                 <span class="text-xs font-light text-neutral-500 uppercase tracking-wider">
                   Secured Domains
                 </span>
@@ -287,14 +324,16 @@
                     Expired
                   </div>
                 </div>
-                <div class="border-l border-neutral-50">
+                <div class="border-l border-neutral-50 dark:border-neutral-700">
                   <div class="text-lg font-light text-amber-600">{@stats.ssl.soon_7d}</div>
                   <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                     Expires 7d
                   </div>
                 </div>
-                <div class="border-l border-neutral-50">
-                  <div class="text-lg font-light text-neutral-700">{@stats.ssl.soon_30d}</div>
+                <div class="border-l border-neutral-50 dark:border-neutral-700">
+                  <div class="text-lg font-light text-neutral-700 dark:text-neutral-300">
+                    {@stats.ssl.soon_30d}
+                  </div>
                   <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                     Expires 30d
                   </div>
@@ -307,26 +346,29 @@
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
             <%!-- Active SSL Expirations (Filtered) --%>
             <div class="space-y-4">
-              <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3">
-                🚨 Urgent SSL Risk Alerts <span class="h-px flex-1 bg-neutral-100"></span>
+              <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200 flex items-center gap-3">
+                🚨 Urgent SSL Risk Alerts
+                <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
               </h3>
               <p class="text-[10px] font-light text-neutral-400 leading-relaxed">
                 Filtered strictly to show active, priority production assets returning 200 OK. Outdated redirectors and abandoned domain certs are hidden.
               </p>
               <%= if @stats.ssl_alerts == [] do %>
-                <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400 bg-neutral-50/50">
+                <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
                   All production certificates are within safe limits.
                 </div>
               <% else %>
-                <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 max-h-[350px] overflow-y-auto">
+                <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 max-h-[350px] overflow-y-auto dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
                   <%= for alert <- @stats.ssl_alerts do %>
                     <.link
                       navigate={~p"/domains/#{alert.id}"}
-                      class="block hover:bg-neutral-50 transition-colors p-5"
+                      class="block hover:bg-neutral-50 transition-colors p-5 dark:hover:bg-neutral-700"
                     >
                       <div class="flex items-center justify-between">
                         <div>
-                          <div class="text-sm font-normal text-neutral-900">{alert.name}</div>
+                          <div class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
+                            {alert.name}
+                          </div>
                           <div class="text-[10px] font-light text-neutral-400 mt-1 uppercase tracking-wider">
                             Expires {Calendar.strftime(alert.valid_until, "%d-%m-%Y")}
                           </div>
@@ -351,26 +393,29 @@
 
             <%!-- Active Domain Expirations (Filtered) --%>
             <div class="space-y-4">
-              <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3">
-                🚨 Urgent Domain Registrations <span class="h-px flex-1 bg-neutral-100"></span>
+              <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200 flex items-center gap-3">
+                🚨 Urgent Domain Registrations
+                <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
               </h3>
               <p class="text-[10px] font-light text-neutral-400 leading-relaxed">
                 Filtered strictly to show expiring domain names under active or priority lifecycle management.
               </p>
               <%= if @stats.domain_alerts == [] do %>
-                <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400 bg-neutral-50/50">
+                <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
                   All active domain registrations are secure.
                 </div>
               <% else %>
-                <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 max-h-[350px] overflow-y-auto">
+                <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 max-h-[350px] overflow-y-auto dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
                   <%= for alert <- @stats.domain_alerts do %>
                     <.link
                       navigate={~p"/domains/#{alert.id}"}
-                      class="block hover:bg-neutral-50 transition-colors p-5"
+                      class="block hover:bg-neutral-50 transition-colors p-5 dark:hover:bg-neutral-700"
                     >
                       <div class="flex items-center justify-between">
                         <div>
-                          <div class="text-sm font-normal text-neutral-900">{alert.name}</div>
+                          <div class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
+                            {alert.name}
+                          </div>
                           <div class="text-[10px] font-light text-neutral-400 mt-1 uppercase tracking-wider">
                             Expires {Calendar.strftime(alert.expiration_date, "%d-%m-%Y")}
                           </div>
@@ -397,8 +442,8 @@
       <% @current_tab == "governance" -> %>
         <%!-- TAB 2: GOVERNANCE & GAPS --%>
         <div class="space-y-8">
-          <div class="border border-neutral-200 bg-white p-8">
-            <h3 class="text-sm font-normal text-neutral-800 mb-2">
+          <div class="border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
+            <h3 class="text-sm font-normal text-neutral-800 dark:text-neutral-200 mb-2">
               Corporate Governance & Asset Gaps
             </h3>
             <p class="text-xs font-light text-neutral-400 leading-relaxed mb-6">
@@ -407,13 +452,13 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <.link
                 navigate={~p"/domains"}
-                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group"
+                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-500"
               >
                 <div>
                   <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
                     Missing PM / PO
                   </h4>
-                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors">
+                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors dark:text-neutral-100 dark:group-hover:text-neutral-300">
                     {@stats.governance.missing_pm}
                   </p>
                 </div>
@@ -423,13 +468,13 @@
               </.link>
               <.link
                 navigate={~p"/ownership"}
-                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group"
+                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-500"
               >
                 <div>
                   <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
                     Unassigned Projects
                   </h4>
-                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors">
+                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors dark:text-neutral-100 dark:group-hover:text-neutral-300">
                     {@stats.governance.missing_project}
                   </p>
                 </div>
@@ -439,13 +484,13 @@
               </.link>
               <.link
                 navigate={~p"/ownership"}
-                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group"
+                class="border border-neutral-100 p-6 flex flex-col justify-between hover:border-neutral-400 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-500"
               >
                 <div>
                   <h4 class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
                     Orphaned Brands
                   </h4>
-                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors">
+                  <p class="text-2xl font-light text-neutral-900 group-hover:text-neutral-600 transition-colors dark:text-neutral-100 dark:group-hover:text-neutral-300">
                     {@stats.governance.missing_brand}
                   </p>
                 </div>
@@ -459,8 +504,8 @@
       <% @current_tab == "infrastructure" -> %>
         <%!-- TAB 3: INFRASTRUCTURE & VENDORS --%>
         <div class="space-y-8">
-          <div class="border border-neutral-200 bg-white p-8">
-            <h3 class="text-sm font-normal text-neutral-800 mb-2">
+          <div class="border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
+            <h3 class="text-sm font-normal text-neutral-800 dark:text-neutral-200 mb-2">
               Infrastructure & Vendor Distribution
             </h3>
             <p class="text-xs font-light text-neutral-400 leading-relaxed mb-6">
@@ -468,14 +513,16 @@
             </p>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
               <%!-- Donut Category 1: SSL Issuers --%>
-              <div class="border border-neutral-100 p-6 space-y-4">
+              <div class="border border-neutral-100 p-6 space-y-4 dark:border-neutral-700">
                 <h4 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
                   Top Issuers
                 </h4>
                 <div class="space-y-3">
                   <%= for {issuer, count} <- @stats.ssl.issuers do %>
-                    <div class="flex items-center justify-between text-xs border-b border-neutral-50 pb-1.5">
-                      <span class="font-light text-neutral-600 truncate mr-4">{issuer}</span>
+                    <div class="flex items-center justify-between text-xs border-b border-neutral-50 dark:border-neutral-700 pb-1.5">
+                      <span class="font-light text-neutral-600 truncate mr-4 dark:text-neutral-400">
+                        {issuer}
+                      </span>
                       <strong class="font-normal text-neutral-900">{count}</strong>
                     </div>
                   <% end %>
@@ -483,14 +530,16 @@
               </div>
 
               <%!-- Donut Category 2: Hosting Platform --%>
-              <div class="border border-neutral-100 p-6 space-y-4">
+              <div class="border border-neutral-100 p-6 space-y-4 dark:border-neutral-700">
                 <h4 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
                   Hosting Reach
                 </h4>
                 <div class="space-y-3">
                   <%= for {host, count} <- @stats.infra.hosting do %>
-                    <div class="flex items-center justify-between text-xs border-b border-neutral-50 pb-1.5">
-                      <span class="font-light text-neutral-600 truncate mr-4">{host}</span>
+                    <div class="flex items-center justify-between text-xs border-b border-neutral-50 dark:border-neutral-700 pb-1.5">
+                      <span class="font-light text-neutral-600 truncate mr-4 dark:text-neutral-400">
+                        {host}
+                      </span>
                       <strong class="font-normal text-neutral-900">{count}</strong>
                     </div>
                   <% end %>
@@ -498,14 +547,16 @@
               </div>
 
               <%!-- Donut Category 3: Registrars --%>
-              <div class="border border-neutral-100 p-6 space-y-4">
+              <div class="border border-neutral-100 p-6 space-y-4 dark:border-neutral-700">
                 <h4 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
                   Top Registrars
                 </h4>
                 <div class="space-y-3">
                   <%= for {registrar, count} <- @stats.infra.registrars do %>
-                    <div class="flex items-center justify-between text-xs border-b border-neutral-50 pb-1.5">
-                      <span class="font-light text-neutral-600 truncate mr-4">{registrar}</span>
+                    <div class="flex items-center justify-between text-xs border-b border-neutral-50 dark:border-neutral-700 pb-1.5">
+                      <span class="font-light text-neutral-600 truncate mr-4 dark:text-neutral-400">
+                        {registrar}
+                      </span>
                       <strong class="font-normal text-neutral-900">{count}</strong>
                     </div>
                   <% end %>
@@ -519,19 +570,32 @@
         <div class="space-y-10">
           <%!-- Row 1: Cards --%>
           <div class="space-y-4">
-            <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3">
-              📊 Portfolio Lifecycle Distribution <span class="h-px flex-1 bg-neutral-100"></span>
+            <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200 flex items-center gap-3">
+              📊 Portfolio Lifecycle Distribution
+              <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
             </h3>
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               <%= for s <- @stats.lifecycle_list do %>
-                <div class="border border-neutral-100 p-5 hover:border-neutral-900 transition-colors group cursor-default bg-white">
-                  <div class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-2 truncate group-hover:text-neutral-900 transition-colors">
+                <div class="border border-neutral-100 p-5 hover:border-neutral-900 transition-colors group cursor-default bg-white dark:border-neutral-700 dark:hover:border-neutral-100 dark:bg-neutral-800">
+                  <div class="text-[9px] font-normal uppercase tracking-widest text-neutral-400 mb-2 truncate group-hover:text-neutral-900 transition-colors dark:group-hover:text-neutral-100">
                     {s.label}
                   </div>
-                  <div class="text-2xl font-light text-neutral-900">{s.total}</div>
+                  <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+                    {s.total}
+                  </div>
                   <div class="flex items-center gap-2 mt-2 text-[9px] font-light text-neutral-400">
-                    <span>Apex: <span class="text-neutral-600 font-normal">{s.apex}</span></span>
-                    <span>Subs: <span class="text-neutral-600 font-normal">{s.sub}</span></span>
+                    <span>
+                      Apex:
+                      <span class="text-neutral-600 font-normal dark:text-neutral-300">
+                        {s.apex}
+                      </span>
+                    </span>
+                    <span>
+                      Subs:
+                      <span class="text-neutral-600 font-normal dark:text-neutral-300">
+                        {s.sub}
+                      </span>
+                    </span>
                   </div>
                 </div>
               <% end %>
@@ -541,7 +605,7 @@
           <%!-- Row 2: Charts and subdomain tree --%>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
             <%!-- Largest Trees --%>
-            <div class="border border-neutral-200 bg-white p-8">
+            <div class="border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
               <div class="flex items-center justify-between mb-6">
                 <h4 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
                   Largest Subdomain Trees
@@ -558,12 +622,12 @@
                     <div class="flex items-center justify-between">
                       <.link
                         navigate={~p"/domains?search=#{name}"}
-                        class="text-sm font-light text-neutral-900 hover:text-neutral-500 transition-colors truncate mr-4"
+                        class="text-sm font-light text-neutral-900 hover:text-neutral-500 transition-colors truncate mr-4 dark:text-neutral-100 dark:hover:text-neutral-400"
                       >
                         {name}
                       </.link>
                       <div class="flex items-center gap-3">
-                        <div class="w-24 h-1 bg-neutral-100">
+                        <div class="w-24 h-1 bg-neutral-100 dark:bg-neutral-700">
                           <div
                             class="h-1 bg-neutral-400"
                             style={"width: #{min(count * 100 / @top_subs_max, 100)}%;"}
@@ -582,7 +646,7 @@
 
             <%!-- Performance Charts --%>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="border border-neutral-200 bg-white p-6 flex flex-col justify-between">
+              <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col justify-between">
                 <h4 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
                   HTTP Status Summary
                 </h4>
@@ -590,7 +654,7 @@
                   {@http_chart |> Phoenix.HTML.raw()}
                 </div>
               </div>
-              <div class="border border-neutral-200 bg-white p-6 flex flex-col justify-between">
+              <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col justify-between">
                 <h4 class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-4">
                   Scan Freshness Summary
                 </h4>

@@ -7,14 +7,16 @@
           Oban queue inspection and automation schedules.
         </p>
       </div>
-      <div class="flex bg-neutral-100 p-1 rounded-lg">
+      <div class="flex bg-neutral-100 p-1 rounded-lg dark:bg-neutral-800">
         <button
           phx-click="set_tab"
           phx-value-tab="queue"
           class={[
             "px-4 py-1.5 text-xs font-medium rounded-md transition-colors",
-            @active_tab == :queue && "bg-white text-neutral-900 shadow-sm",
-            @active_tab != :queue && "text-neutral-500 hover:text-neutral-700"
+            @active_tab == :queue &&
+              "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+            @active_tab != :queue &&
+              "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
           ]}
         >
           Queue History
@@ -24,8 +26,10 @@
           phx-value-tab="schedules"
           class={[
             "px-4 py-1.5 text-xs font-medium rounded-md transition-colors",
-            @active_tab == :schedules && "bg-white text-neutral-900 shadow-sm",
-            @active_tab != :schedules && "text-neutral-500 hover:text-neutral-700"
+            @active_tab == :schedules &&
+              "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+            @active_tab != :schedules &&
+              "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
           ]}
         >
           Active Schedules
@@ -71,7 +75,7 @@
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm whitespace-nowrap">
-            <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100">
+            <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100 dark:border-neutral-700">
               <tr>
                 <th class="px-4 py-3 font-normal">ID</th>
                 <th class="px-4 py-3 font-normal">Queue</th>
@@ -81,9 +85,9 @@
                 <th class="px-4 py-3 font-normal text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-neutral-50 text-neutral-600 font-light">
+            <tbody class="divide-y divide-neutral-50 text-neutral-600 font-light dark:divide-neutral-800 dark:text-neutral-300">
               <%= for job <- @jobs do %>
-                <tr class="hover:bg-neutral-50/50 transition-colors">
+                <tr class="hover:bg-neutral-50/50 transition-colors dark:hover:bg-neutral-800/50">
                   <td class="px-4 py-3 font-mono text-xs">{job.id}</td>
                   <td class="px-4 py-3">{job.queue}</td>
                   <td class="px-4 py-3 font-mono text-[10px]">{job.worker}</td>
@@ -135,7 +139,7 @@
         </h2>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm whitespace-nowrap">
-            <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100">
+            <thead class="text-xs text-neutral-500 font-light border-b border-neutral-100 dark:border-neutral-700">
               <tr>
                 <th class="px-4 py-3 font-normal">Domain</th>
                 <th class="px-4 py-3 font-normal">Heartbeat</th>
@@ -145,13 +149,13 @@
                 <th class="px-4 py-3 font-normal text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-neutral-50 text-neutral-600 font-light">
+            <tbody class="divide-y divide-neutral-50 text-neutral-600 font-light dark:divide-neutral-800 dark:text-neutral-300">
               <%= for meta <- @schedules do %>
-                <tr class="hover:bg-neutral-50/50 transition-colors">
+                <tr class="hover:bg-neutral-50/50 transition-colors dark:hover:bg-neutral-800/50">
                   <td class="px-4 py-3">
                     <.link
                       navigate={~p"/domains/#{meta.domain.id}"}
-                      class="font-medium text-neutral-900 hover:underline"
+                      class="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
                     >
                       {meta.domain.name}
                     </.link>

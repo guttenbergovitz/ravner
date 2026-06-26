@@ -86,7 +86,7 @@
                 </button>
                 <%= if @lifecycle_menu_open do %>
                   <div
-                    class="absolute left-0 top-7 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[170px]"
+                    class="absolute left-0 top-7 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[170px] dark:bg-neutral-800 dark:border-neutral-700"
                     phx-click-away="close_lifecycle_menu"
                   >
                     <%= for {state, label, _color} <- lifecycle_options() do %>
@@ -94,7 +94,7 @@
                         phx-click="set_lifecycle"
                         phx-value-state={state}
                         class={[
-                          "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors",
+                          "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700",
                           @domain.lifecycle_state == state && "font-medium"
                         ]}
                       >
@@ -267,7 +267,8 @@
                         "px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide shrink-0",
                         if(hop["status"] >= 300 && hop["status"] < 400,
                           do: "text-yellow-700 bg-yellow-50 border border-yellow-200",
-                          else: "text-neutral-500 bg-neutral-50 border border-neutral-200"
+                          else:
+                            "text-neutral-500 bg-neutral-50 border border-neutral-200 dark:text-neutral-400 dark:bg-neutral-800 dark:border-neutral-700"
                         )
                       ]}>
                         {hop["status"]}

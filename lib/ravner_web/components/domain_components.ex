@@ -232,7 +232,8 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :subdomains do %>
@@ -257,7 +258,8 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :httpx do %>
@@ -282,7 +284,8 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :dnsx do %>
@@ -307,7 +310,8 @@ defmodule RavnerWeb.DomainComponents do
               disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan) || @viewer?) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :rdap do %>

@@ -19,20 +19,29 @@
     </nav>
 
     <%!-- Header --%>
-    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8">
+    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8 dark:border-neutral-800">
       <div>
         <div class="flex items-center gap-3 mb-2">
-          <h1 class="text-3xl font-light tracking-tight text-neutral-900">
+          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
             {@org.display_name || @org.name}
           </h1>
           <span class={[
             "text-[9px] uppercase tracking-widest px-2 py-1 border",
             case @org.type do
-              :internal -> "text-blue-600 bg-blue-50 border-blue-100"
-              :client -> "text-emerald-600 bg-emerald-50 border-emerald-100"
-              :contractor -> "text-amber-600 bg-amber-50 border-amber-100"
-              :partner -> "text-purple-600 bg-purple-50 border-purple-100"
-              _ -> "text-neutral-600 bg-neutral-50 border-neutral-100"
+              :internal ->
+                "text-blue-600 bg-blue-50 border-blue-100"
+
+              :client ->
+                "text-emerald-600 bg-emerald-50 border-emerald-100"
+
+              :contractor ->
+                "text-amber-600 bg-amber-50 border-amber-100"
+
+              :partner ->
+                "text-purple-600 bg-purple-50 border-purple-100"
+
+              _ ->
+                "text-neutral-600 bg-neutral-50 border-neutral-100 dark:text-neutral-300 dark:bg-neutral-800 dark:border-neutral-700"
             end
           ]}>
             {@org.type}
@@ -40,7 +49,7 @@
           <%= if @current_scope.user.role in [:admin, :editor] do %>
             <.link
               href={~p"/admin/organizations/#{@org.id}/edit"}
-              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors"
+              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:hover:text-neutral-300"
             >
               Edit
             </.link>
@@ -64,19 +73,25 @@
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Projects
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.projects_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.projects_count}
+          </div>
         </div>
-        <div class="text-right border-l border-neutral-100 pl-8">
+        <div class="text-right border-l border-neutral-100 pl-8 dark:border-neutral-800">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             People
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.people_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.people_count}
+          </div>
         </div>
-        <div class="text-right border-l border-neutral-100 pl-8">
+        <div class="text-right border-l border-neutral-100 pl-8 dark:border-neutral-800">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Domains
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.domains_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.domains_count}
+          </div>
         </div>
       </div>
     </div>
@@ -86,7 +101,7 @@
       "mb-8 border p-4",
       if(@stats.projects_count == 0 and @stats.people_count == 0,
         do: "border-amber-200 bg-amber-50/30",
-        else: "border-neutral-200 bg-neutral-50/50"
+        else: "border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50"
       )
     ]}>
       <div class="flex items-start gap-3">
@@ -96,12 +111,13 @@
         />
         <div>
           <p class="text-xs font-light text-neutral-500 leading-relaxed">
-            An <span class="font-normal text-neutral-700">Organization</span>
+            An
+            <span class="font-normal text-neutral-700 dark:text-neutral-300">Organization</span>
             represents a legal entity,
             department, or team that executes work. Under each organization you add
-            <span class="font-normal text-neutral-700">Projects</span>
+            <span class="font-normal text-neutral-700 dark:text-neutral-300">Projects</span>
             (specific initiatives) and assign
-            <span class="font-normal text-neutral-700">People</span>
+            <span class="font-normal text-neutral-700 dark:text-neutral-300">People</span>
             to those projects with defined roles.
           </p>
           <%= if @stats.projects_count == 0 and @stats.people_count == 0 do %>
@@ -126,7 +142,7 @@
           value={@search_query}
           placeholder="Search across all tabs..."
           phx-change="search"
-          class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors"
+          class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300"
         />
       </div>
       <%= if @search_query != "" do %>
@@ -141,14 +157,16 @@
     </div>
 
     <%!-- Tabs --%>
-    <div class="flex items-center gap-6 border-b border-neutral-100 mb-8 pb-px">
+    <div class="flex items-center gap-6 border-b border-neutral-100 mb-8 pb-px dark:border-neutral-800">
       <.link
         patch={~p"/ownership/organizations/#{@org.id}?tab=projects"}
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "projects",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -159,8 +177,10 @@
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "people",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -171,8 +191,10 @@
         class={[
           "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
           if(@current_tab == "domains",
-            do: "border-neutral-900 text-neutral-900 font-medium",
-            else: "border-transparent text-neutral-400 hover:text-neutral-600"
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           )
         ]}
       >
@@ -185,7 +207,7 @@
       <% @current_tab == "projects" -> %>
         <%= if @projects == [] do %>
           <%= if @search_query != "" do %>
-            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <div class="text-sm font-light text-neutral-400 mb-4">
                 No projects matching "{@search_query}".
               </div>
@@ -198,7 +220,7 @@
               </button>
             </div>
           <% else %>
-            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <.icon name="hero-folder" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
               <h3 class="text-sm font-light text-neutral-500 mb-2">No projects yet</h3>
               <p class="text-xs font-light text-neutral-400 max-w-md mx-auto mb-4 leading-relaxed">
@@ -270,7 +292,7 @@
       <% @current_tab == "people" -> %>
         <%= if @people == [] do %>
           <%= if @search_query != "" do %>
-            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <div class="text-sm font-light text-neutral-400 mb-4">
                 No people matching "{@search_query}".
               </div>
@@ -283,7 +305,7 @@
               </button>
             </div>
           <% else %>
-            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <.icon name="hero-users" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
               <h3 class="text-sm font-light text-neutral-500 mb-2">No people yet</h3>
               <p class="text-xs font-light text-neutral-400 max-w-md mx-auto mb-4 leading-relaxed">
@@ -299,14 +321,14 @@
             </div>
           <% end %>
         <% else %>
-          <div class="border border-neutral-200 bg-white divide-y divide-neutral-100">
+          <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
             <%= for person <- @people do %>
               <.link
                 navigate={~p"/ownership/people/#{person.id}"}
-                class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group"
+                class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-700"
               >
                 <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center text-sm font-light text-neutral-500">
+                  <div class="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center text-sm font-light text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
                     {String.first(person.first_name)}{String.first(person.last_name)}
                   </div>
                   <div>
@@ -340,7 +362,7 @@
       <% @current_tab == "domains" -> %>
         <%= if @domains == [] do %>
           <%= if @search_query != "" do %>
-            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <div class="text-sm font-light text-neutral-400">
                 No domains matching "{@search_query}".
               </div>
@@ -353,7 +375,7 @@
               </button>
             </div>
           <% else %>
-            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <.icon name="hero-globe-alt" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
               <h3 class="text-sm font-light text-neutral-500 mb-2">No domains assigned</h3>
               <p class="text-xs font-light text-neutral-400 max-w-md mx-auto leading-relaxed">
@@ -363,14 +385,16 @@
             </div>
           <% end %>
         <% else %>
-          <div class="border border-neutral-200 bg-white divide-y divide-neutral-100">
+          <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
             <%= for domain <- @domains do %>
               <.link
                 navigate={~p"/domains/#{domain.id}"}
-                class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group"
+                class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-700"
               >
                 <div>
-                  <div class="text-sm font-normal text-neutral-900">{domain.name}</div>
+                  <div class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
+                    {domain.name}
+                  </div>
                   <%= if domain.project_id do %>
                     <div class="text-xs font-light text-neutral-400">
                       Assigned to project
@@ -379,7 +403,7 @@
                 </div>
                 <div class="flex items-center gap-4">
                   <%= if domain.lifecycle_state do %>
-                    <span class="text-[9px] uppercase tracking-widest text-neutral-500 border border-neutral-200 px-2 py-0.5">
+                    <span class="text-[9px] uppercase tracking-widest text-neutral-500 border border-neutral-200 px-2 py-0.5 dark:text-neutral-400 dark:border-neutral-700">
                       {domain.lifecycle_state}
                     </span>
                   <% end %>

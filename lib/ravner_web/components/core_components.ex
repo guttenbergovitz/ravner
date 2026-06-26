@@ -183,7 +183,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 focus-visible:ring-2 focus-visible:ring-neutral-900/10 transition-colors text-sm dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           multiple={@multiple}
@@ -212,7 +212,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           name={@name}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 transition-colors text-sm resize-none dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 focus:outline-none focus:border-neutral-900 focus-visible:ring-2 focus-visible:ring-neutral-900/10 transition-colors text-sm resize-none dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           {@rest}
@@ -239,7 +239,7 @@ defmodule RavnerWeb.CoreComponents do
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors text-sm dark:border-neutral-600 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300",
+            "w-full px-0 py-3 border-0 border-b border-neutral-300 bg-transparent text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus-visible:ring-2 focus-visible:ring-neutral-900/10 transition-colors text-sm dark:border-neutral-600 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300",
             @errors != [] && "border-red-300"
           ]}
           {@rest}

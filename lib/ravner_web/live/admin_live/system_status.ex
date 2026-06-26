@@ -28,7 +28,9 @@ defmodule RavnerWeb.AdminLive.SystemStatus do
       |> Swoosh.Email.to(recipient)
       |> Swoosh.Email.from({"Ravner", mail_from()})
       |> Swoosh.Email.subject("Ravner test email")
-      |> Swoosh.Email.text_body("This is a test email sent from Ravner system status page at #{DateTime.utc_now()}.")
+      |> Swoosh.Email.text_body(
+        "This is a test email sent from Ravner system status page at #{DateTime.utc_now()}."
+      )
 
     case Mailer.deliver(email) do
       {:ok, _} ->

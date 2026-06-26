@@ -1,14 +1,16 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <div class="max-w-[1400px] mx-auto px-6 py-10">
     <%!-- Header --%>
-    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8">
+    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8 dark:border-neutral-800">
       <div>
         <div class="flex items-center gap-3">
-          <h1 class="text-3xl font-light tracking-tight text-neutral-900">Ownership Overview</h1>
+          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            Ownership Overview
+          </h1>
           <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
             <.link
               href={~p"/admin/brands/new"}
-              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors"
+              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:hover:text-neutral-300"
             >
               + New Brand
             </.link>
@@ -23,61 +25,79 @@
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Brands
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.brands_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.brands_count}
+          </div>
         </div>
-        <div class="text-right border-l border-neutral-100 pl-8">
+        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Organizations
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.organizations_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.organizations_count}
+          </div>
         </div>
-        <div class="text-right border-l border-neutral-100 pl-8">
+        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Projects
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.projects_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.projects_count}
+          </div>
         </div>
-        <div class="text-right border-l border-neutral-100 pl-8">
+        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             People
           </div>
-          <div class="text-2xl font-light text-neutral-900">{@stats.people_count}</div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.people_count}
+          </div>
         </div>
       </div>
     </div>
 
     <%!-- How it works --%>
-    <div class="mb-10 border border-neutral-200 bg-neutral-50/50 p-6">
+    <div class="mb-10 border border-neutral-200 bg-neutral-50/50 p-6 dark:border-neutral-700 dark:bg-neutral-800/50">
       <div class="flex items-start gap-4">
-        <div class="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <div class="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center flex-shrink-0 mt-0.5 dark:bg-neutral-700">
           <.icon name="hero-information-circle" class="w-4 h-4 text-neutral-500" />
         </div>
         <div>
-          <h2 class="text-sm font-normal text-neutral-800 mb-2">How ownership works</h2>
+          <h2 class="text-sm font-normal text-neutral-800 dark:text-neutral-200 mb-2">
+            How ownership works
+          </h2>
           <p class="text-xs font-light text-neutral-500 leading-relaxed max-w-3xl">
             Every technical asset in your organization belongs to someone. We track this through a simple four-level structure:
           </p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
             <div class="space-y-1">
-              <div class="text-xs font-medium text-neutral-700">Brand / Company Group</div>
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Brand / Company Group
+              </div>
               <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
                 The top-level entity — typically a corporate brand, holding company, or product family (e.g. <em>Acme Corp</em>).
               </p>
             </div>
             <div class="space-y-1">
-              <div class="text-xs font-medium text-neutral-700">Organization / Department</div>
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Organization / Department
+              </div>
               <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
                 A legal entity, regional office, client, or internal department under a brand (e.g. <em>Acme Germany GmbH</em>).
               </p>
             </div>
             <div class="space-y-1">
-              <div class="text-xs font-medium text-neutral-700">Project / Initiative</div>
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Project / Initiative
+              </div>
               <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
                 A specific work effort with a defined team and deliverables (e.g. <em>Website Relaunch 2025</em>).
               </p>
             </div>
             <div class="space-y-1">
-              <div class="text-xs font-medium text-neutral-700">Person / Team Member</div>
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Person / Team Member
+              </div>
               <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
                 An individual assigned to one or more projects, with a specific role like Owner, Manager, or Developer.
               </p>
@@ -110,7 +130,7 @@
               value={@search_query}
               placeholder="Search brands..."
               phx-change="search"
-              class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors"
+              class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300"
             />
           </div>
           <%= if @search_query != "" do %>
@@ -129,13 +149,13 @@
 
         <%!-- Brands Grid --%>
         <div class="space-y-6">
-          <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3">
-            Brands <span class="h-px flex-1 bg-neutral-100"></span>
+          <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3 dark:text-neutral-200">
+            Brands <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
           </h2>
 
           <%= if @brands == [] do %>
             <%= if @search_query != "" do %>
-              <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
                 <div class="text-sm font-light text-neutral-400 mb-4">
                   No brands matching "{@search_query}".
                 </div>
@@ -148,7 +168,7 @@
                 </button>
               </div>
             <% else %>
-              <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50">
+              <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
                 <.icon
                   name="hero-building-office"
                   class="w-10 h-10 text-neutral-200 mx-auto mb-4"
@@ -172,16 +192,16 @@
                 <.link
                   navigate={~p"/ownership/brands/#{brand.id}"}
                   class={[
-                    "block border bg-white p-6 hover:border-neutral-400 transition-colors group",
+                    "block border bg-white p-6 hover:border-neutral-400 transition-colors group dark:bg-neutral-800 dark:hover:border-neutral-500",
                     if(brand.orgs_count == 0,
                       do: "border-amber-200/50 bg-amber-50/20",
-                      else: "border-neutral-200"
+                      else: "border-neutral-200 dark:border-neutral-700"
                     )
                   ]}
                 >
                   <div class="flex items-start justify-between mb-4">
                     <div>
-                      <h3 class="text-lg font-light text-neutral-900 group-hover:text-neutral-700">
+                      <h3 class="text-lg font-light text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:text-neutral-100 dark:group-hover:text-neutral-300">
                         {brand.display_name || brand.name}
                       </h3>
                       <%= if brand.display_name && brand.display_name != brand.name do %>
@@ -196,27 +216,33 @@
 
                   <div class="grid grid-cols-4 gap-4 text-center border-t border-neutral-100 pt-4">
                     <div>
-                      <div class="text-lg font-light text-neutral-900">{brand.orgs_count}</div>
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.orgs_count}
+                      </div>
                       <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                         Orgs
                       </div>
                     </div>
-                    <div class="border-l border-neutral-100">
-                      <div class="text-lg font-light text-neutral-900">
+                    <div class="border-l border-neutral-100 dark:border-neutral-700">
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
                         {brand.projects_count}
                       </div>
                       <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                         Projects
                       </div>
                     </div>
-                    <div class="border-l border-neutral-100">
-                      <div class="text-lg font-light text-neutral-900">{brand.people_count}</div>
+                    <div class="border-l border-neutral-100 dark:border-neutral-700">
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.people_count}
+                      </div>
                       <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                         People
                       </div>
                     </div>
-                    <div class="border-l border-neutral-100">
-                      <div class="text-lg font-light text-neutral-900">{brand.domains_count}</div>
+                    <div class="border-l border-neutral-100 dark:border-neutral-700">
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.domains_count}
+                      </div>
                       <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
                         Domains
                       </div>
