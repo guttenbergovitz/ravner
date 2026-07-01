@@ -618,14 +618,25 @@ defmodule Ravner.Accounts do
   end
 
   defp create_user_via_ash(attrs, fallback_changeset, actor) do
+    require Logger
+
     case UserResource |> Ash.Changeset.for_create(:create, attrs, actor: actor) |> Ash.create() do
-      {:ok, created} -> {:ok, Repo.get!(User, created.id)}
-      {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
-      {:error, _} -> {:error, fallback_changeset}
+      {:ok, created} ->
+        {:ok, Repo.get!(User, created.id)}
+
+      {:error, %Ash.Error.Forbidden{} = err} ->
+        Logger.error("Ash Forbidden on user create: #{inspect(err)}, actor: #{inspect(actor)}")
+        {:error, :forbidden}
+
+      {:error, err} ->
+        Logger.error("Ash error on user create: #{inspect(err)}")
+        {:error, fallback_changeset}
     end
   end
 
   defp update_user_resource(%User{} = user, changeset, actor) do
+    require Logger
+
     with {:ok, resource} <- Ash.get(UserResource, user.id, actor: actor),
          {:ok, _updated} <-
            resource
@@ -633,8 +644,13 @@ defmodule Ravner.Accounts do
            |> Ash.update() do
       {:ok, Repo.get!(User, user.id)}
     else
-      {:error, %Ash.Error.Forbidden{}} -> {:error, :forbidden}
-      {:error, _} -> {:error, changeset}
+      {:error, %Ash.Error.Forbidden{} = err} ->
+        Logger.error("Ash Forbidden on user update: #{inspect(err)}, actor: #{inspect(actor)}")
+        {:error, :forbidden}
+
+      {:error, err} ->
+        Logger.error("Ash error on user update: #{inspect(err)}")
+        {:error, changeset}
     end
   end
 

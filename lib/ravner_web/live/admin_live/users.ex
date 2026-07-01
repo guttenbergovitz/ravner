@@ -183,8 +183,14 @@ defmodule RavnerWeb.AdminLive.Users do
          |> assign(:users, Accounts.list_users())
          |> push_patch(to: ~p"/admin/users")}
 
-      {:error, changeset} ->
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "Authorization denied — cannot create user.")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
+
+      {:error, _other} ->
+        {:noreply, put_flash(socket, :error, "Could not create user.")}
     end
   end
 
@@ -199,8 +205,14 @@ defmodule RavnerWeb.AdminLive.Users do
          |> assign(:users, Accounts.list_users())
          |> push_patch(to: ~p"/admin/users")}
 
-      {:error, changeset} ->
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "Authorization denied — cannot update user.")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
+
+      {:error, _other} ->
+        {:noreply, put_flash(socket, :error, "Could not update user.")}
     end
   end
 
