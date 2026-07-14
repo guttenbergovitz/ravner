@@ -9,6 +9,7 @@ defmodule RavnerWeb.DomainLive.Show do
 
   import RavnerWeb.DomainComponents
 
+  alias Ravner.A11y
   alias Ravner.Domains
   alias Ravner.Inventory
   alias Ravner.Scans
@@ -32,7 +33,10 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:latest_security_scan, nil)
      |> assign(:running_security_scan, nil)
      |> assign(:latest_failed_security_scan, nil)
-     |> assign(:severity_counts, %{critical: 0, high: 0, medium: 0, low: 0})}
+     |> assign(:severity_counts, %{critical: 0, high: 0, medium: 0, low: 0})
+     |> assign(:a11y_scan, nil)
+     |> assign(:a11y_running?, false)
+     |> assign(:a11y_scannable?, false)}
   end
 
   @impl true
@@ -41,6 +45,10 @@ defmodule RavnerWeb.DomainLive.Show do
     SecurityScans.cleanup_stale_scans()
 
     domain = Domains.get_domain_with_preloads!(id)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Ravner.PubSub, "a11y_scan:domain:#{domain.id}")
+    end
 
     {:noreply,
      socket
@@ -51,6 +59,9 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:domain_class, compute_domain_class(domain))
+     |> assign(:a11y_scannable?, A11y.scannable?(domain))
+     |> assign(:a11y_scan, A11y.latest_scan(domain.id))
+     |> assign(:a11y_running?, A11y.running_scan(domain.id) != nil)
      |> refresh_security_scan_assigns()}
   end
 
@@ -238,7 +249,8 @@ defmodule RavnerWeb.DomainLive.Show do
       scan_interval_days: parse_interval(params["scan_interval_days"]),
       heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
       http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
-      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"])
+      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"]),
+      a11y_scan_interval_days: parse_interval(params["a11y_scan_interval_days"])
     }
 
     case Domains.upsert_domain_metadata(domain.id, attrs) do
@@ -341,6 +353,28 @@ defmodule RavnerWeb.DomainLive.Show do
 
   def handle_event("close_lifecycle_menu", _, socket) do
     {:noreply, assign(socket, :lifecycle_menu_open, false)}
+  end
+
+  def handle_event("scan_a11y", _params, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_a11y", _params, socket) do
+    domain = socket.assigns.domain
+
+    if A11y.scannable?(domain) do
+      %{domain_id: domain.id}
+      |> Ravner.Workers.A11yScanWorker.new()
+      |> Oban.insert()
+
+      {:noreply,
+       socket
+       |> assign(:a11y_running?, true)
+       |> put_flash(:info, "Accessibility scan queued.")}
+    else
+      {:noreply, put_flash(socket, :error, "Domain is not eligible for accessibility scan.")}
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -480,6 +514,14 @@ defmodule RavnerWeb.DomainLive.Show do
      socket
      |> finish_scan()
      |> put_flash(:error, "Scan #{kind} failed or returned unexpected data.")}
+  end
+
+  @impl true
+  def handle_info({:a11y_scan_completed, scan}, socket) do
+    {:noreply,
+     socket
+     |> assign(:a11y_scan, scan)
+     |> assign(:a11y_running?, false)}
   end
 
   # ---------------------------------------------------------------------------

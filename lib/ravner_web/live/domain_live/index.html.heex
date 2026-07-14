@@ -875,6 +875,20 @@
                       class="shrink-0"
                     />
 
+                    <%!-- A11y compliance indicator --%>
+                    <%= case Map.get(@a11y_violations, domain.id) do %>
+                      <% nil -> %>
+                        <%!-- no scan --%>
+                      <% 0 -> %>
+                        <span title="EAA Compliant (0 WCAG violations)" class="text-green-500 shrink-0">
+                          <.icon name="hero-check-badge" class="w-4 h-4" />
+                        </span>
+                      <% count -> %>
+                        <span title={"EAA Non-Compliant (#{count} violations)"} class="text-red-400 shrink-0">
+                          <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
+                        </span>
+                    <% end %>
+
                     <div class="flex items-center gap-3">
                       <.link
                         navigate={~p"/domains/#{domain.id}"}
