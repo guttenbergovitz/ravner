@@ -26,6 +26,27 @@ defmodule Ravner.A11y do
     )
   end
 
+  @doc """
+  Returns a map of domain_id => violations_count for all given domain IDs.
+  Only considers the latest completed scan per domain.
+  Returns nil for domains with no completed scan.
+  """
+  def violations_by_domain_ids(domain_ids) when is_list(domain_ids) do
+    if domain_ids == [] do
+      %{}
+    else
+      # Lateral join: latest completed scan per domain
+      from(s in A11yScan,
+        where: s.domain_id in ^domain_ids and s.status == "completed",
+        distinct: s.domain_id,
+        order_by: [asc: s.domain_id, desc: s.completed_at],
+        select: {s.domain_id, s.violations_count}
+      )
+      |> Repo.all()
+      |> Map.new()
+    end
+  end
+
   def running_scan(domain_id) do
     Repo.one(
       from(s in A11yScan,

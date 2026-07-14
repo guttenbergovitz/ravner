@@ -3,6 +3,7 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   alias Ravner.ApiKeys
   alias Ravner.ApiKeys.ApiKey
+  alias Ravner.Repo
   alias Ravner.SystemCommand
 
   @nuclei_template_update_timeout 120_000
@@ -10,13 +11,24 @@ defmodule RavnerWeb.AdminLive.Settings do
   @impl true
   def mount(_params, _session, socket) do
     if admin?(socket.assigns.current_scope) do
+      {pa11y_available?, pa11y_version} = check_pa11y()
+      nuclei_status = check_nuclei_status()
+
+      last_security_scan = last_scan_time("security_scans")
+      last_a11y_scan = last_scan_time("a11y_scans")
+
       {:ok,
        socket
        |> assign(:page_title, "Settings")
        |> assign(:api_keys, ApiKeys.list_api_keys())
        |> assign(:known_keys, ApiKeys.list_known_keys())
        |> assign(:editing_key, nil)
-       |> assign(:form, nil)}
+       |> assign(:form, nil)
+       |> assign(:pa11y_available?, pa11y_available?)
+       |> assign(:pa11y_version, pa11y_version)
+       |> assign(:nuclei_status, nuclei_status)
+       |> assign(:last_security_scan, last_security_scan)
+       |> assign(:last_a11y_scan, last_a11y_scan)}
     else
       {:ok,
        socket
@@ -163,5 +175,58 @@ defmodule RavnerWeb.AdminLive.Settings do
       ["-update-templates"],
       @nuclei_template_update_timeout
     )
+  end
+
+  @nuclei_template_paths ["/app/.nuclei-templates", "/app/nuclei-templates", "/root/nuclei-templates"]
+
+  defp check_nuclei_status do
+    available? = System.find_executable("nuclei") != nil
+
+    templates_path = Enum.find(@nuclei_template_paths, &File.dir?/1)
+
+    {templates_count, templates_date} =
+      if templates_path do
+        count =
+          case System.cmd("find", [templates_path, "-name", "*.yaml", "-type", "f"], stderr_to_stdout: true) do
+            {output, 0} -> output |> String.split("\n", trim: true) |> length()
+            _ -> 0
+          end
+
+        date =
+          case File.stat(templates_path) do
+            {:ok, %{mtime: mtime}} ->
+              mtime |> NaiveDateTime.from_erl!() |> NaiveDateTime.to_date() |> Date.to_iso8601()
+            _ -> nil
+          end
+
+        {count, date}
+      else
+        {0, nil}
+      end
+
+    %{
+      available?: available?,
+      templates_path: templates_path,
+      templates_count: templates_count,
+      templates_date: templates_date
+    }
+  end
+
+  defp check_pa11y do
+    case System.find_executable("pa11y") do
+      nil ->
+        {false, nil}
+
+      _path ->
+        case System.cmd("pa11y", ["--version"], stderr_to_stdout: true) do
+          {version, 0} -> {true, String.trim(version)}
+          _ -> {true, "unknown"}
+        end
+    end
+  end
+
+  defp last_scan_time(table) do
+    import Ecto.Query
+    Repo.one(from(s in table, where: s.status == "completed", select: max(s.completed_at)))
   end
 end

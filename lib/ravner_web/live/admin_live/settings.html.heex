@@ -171,12 +171,69 @@
       <p class="text-sm font-light text-neutral-500 mb-4">
         Nuclei templates are pre-loaded in the container. Update manually to get the latest vulnerability templates.
       </p>
+
+      <div class="flex items-center gap-3 text-xs mb-4">
+        <span class={"flex items-center gap-1.5 " <> if(@nuclei_status.available?, do: "text-green-600", else: "text-red-500")}>
+          <%= if @nuclei_status.available? do %>
+            <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> nuclei installed
+          <% else %>
+            <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> nuclei not found
+          <% end %>
+        </span>
+        <span class="text-neutral-400">·</span>
+        <%= if @nuclei_status.templates_path do %>
+          <span class="text-neutral-500">{@nuclei_status.templates_count} templates</span>
+          <%= if @nuclei_status.templates_date do %>
+            <span class="text-neutral-400">·</span>
+            <span class="text-neutral-500">from {@nuclei_status.templates_date}</span>
+          <% end %>
+        <% else %>
+          <span class="text-red-500 flex items-center gap-1">
+            <.icon name="hero-exclamation-triangle" class="w-3.5 h-3.5" /> No templates directory found
+          </span>
+        <% end %>
+      </div>
+
       <button
         phx-click="update_nuclei_templates"
         class="btn-line text-xs flex items-center gap-1.5"
       >
         <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Update Nuclei Templates
       </button>
+
+      <%= if @last_security_scan do %>
+        <p class="text-[10px] text-neutral-400 mt-3">
+          Last completed scan: {Calendar.strftime(@last_security_scan, "%Y-%m-%d %H:%M UTC")}
+        </p>
+      <% end %>
+    </div>
+
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-2">Accessibility Scanner</h2>
+      <p class="text-sm font-light text-neutral-500 mb-4">
+        WCAG 2.1 AA scanning via pa11y + Chromium. Checks homepage accessibility against
+        European Accessibility Act (EAA / EN 301 549) requirements.
+      </p>
+      <div class="flex items-center gap-3 text-xs">
+        <span class={"flex items-center gap-1.5 " <> if(@pa11y_available?, do: "text-green-600", else: "text-red-500")}>
+          <%= if @pa11y_available? do %>
+            <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> pa11y {@pa11y_version}
+          <% else %>
+            <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> pa11y not found
+          <% end %>
+        </span>
+        <span class="text-neutral-400">·</span>
+        <span class="text-neutral-500">Standard: WCAG2AA</span>
+        <span class="text-neutral-400">·</span>
+        <span class="text-neutral-500">Queue: :scans</span>
+        <span class="text-neutral-400">·</span>
+        <span class="text-neutral-500">Dispatch: daily 05:00 UTC</span>
+      </div>
+      <%= if @last_a11y_scan do %>
+        <p class="text-[10px] text-neutral-400 mt-3">
+          Last completed scan: {Calendar.strftime(@last_a11y_scan, "%Y-%m-%d %H:%M UTC")}
+        </p>
+      <% end %>
     </div>
 
     <div class="text-xs text-neutral-400">
