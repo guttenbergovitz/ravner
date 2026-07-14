@@ -33,17 +33,20 @@ defmodule Ravner.Scans.SecurityRunner do
   # disable self/template update probes, refuse to read stdin, cap concurrency
   # and request rate so we don't get throttled or run wildly long. `-mhe`
   # mirrors `-c` so nuclei doesn't warn about concurrency > max-host-error.
+  # ponytail: concurrency was 50 but caused OOM (exit 137) on containers
+  # with <1GB RAM. 10 threads keeps nuclei under ~300MB. Upgrade path:
+  # increase -c if container memory is bumped above 2GB.
   @nuclei_perf_flags [
     "-disable-update-check",
     "-no-stdin",
     "-c",
-    "50",
+    "10",
     "-mhe",
-    "50",
+    "10",
     "-bulk-size",
-    "25",
+    "10",
     "-rl",
-    "200"
+    "100"
   ]
 
   # ─── Public API ───────────────────────────────────────────────────────────
