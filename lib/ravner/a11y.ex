@@ -126,6 +126,10 @@ defmodule Ravner.A11y do
   end
 
   defp execute_pa11y(url) do
+    # ponytail: config file passes --no-sandbox to Chromium for Docker.
+    # On bare metal this is harmless (sandbox just stays enabled).
+    config_path = Application.app_dir(:ravner, "priv/pa11y.json")
+
     args = [
       "--reporter",
       "json",
@@ -133,6 +137,8 @@ defmodule Ravner.A11y do
       @standard,
       "--timeout",
       "60000",
+      "--config",
+      config_path,
       url
     ]
 
@@ -143,9 +149,14 @@ defmodule Ravner.A11y do
       {:error, reason} ->
         {:error, inspect(reason)}
 
-      {_output, 0} ->
-        # exit 0 = no issues found
-        {:ok, []}
+      {output, 0} ->
+        # exit 0 = no issues found — but verify pa11y actually ran
+        # (empty output means Chromium likely failed to start)
+        if output == "" or output == nil do
+          {:error, "pa11y returned no output (Chromium may have failed to start)"}
+        else
+          {:ok, []}
+        end
 
       {output, 2} ->
         # exit 2 = issues found, output is JSON array
