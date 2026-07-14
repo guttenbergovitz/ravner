@@ -151,11 +151,25 @@ defmodule Ravner.A11y do
 
       {output, 0} ->
         # exit 0 = no issues found — but verify pa11y actually ran
-        # (empty output means Chromium likely failed to start)
-        if output == "" or output == nil do
-          {:error, "pa11y returned no output (Chromium may have failed to start)"}
-        else
-          {:ok, []}
+        # pa11y with --reporter json outputs nothing on 0 issues,
+        # but outputs error text if Chromium failed to launch
+        output = String.trim(output)
+
+        cond do
+          output == "" ->
+            # Legit zero issues — pa11y ran successfully, found nothing
+            {:ok, []}
+
+          String.starts_with?(output, "[") ->
+            # JSON array — shouldn't happen on exit 0 but handle gracefully
+            case Jason.decode(output) do
+              {:ok, issues} when is_list(issues) -> {:ok, issues}
+              _ -> {:error, "Failed to parse pa11y output"}
+            end
+
+          true ->
+            # Non-empty, non-JSON output = error message from pa11y/chromium
+            {:error, "pa11y error: #{String.slice(output, 0, 500)}"}
         end
 
       {output, 2} ->
