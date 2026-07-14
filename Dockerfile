@@ -18,6 +18,7 @@
 #   • katana                — Ravner.Scans (deep URL crawling)
 #   • webanalyze            — Ravner.Scans (deep tech fingerprinting)
 #   • whois                 — Ravner.Scans (WHOIS lookup)
+#   • pa11y + chromium      — Ravner.A11y (WCAG accessibility scanning)
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG ELIXIR_VERSION=1.18.4
@@ -202,6 +203,30 @@ ENV LANG=en_US.UTF-8 \
 # Drop privileges — never run BEAM as root in production.
 RUN groupadd --system --gid 1000 ravner \
  && useradd  --system --uid 1000 --gid ravner --create-home --home-dir /app ravner
+
+# ─── Node.js + Chromium + pa11y for accessibility scanning ───────────────────
+# pa11y uses puppeteer which needs a headless Chromium instance.
+# PUPPETEER_EXECUTABLE_PATH tells puppeteer to use system Chromium.
+RUN set -eux; \
+    apt-get update -y; \
+    apt-get install -y --no-install-recommends \
+      curl ca-certificates gnupg \
+      chromium \
+      fonts-liberation fonts-noto-color-emoji \
+      libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+      libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
+      libasound2 libpango-1.0-0 libpangocairo-1.0-0; \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; \
+    apt-get install -y --no-install-recommends nodejs; \
+    npm install -g pa11y --unsafe-perm; \
+    apt-get purge -y --auto-remove curl gnupg; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# ponytail: --no-sandbox needed because Chromium runs as non-root in container.
+# Upgrade path: run container with --cap-add=SYS_ADMIN and drop this flag.
+ENV PUPPETEER_LAUNCH_ARGS="--no-sandbox --disable-setuid-sandbox"
 
 WORKDIR /app
 USER ravner:ravner

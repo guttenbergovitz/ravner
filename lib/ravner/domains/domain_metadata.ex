@@ -62,7 +62,9 @@ defmodule Ravner.Domains.DomainMetadata do
         :http_scan_interval_days,
         :dns_scan_interval_days,
         :is_up,
-        :last_heartbeat_at
+        :last_heartbeat_at,
+        :a11y_scan_interval_days,
+        :last_a11y_scan_at
       ])
     end
 
@@ -112,7 +114,9 @@ defmodule Ravner.Domains.DomainMetadata do
         :http_scan_interval_days,
         :dns_scan_interval_days,
         :is_up,
-        :last_heartbeat_at
+        :last_heartbeat_at,
+        :a11y_scan_interval_days,
+        :last_a11y_scan_at
       ])
     end
   end
@@ -205,6 +209,8 @@ defmodule Ravner.Domains.DomainMetadata do
     attribute(:dns_scan_interval_days, :integer)
     attribute(:is_up, :boolean)
     attribute(:last_heartbeat_at, :utc_datetime)
+    attribute(:a11y_scan_interval_days, :integer)
+    attribute(:last_a11y_scan_at, :utc_datetime)
 
     create_timestamp(:inserted_at, type: :utc_datetime)
     update_timestamp(:updated_at, type: :utc_datetime)
@@ -263,7 +269,9 @@ defmodule Ravner.Domains.DomainMetadata do
       :http_scan_interval_days,
       :dns_scan_interval_days,
       :is_up,
-      :last_heartbeat_at
+      :last_heartbeat_at,
+      :a11y_scan_interval_days,
+      :last_a11y_scan_at
     ])
     |> validate_required([:domain_id])
     |> foreign_key_constraint(:domain_id)
