@@ -13,6 +13,7 @@ defmodule RavnerWeb.AdminLive.Settings do
     if admin?(socket.assigns.current_scope) do
       {pa11y_available?, pa11y_version} = check_pa11y()
       nuclei_status = check_nuclei_status()
+      scan_config = Ravner.ScanConfig.get()
 
       last_security_scan = last_scan_time("security_scans")
       last_a11y_scan = last_scan_time("a11y_scans")
@@ -29,6 +30,7 @@ defmodule RavnerWeb.AdminLive.Settings do
        |> assign(:pa11y_available?, pa11y_available?)
        |> assign(:pa11y_version, pa11y_version)
        |> assign(:nuclei_status, nuclei_status)
+       |> assign(:scan_config, scan_config)
        |> assign(:last_security_scan, last_security_scan)
        |> assign(:last_a11y_scan, last_a11y_scan)
        |> assign(:last_lighthouse_scan, last_lighthouse_scan)
@@ -128,6 +130,55 @@ defmodule RavnerWeb.AdminLive.Settings do
          socket
          |> assign(:api_keys, ApiKeys.list_api_keys())
          |> put_flash(:error, "#{name} validation failed: #{reason}")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_severity", %{"severity" => severity}, socket) do
+    config = socket.assigns.scan_config
+    current = config.nuclei_severities
+
+    updated =
+      if severity in current,
+        do: List.delete(current, severity),
+        else: current ++ [severity]
+
+    case Ravner.ScanConfig.update(%{nuclei_severities: updated}) do
+      {:ok, new_config} -> {:noreply, assign(socket, :scan_config, new_config)}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to update config")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_exclude_tag", %{"tag" => tag}, socket) do
+    config = socket.assigns.scan_config
+    current = config.nuclei_exclude_tags
+
+    updated =
+      if tag in current,
+        do: List.delete(current, tag),
+        else: current ++ [tag]
+
+    case Ravner.ScanConfig.update(%{nuclei_exclude_tags: updated}) do
+      {:ok, new_config} -> {:noreply, assign(socket, :scan_config, new_config)}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to update config")}
+    end
+  end
+
+  @impl true
+  def handle_event("select_all_severities", _params, socket) do
+    case Ravner.ScanConfig.update(%{nuclei_severities: Ravner.ScanConfig.valid_severities()}) do
+      {:ok, new_config} -> {:noreply, assign(socket, :scan_config, new_config)}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("deselect_all_severities", _params, socket) do
+    case Ravner.ScanConfig.update(%{nuclei_severities: ["critical"]}) do
+      {:ok, new_config} ->
+        {:noreply, assign(socket, :scan_config, new_config) |> put_flash(:info, "At least critical severity is always enabled")}
+      {:error, _} -> {:noreply, socket}
     end
   end
 

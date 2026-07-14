@@ -270,17 +270,24 @@ defmodule Ravner.Scans.SecurityRunner do
   end
 
   defp run_nuclei(domain_name) do
+    config = Ravner.ScanConfig.get()
+
+    severity_arg = Enum.join(config.nuclei_severities, ",")
+
     args =
       [
         "-u",
         domain_name,
         "-severity",
-        "critical,high,medium",
+        severity_arg,
         "-jsonl",
         "-silent",
         "-timeout",
         "10"
-      ] ++ nuclei_template_flags() ++ @nuclei_perf_flags
+      ] ++
+        tag_flags(config) ++
+        nuclei_template_flags() ++
+        @nuclei_perf_flags
 
     case SystemCommand.run_with_timeout("nuclei", args, @nuclei_timeout) do
       {output, 0} ->
@@ -403,6 +410,12 @@ defmodule Ravner.Scans.SecurityRunner do
     "/app/nuclei-templates",
     "/root/nuclei-templates"
   ]
+
+  defp tag_flags(%{nuclei_tags: tags, nuclei_exclude_tags: exclude}) do
+    tag_args = if tags != [], do: ["-tags", Enum.join(tags, ",")], else: []
+    exclude_args = if exclude != [], do: ["-etags", Enum.join(exclude, ",")], else: []
+    tag_args ++ exclude_args
+  end
 
   defp nuclei_template_flags do
     case Enum.find(@nuclei_template_paths, &File.dir?/1) do
