@@ -19,6 +19,7 @@
 #   • webanalyze            — Ravner.Scans (deep tech fingerprinting)
 #   • whois                 — Ravner.Scans (WHOIS lookup)
 #   • pa11y + chromium      — Ravner.A11y (WCAG accessibility scanning)
+#   • lighthouse + chromium — Ravner.Lighthouse (PageSpeed performance audit)
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG ELIXIR_VERSION=1.18.4
@@ -218,7 +219,7 @@ RUN set -eux; \
       libasound2 libpango-1.0-0 libpangocairo-1.0-0; \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; \
     apt-get install -y --no-install-recommends nodejs; \
-    npm install -g pa11y --unsafe-perm; \
+    npm install -g pa11y lighthouse --unsafe-perm; \
     apt-get purge -y --auto-remove curl gnupg; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*

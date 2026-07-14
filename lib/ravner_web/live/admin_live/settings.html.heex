@@ -236,6 +236,31 @@
       <% end %>
     </div>
 
+    <div class="border border-neutral-200 p-6 mb-8">
+      <h2 class="text-lg font-light tracking-tight mb-2">Lighthouse / PageSpeed</h2>
+      <p class="text-sm font-light text-neutral-500 mb-4">
+        Google Lighthouse performance, SEO, and best practices auditing via headless Chrome.
+      </p>
+      <div class="flex items-center gap-3 text-xs">
+        <span class={"flex items-center gap-1.5 " <> if(@lighthouse_ok, do: "text-green-600", else: "text-red-500")}>
+          <%= if @lighthouse_ok do %>
+            <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> lighthouse installed
+          <% else %>
+            <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> lighthouse not found
+          <% end %>
+        </span>
+        <span class="text-neutral-400">·</span>
+        <span class="text-neutral-500">Categories: performance, a11y, best-practices, seo</span>
+        <span class="text-neutral-400">·</span>
+        <span class="text-neutral-500">Dispatch: daily 06:00 UTC</span>
+      </div>
+      <%= if @last_lighthouse_scan do %>
+        <p class="text-[10px] text-neutral-400 mt-3">
+          Last completed scan: {Calendar.strftime(@last_lighthouse_scan, "%Y-%m-%d %H:%M UTC")}
+        </p>
+      <% end %>
+    </div>
+
     <div class="text-xs text-neutral-400">
       <p>* Required keys must be configured for full functionality.</p>
       <p>Environment variables: CHAOS_API_KEY, SECURITYTRAILS_API_KEY, SHODAN_API_KEY</p>

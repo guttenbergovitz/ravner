@@ -16,6 +16,8 @@ defmodule RavnerWeb.AdminLive.Settings do
 
       last_security_scan = last_scan_time("security_scans")
       last_a11y_scan = last_scan_time("a11y_scans")
+      last_lighthouse_scan = last_scan_time("lighthouse_scans")
+      lighthouse_ok = System.find_executable("lighthouse") != nil
 
       {:ok,
        socket
@@ -28,7 +30,9 @@ defmodule RavnerWeb.AdminLive.Settings do
        |> assign(:pa11y_version, pa11y_version)
        |> assign(:nuclei_status, nuclei_status)
        |> assign(:last_security_scan, last_security_scan)
-       |> assign(:last_a11y_scan, last_a11y_scan)}
+       |> assign(:last_a11y_scan, last_a11y_scan)
+       |> assign(:last_lighthouse_scan, last_lighthouse_scan)
+       |> assign(:lighthouse_ok, lighthouse_ok)}
     else
       {:ok,
        socket

@@ -97,6 +97,7 @@ defmodule RavnerWeb.Router do
       live("/domains/:id", DomainLive.Show, :show)
       live("/domains/:id/edit", DomainLive.Show, :edit)
       live("/domains/:id/a11y", DomainLive.A11yReport, :index)
+      live("/domains/:id/lighthouse", DomainLive.LighthouseReport, :index)
 
       # Ownership hierarchy views (read-only, all authenticated users)
       live("/ownership", OwnershipLive.Index, :index)

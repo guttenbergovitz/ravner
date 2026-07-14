@@ -849,6 +849,76 @@
           <% end %>
         </div>
 
+        <%!-- Lighthouse / PageSpeed --%>
+        <div :if={@a11y_scannable?} class="card-line" id="lighthouse-panel">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-normal tracking-wide uppercase">PageSpeed</h2>
+            <button
+              id="scan-lighthouse-btn"
+              phx-click="scan_lighthouse"
+              disabled={@lighthouse_running? || @scanning || is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+              class={[
+                "text-xs font-light px-2.5 py-1 border transition-colors",
+                (@lighthouse_running? || @scanning) && "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
+                !(@lighthouse_running? || @scanning) && "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
+              ]}
+            >
+              <%= if @lighthouse_running? do %>
+                <span class="inline-flex items-center gap-1">
+                  <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></span>
+                  Scanning…
+                </span>
+              <% else %>
+                Run Lighthouse
+              <% end %>
+            </button>
+          </div>
+
+          <%= if @lighthouse_scan do %>
+            <div class="space-y-3">
+              <div class="grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <div class={[
+                    "text-lg font-light",
+                    @lighthouse_scan.performance_score && @lighthouse_scan.performance_score >= 90 && "text-green-600",
+                    @lighthouse_scan.performance_score && @lighthouse_scan.performance_score >= 50 && @lighthouse_scan.performance_score < 90 && "text-amber-600",
+                    @lighthouse_scan.performance_score && @lighthouse_scan.performance_score < 50 && "text-red-600",
+                    is_nil(@lighthouse_scan.performance_score) && "text-neutral-300"
+                  ]}>
+                    {@lighthouse_scan.performance_score || "—"}
+                  </div>
+                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">Perf</div>
+                </div>
+                <div>
+                  <div class="text-lg font-light text-neutral-600">{@lighthouse_scan.seo_score || "—"}</div>
+                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">SEO</div>
+                </div>
+                <div>
+                  <div class="text-lg font-light text-neutral-600">{@lighthouse_scan.best_practices_score || "—"}</div>
+                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">BP</div>
+                </div>
+                <div>
+                  <div class="text-lg font-light text-neutral-600">{@lighthouse_scan.accessibility_score || "—"}</div>
+                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">A11y</div>
+                </div>
+              </div>
+
+              <div class="text-[10px] text-neutral-400">
+                Scanned {Calendar.strftime(@lighthouse_scan.completed_at, "%Y-%m-%d %H:%M")}
+              </div>
+
+              <.link
+                navigate={~p"/domains/#{@domain.id}/lighthouse"}
+                class="inline-flex items-center gap-1 text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors"
+              >
+                View full report <.icon name="hero-arrow-right" class="w-3 h-3" />
+              </.link>
+            </div>
+          <% else %>
+            <p class="text-xs font-light text-neutral-400">No scan results yet.</p>
+          <% end %>
+        </div>
+
         <%!-- Scheduling & Automation --%>
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">
@@ -1075,6 +1145,36 @@
                     @domain.domain_metadata &&
                       @domain.domain_metadata.a11y_scan_interval_days == 30
                   }
+                >
+                  Monthly
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
+                Lighthouse
+              </label>
+              <select
+                name="lighthouse_scan_interval_days"
+                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
+                disabled={is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+              >
+                <option
+                  value=""
+                  selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.lighthouse_scan_interval_days)}
+                >
+                  Manual only
+                </option>
+                <option
+                  value="7"
+                  selected={@domain.domain_metadata && @domain.domain_metadata.lighthouse_scan_interval_days == 7}
+                >
+                  Weekly
+                </option>
+                <option
+                  value="30"
+                  selected={@domain.domain_metadata && @domain.domain_metadata.lighthouse_scan_interval_days == 30}
                 >
                   Monthly
                 </option>

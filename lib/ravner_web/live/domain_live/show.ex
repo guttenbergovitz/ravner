@@ -12,6 +12,7 @@ defmodule RavnerWeb.DomainLive.Show do
   alias Ravner.A11y
   alias Ravner.Domains
   alias Ravner.Inventory
+  alias Ravner.Lighthouse
   alias Ravner.Scans
   alias Ravner.SecurityScans
 
@@ -36,7 +37,9 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:severity_counts, %{critical: 0, high: 0, medium: 0, low: 0})
      |> assign(:a11y_scan, nil)
      |> assign(:a11y_running?, false)
-     |> assign(:a11y_scannable?, false)}
+     |> assign(:a11y_scannable?, false)
+     |> assign(:lighthouse_scan, nil)
+     |> assign(:lighthouse_running?, false)}
   end
 
   @impl true
@@ -48,6 +51,7 @@ defmodule RavnerWeb.DomainLive.Show do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Ravner.PubSub, "a11y_scan:domain:#{domain.id}")
+      Phoenix.PubSub.subscribe(Ravner.PubSub, "lighthouse_scan:domain:#{domain.id}")
     end
 
     {:noreply,
@@ -62,6 +66,8 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:a11y_scannable?, A11y.scannable?(domain))
      |> assign(:a11y_scan, A11y.latest_scan(domain.id))
      |> assign(:a11y_running?, A11y.running_scan(domain.id) != nil)
+     |> assign(:lighthouse_scan, Lighthouse.latest_scan(domain.id))
+     |> assign(:lighthouse_running?, Lighthouse.running_scan(domain.id) != nil)
      |> refresh_security_scan_assigns()}
   end
 
@@ -250,7 +256,8 @@ defmodule RavnerWeb.DomainLive.Show do
       heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
       http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
       dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"]),
-      a11y_scan_interval_days: parse_interval(params["a11y_scan_interval_days"])
+      a11y_scan_interval_days: parse_interval(params["a11y_scan_interval_days"]),
+      lighthouse_scan_interval_days: parse_interval(params["lighthouse_scan_interval_days"])
     }
 
     case Domains.upsert_domain_metadata(domain.id, attrs) do
@@ -374,6 +381,28 @@ defmodule RavnerWeb.DomainLive.Show do
        |> put_flash(:info, "Accessibility scan queued.")}
     else
       {:noreply, put_flash(socket, :error, "Domain is not eligible for accessibility scan.")}
+    end
+  end
+
+  def handle_event("scan_lighthouse", _params, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_lighthouse", _params, socket) do
+    domain = socket.assigns.domain
+
+    if Lighthouse.scannable?(domain) do
+      %{domain_id: domain.id}
+      |> Ravner.Workers.LighthouseScanWorker.new()
+      |> Oban.insert()
+
+      {:noreply,
+       socket
+       |> assign(:lighthouse_running?, true)
+       |> put_flash(:info, "Lighthouse scan queued.")}
+    else
+      {:noreply, put_flash(socket, :error, "Domain is not eligible for Lighthouse scan.")}
     end
   end
 
@@ -522,6 +551,14 @@ defmodule RavnerWeb.DomainLive.Show do
      socket
      |> assign(:a11y_scan, scan)
      |> assign(:a11y_running?, false)}
+  end
+
+  @impl true
+  def handle_info({:lighthouse_scan_completed, scan}, socket) do
+    {:noreply,
+     socket
+     |> assign(:lighthouse_scan, scan)
+     |> assign(:lighthouse_running?, false)}
   end
 
   # ---------------------------------------------------------------------------

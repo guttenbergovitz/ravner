@@ -7,6 +7,7 @@ defmodule Ravner.A11y do
   require Logger
 
   alias Ravner.A11y.A11yScan
+  alias Ravner.ActivityLog
   alias Ravner.Domains
   alias Ravner.Repo
   alias Ravner.SystemCommand
@@ -97,6 +98,7 @@ defmodule Ravner.A11y do
 
     if scannable?(domain) do
       url = effective_url(domain)
+      ActivityLog.emit(:step, "A11y — scanning #{domain.name}…")
 
       scan =
         %A11yScan{}
@@ -177,6 +179,7 @@ defmodule Ravner.A11y do
       last_a11y_scan_at: DateTime.utc_now(:second)
     })
 
+    ActivityLog.emit(:done, "A11y done — #{violations} violations, #{warnings} warnings")
     broadcast(scan.domain_id, updated)
     {:ok, updated}
   end
@@ -191,6 +194,7 @@ defmodule Ravner.A11y do
       })
       |> Repo.update()
 
+    ActivityLog.emit(:error, "A11y failed: #{String.slice(reason, 0, 100)}")
     broadcast(scan.domain_id, updated)
     {:error, updated}
   end

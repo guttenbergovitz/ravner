@@ -17,6 +17,7 @@ defmodule RavnerWeb.DomainLive.Index do
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Inventory
+  alias Ravner.Lighthouse
   alias Ravner.Scans
 
   @bulk_actions %{"delete" => :delete, "scan" => :scan}
@@ -442,6 +443,7 @@ defmodule RavnerWeb.DomainLive.Index do
     socket
     |> assign(:domains, [])
     |> assign(:a11y_violations, %{})
+    |> assign(:lighthouse_scores, %{})
     |> assign(:total, 0)
     |> assign(:page, 1)
     |> assign(:total_pages, 1)
@@ -513,12 +515,14 @@ defmodule RavnerWeb.DomainLive.Index do
   defp assign_index_state(socket, result, domains, filters, facets) do
     domain_ids = Enum.map(domains, & &1.id)
     a11y_violations = A11y.violations_by_domain_ids(domain_ids)
+    lighthouse_scores = Lighthouse.scores_by_domain_ids(domain_ids)
 
     socket
     |> assign(:page_title, "Domains")
     |> assign(:domain, nil)
     |> assign(:domains, domains)
     |> assign(:a11y_violations, a11y_violations)
+    |> assign(:lighthouse_scores, lighthouse_scores)
     |> assign(:total, result.total)
     |> assign(:page, result.page)
     |> assign(:total_pages, result.total_pages)
