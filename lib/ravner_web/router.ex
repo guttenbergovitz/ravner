@@ -141,6 +141,8 @@ defmodule RavnerWeb.Router do
       live("/brands/:id/edit", AdminLive.BrandLive.Index, :edit)
       live("/jobs", AdminLive.Jobs, :index)
       live("/uptime", AdminLive.Uptime, :index)
+      live("/uptime/report", AdminLive.UptimeReport, :index)
+      live("/uptime/report/:domain_id", AdminLive.UptimeReport, :show)
     end
 
     get("/settings/backup/download", BackupController, :download)

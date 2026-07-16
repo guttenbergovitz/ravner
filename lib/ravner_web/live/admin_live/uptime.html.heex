@@ -7,13 +7,12 @@
           Real-time status of all monitored domains.
         </p>
       </div>
-      <%!-- TODO: Task 7 adds the /admin/uptime/report route; using plain href to avoid ~p compile check --%>
-      <a
-        href="/admin/uptime/report"
+      <.link
+        navigate={~p"/admin/uptime/report"}
         class="px-4 py-2 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800"
       >
         View Reports
-      </a>
+      </.link>
     </div>
 
     <div class="grid grid-cols-3 gap-4 mb-8">
@@ -58,9 +57,9 @@
               <% end %>
             </td>
             <td class="px-4 py-3 font-medium">
-              <a href={"/admin/uptime/report/#{m.domain.id}"} class="hover:underline">
+              <.link navigate={~p"/admin/uptime/report/#{m.domain.id}"} class="hover:underline">
                 {m.domain.name}
-              </a>
+              </.link>
             </td>
             <td class="px-4 py-3 text-neutral-500">
               <%= if m.meta.last_heartbeat_at do %>

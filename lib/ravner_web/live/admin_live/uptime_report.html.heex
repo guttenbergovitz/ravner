@@ -1,0 +1,102 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-light tracking-tight">Uptime Report</h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Availability data for monitored domains.
+        </p>
+      </div>
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={~p"/admin/uptime"}
+          class="text-xs text-neutral-500 hover:text-neutral-700 transition-colors dark:hover:text-neutral-300"
+        >
+          &larr; Status
+        </.link>
+        <div class="flex bg-neutral-100 p-1 rounded-lg dark:bg-neutral-800">
+          <button
+            :for={r <- ["24h", "7d", "30d"]}
+            phx-click="set_range"
+            phx-value-range={r}
+            class={[
+              "px-4 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer",
+              @range == r && "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+              @range != r && "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+            ]}
+          >
+            {r}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-line overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 dark:bg-neutral-800 text-left text-xs uppercase tracking-wide text-neutral-500">
+          <tr>
+            <th class="px-4 py-3 font-normal">Domain</th>
+            <th class="px-4 py-3 font-normal">Uptime</th>
+            <th class="px-4 py-3 font-normal">Incidents</th>
+            <th class="px-4 py-3 font-normal">Total Downtime</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <tr :for={row <- @report} class="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50">
+            <td class="px-4 py-3 font-medium">
+              <.link navigate={~p"/admin/uptime/report/#{row.domain.id}"} class="hover:underline">
+                {row.domain.name}
+              </.link>
+            </td>
+            <td class="px-4 py-3">
+              <span class={[
+                "font-medium",
+                row.uptime_percent >= 99.9 && "text-green-600",
+                row.uptime_percent >= 99.0 && row.uptime_percent < 99.9 && "text-yellow-600",
+                row.uptime_percent < 99.0 && "text-red-600"
+              ]}>
+                {row.uptime_percent}%
+              </span>
+            </td>
+            <td class="px-4 py-3 text-neutral-500">{length(row.windows)}</td>
+            <td class="px-4 py-3 text-neutral-500">
+              {format_duration(Enum.reduce(row.windows, 0, fn w, acc -> acc + (w.duration_seconds || 0) end))}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <%!-- Downtime windows detail (shown when viewing single domain) --%>
+    <%= if @domain_id && length(@report) == 1 do %>
+      <% [detail] = @report %>
+      <div class="mt-8">
+        <h2 class="text-lg font-light mb-4">Downtime Windows</h2>
+        <%= if detail.windows == [] do %>
+          <p class="text-sm text-neutral-500">No downtime recorded in this period.</p>
+        <% else %>
+          <div class="card-line divide-y divide-neutral-100 dark:divide-neutral-800">
+            <div :for={w <- detail.windows} class="px-4 py-3 flex items-center justify-between">
+              <div>
+                <span class="text-sm font-medium">
+                  {Calendar.strftime(w.started_at, "%Y-%m-%d %H:%M")}
+                </span>
+                <span class="text-neutral-400 mx-2">&rarr;</span>
+                <span class="text-sm">
+                  <%= if w.ended_at do %>
+                    {Calendar.strftime(w.ended_at, "%Y-%m-%d %H:%M")}
+                  <% else %>
+                    <span class="text-red-500 font-medium">ongoing</span>
+                  <% end %>
+                </span>
+              </div>
+              <span class="text-xs text-neutral-500">
+                {format_duration(w.duration_seconds || DateTime.diff(DateTime.utc_now(), w.started_at, :second))}
+              </span>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</Layouts.app>
