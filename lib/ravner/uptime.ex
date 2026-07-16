@@ -50,12 +50,15 @@ defmodule Ravner.Uptime do
       if consecutive >= threshold do
         earliest = get_earliest_consecutive_failure(domain_id, consecutive)
 
-        %DowntimeWindow{
-          domain_id: domain_id,
-          started_at: earliest,
-          failure_threshold_used: threshold
-        }
-        |> Repo.insert!()
+        window =
+          %DowntimeWindow{
+            domain_id: domain_id,
+            started_at: earliest,
+            failure_threshold_used: threshold
+          }
+          |> Repo.insert!()
+
+        Ravner.Uptime.Notifications.dispatch("incident_open", window)
       end
     end
   end
@@ -70,17 +73,30 @@ defmodule Ravner.Uptime do
   defp close_open_window(domain_id) do
     now = DateTime.utc_now(:second)
 
-    from(w in DowntimeWindow,
-      where: w.domain_id == ^domain_id,
-      where: is_nil(w.ended_at),
-      update: [
-        set: [
-          ended_at: ^now,
-          duration_seconds: fragment("EXTRACT(EPOCH FROM ? - started_at)::integer", ^now)
+    {updated, _} =
+      from(w in DowntimeWindow,
+        where: w.domain_id == ^domain_id,
+        where: is_nil(w.ended_at),
+        update: [
+          set: [
+            ended_at: ^now,
+            duration_seconds: fragment("EXTRACT(EPOCH FROM ? - started_at)::integer", ^now)
+          ]
         ]
-      ]
-    )
-    |> Repo.update_all([])
+      )
+      |> Repo.update_all([])
+
+    if updated > 0 do
+      window =
+        DowntimeWindow
+        |> where(domain_id: ^domain_id)
+        |> where([w], w.ended_at == ^now)
+        |> order_by(desc: :started_at)
+        |> limit(1)
+        |> Repo.one()
+
+      if window, do: Ravner.Uptime.Notifications.dispatch("incident_resolved", window)
+    end
   end
 
   defp count_consecutive_failures(domain_id) do
