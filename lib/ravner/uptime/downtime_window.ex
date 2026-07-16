@@ -9,7 +9,7 @@ defmodule Ravner.Uptime.DowntimeWindow do
 
     belongs_to :domain, Ravner.Domains.Domain
 
-    # has_many :notes, Ravner.Uptime.DowntimeNote  # added in Task 12
+    has_many :notes, Ravner.Uptime.DowntimeNote
 
     timestamps(type: :utc_datetime)
   end

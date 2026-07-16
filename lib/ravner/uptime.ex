@@ -7,6 +7,7 @@ defmodule Ravner.Uptime do
   alias Ravner.Repo
   alias Ravner.Uptime.HeartbeatCheck
   alias Ravner.Uptime.DowntimeWindow
+  alias Ravner.Uptime.DowntimeNote
 
   @default_threshold 2
 
@@ -196,4 +197,30 @@ defmodule Ravner.Uptime do
     |> limit(^limit)
     |> Repo.all()
   end
+
+  # --- Downtime Notes ---
+
+  def list_notes(downtime_window_id) do
+    DowntimeNote
+    |> where(downtime_window_id: ^downtime_window_id)
+    |> order_by(asc: :inserted_at)
+    |> Repo.all()
+    |> Repo.preload(:author)
+  end
+
+  def create_note(attrs) do
+    %DowntimeNote{}
+    |> DowntimeNote.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_note(%DowntimeNote{} = note, attrs) do
+    note
+    |> DowntimeNote.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_note(%DowntimeNote{} = note), do: Repo.delete(note)
+
+  def get_note!(id), do: Repo.get!(DowntimeNote, id)
 end
