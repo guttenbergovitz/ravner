@@ -57,15 +57,15 @@
               </li>
               <li>
                 <.link
-                  href={~p"/ownership"}
+                  href={"/uptime"}
                   class={[
                     "hover:text-neutral-500 transition-colors",
-                    (String.starts_with?(@conn.request_path, "/ownership") &&
+                    (String.starts_with?(@conn.request_path, "/uptime") &&
                        "text-neutral-900 dark:text-neutral-100 font-normal") ||
                       "text-neutral-600 dark:text-neutral-400"
                   ]}
                 >
-                  Ownership
+                  Uptime
                 </.link>
               </li>
               <%= if @current_scope.user.role == :admin do %>
@@ -81,9 +81,17 @@
                   </button>
                   <div
                     id="admin-dropdown-menu"
-                    class="absolute top-full left-0 mt-1 w-44 border border-neutral-200 bg-white opacity-0 invisible transition-all duration-150 z-50 dark:border-neutral-700 dark:bg-neutral-800"
+                    class="absolute top-full left-0 mt-1 w-48 border border-neutral-200 bg-white opacity-0 invisible transition-all duration-150 z-50 dark:border-neutral-700 dark:bg-neutral-800"
                     role="menu"
                   >
+                    <.link
+                      href={~p"/ownership"}
+                      role="menuitem"
+                      tabindex="-1"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100 dark:hover:bg-neutral-700 dark:border-neutral-700"
+                    >
+                      Ownership
+                    </.link>
                     <.link
                       href={~p"/admin/certificates"}
                       role="menuitem"
@@ -96,9 +104,33 @@
                       href={~p"/admin/domain-registrations"}
                       role="menuitem"
                       tabindex="-1"
-                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100 dark:hover:bg-neutral-700 dark:border-neutral-700"
                     >
                       Domain Registrations
+                    </.link>
+                    <.link
+                      href={~p"/admin/users"}
+                      role="menuitem"
+                      tabindex="-1"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100 dark:hover:bg-neutral-700 dark:border-neutral-700"
+                    >
+                      Users
+                    </.link>
+                    <.link
+                      href={~p"/admin/jobs"}
+                      role="menuitem"
+                      tabindex="-1"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors border-b border-neutral-100 dark:hover:bg-neutral-700 dark:border-neutral-700"
+                    >
+                      Jobs
+                    </.link>
+                    <.link
+                      href={~p"/admin/settings"}
+                      role="menuitem"
+                      tabindex="-1"
+                      class="block px-4 py-2 text-xs hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700"
+                    >
+                      Settings
                     </.link>
                   </div>
                 </li>
@@ -120,20 +152,6 @@
             <.icon name="hero-sun" class="w-4 h-4 hidden dark:block" />
           </button>
           <%= if @current_scope do %>
-            <%= if @current_scope.user.role == :admin do %>
-              <.link href={~p"/admin/users"} class="hover:text-neutral-500 transition-colors">
-                Users
-              </.link>
-              <.link href={~p"/admin/jobs"} class="hover:text-neutral-500 transition-colors">
-                Jobs
-              </.link>
-              <.link href={~p"/admin/uptime"} class="hover:text-neutral-500 transition-colors">
-                Uptime
-              </.link>
-              <.link href={~p"/admin/settings"} class="hover:text-neutral-500 transition-colors">
-                Settings
-              </.link>
-            <% end %>
             <.link
               href={~p"/users/settings"}
               class="flex items-center gap-1.5 text-neutral-400 hover:text-neutral-700 transition-colors"
