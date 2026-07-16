@@ -120,6 +120,22 @@ if config_env() == :prod do
     auth: :if_available
 
   config :ravner, :mail_from, System.get_env("SMTP_MAIL_FROM") || "noreply@example.com"
+
+  # Uptime SMS adapter
+  sms_adapter =
+    case System.get_env("UPTIME_SMS_ADAPTER", "log") do
+      "aws_sns" -> Ravner.Uptime.SmsAdapters.AwsSns
+      "twilio" -> Ravner.Uptime.SmsAdapters.Twilio
+      _ -> Ravner.Uptime.SmsAdapters.Log
+    end
+
+  config :ravner, :uptime_sms_adapter, sms_adapter
+
+  config :ravner,
+         :uptime_mail_from,
+         System.get_env("UPTIME_MAIL_FROM", System.get_env("SMTP_MAIL_FROM") || "noreply@example.com")
+
+  config :ravner, :uptime_mail_from_name, System.get_env("UPTIME_MAIL_FROM_NAME", "Ravner Uptime")
 end
 
 config :ravner,

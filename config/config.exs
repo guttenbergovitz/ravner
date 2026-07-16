@@ -86,6 +86,11 @@ config :ravner, Oban,
     default: 10
   ]
 
+# Uptime monitoring
+config :ravner, :uptime_sms_adapter, Ravner.Uptime.SmsAdapters.Log
+config :ravner, :uptime_mail_from, "uptime@example.com"
+config :ravner, :uptime_mail_from_name, "Ravner Uptime"
+
 # Configure Ash
 config :ravner,
   ash_domains: [
