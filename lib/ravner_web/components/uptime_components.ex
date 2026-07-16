@@ -226,10 +226,12 @@ defmodule RavnerWeb.UptimeComponents do
   - `days` - list of %{date: Date, uptime_percent: float} for the month
   - `month` - Date representing the month (any day in that month)
   - `class` - optional CSS class
+  - `on_click` - optional event name to fire when a day is clicked (sends %{"date" => iso_date})
   """
   attr :days, :list, required: true
   attr :month, :any, required: true
   attr :class, :string, default: ""
+  attr :on_click, :string, default: nil
 
   def availability_calendar(assigns) do
     day_map = Map.new(assigns.days, fn d -> {d.date, d.uptime_percent} end)
@@ -269,9 +271,12 @@ defmodule RavnerWeb.UptimeComponents do
               <div
                 class={[
                   "aspect-square rounded-sm flex items-center justify-center text-[9px] font-medium transition-colors",
-                  calendar_cell_class(pct)
+                  calendar_cell_class(pct),
+                  @on_click && "cursor-pointer hover:ring-2 hover:ring-neutral-300 dark:hover:ring-neutral-600"
                 ]}
-                title={"#{Calendar.strftime(day, "%b %d")} — #{pct}%"}
+                title={"#{Calendar.strftime(day, "%b %d")} \u2014 #{pct}%"}
+                phx-click={@on_click}
+                phx-value-date={Date.to_iso8601(day)}
               >
                 {day.day}
               </div>

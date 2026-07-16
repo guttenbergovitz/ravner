@@ -3,47 +3,83 @@
     <%!-- Header --%>
     <div class="flex items-center justify-between mb-8">
       <div class="flex items-center gap-4">
-        <.link navigate={~p"/uptime"} class="text-neutral-400 hover:text-neutral-600 transition-colors dark:hover:text-neutral-300">
+        <.link
+          navigate={~p"/uptime"}
+          class="text-neutral-400 hover:text-neutral-600 transition-colors dark:hover:text-neutral-300"
+        >
           <.icon name="hero-arrow-left" class="w-5 h-5" />
         </.link>
         <div>
           <div class="flex items-center gap-3">
             <h1 class="text-2xl font-light tracking-tight">{@domain.name}</h1>
-            <%= if @status == :up do %>
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                Operational
-              </span>
-            <% else %>
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                Down
-              </span>
+            <%= cond do %>
+              <% !@monitoring_active -> %>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                  Monitoring disabled
+                </span>
+              <% @status == :up -> %>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                  Operational
+                </span>
+              <% true -> %>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                  Down
+                </span>
             <% end %>
           </div>
-          <p class="text-sm text-neutral-500 mt-0.5">Uptime monitoring detail</p>
+          <p class="text-sm text-neutral-500 mt-0.5">
+            <%= if @monitoring_active do %>
+              Checking every {@domain.domain_metadata.heartbeat_interval_minutes} min
+            <% else %>
+              Uptime monitoring is not active for this domain
+            <% end %>
+          </p>
         </div>
       </div>
-      <div class="flex bg-neutral-100 p-1 rounded-lg dark:bg-neutral-800">
+      <div class="flex items-center gap-3">
+        <%!-- CSV Export --%>
         <button
-          :for={r <- ["24h", "7d", "30d"]}
-          phx-click="set_range"
-          phx-value-range={r}
-          class={[
-            "px-4 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer",
-            @range == r && "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
-            @range != r && "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
-          ]}
+          phx-click="export_csv"
+          class="px-3 py-1.5 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer flex items-center gap-1.5"
+          id="export-csv-btn"
+          phx-hook=".CsvDownload"
         >
-          {r}
+          <.icon name="hero-arrow-down-tray" class="w-3.5 h-3.5" />
+          Export CSV
         </button>
+        <%!-- Range selector --%>
+        <div class="flex bg-neutral-100 p-1 rounded-lg dark:bg-neutral-800">
+          <button
+            :for={r <- ["24h", "7d", "30d"]}
+            phx-click="set_range"
+            phx-value-range={r}
+            class={[
+              "px-4 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer",
+              @range == r && "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+              @range != r && "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
+            ]}
+          >
+            {r}
+          </button>
+        </div>
       </div>
     </div>
+
+    <%!-- Disabled monitoring banner --%>
+    <%= if !@monitoring_active && @has_data do %>
+      <div class="mb-6 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 dark:bg-amber-900/10 dark:border-amber-800 dark:text-amber-300">
+        <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline -mt-0.5" />
+        Monitoring is currently disabled. Historical data is shown below.
+      </div>
+    <% end %>
 
     <%!-- Key metrics --%>
     <div class="grid grid-cols-3 gap-4 mb-8">
       <div class="card-line !p-5">
-        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Uptime</p>
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Uptime ({@range})</p>
         <p class={[
           "text-3xl font-light",
           @uptime_percent >= 99.9 && "text-green-600",
@@ -54,7 +90,7 @@
         </p>
       </div>
       <div class="card-line !p-5">
-        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Incidents</p>
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Incidents ({@range})</p>
         <p class="text-3xl font-light">{@incident_count}</p>
       </div>
       <div class="card-line !p-5">
@@ -75,88 +111,207 @@
         <p class="text-xs uppercase tracking-wide text-neutral-500">30-Day Availability</p>
         <p class="text-xs text-neutral-400">Oldest &rarr; Today</p>
       </div>
-      <RavnerWeb.UptimeComponents.uptime_bar days={@bar_data} class="!max-w-none h-8" />
+      <%= if @bar_data != [] do %>
+        <RavnerWeb.UptimeComponents.uptime_bar days={@bar_data} class="!max-w-none h-8" />
+      <% else %>
+        <p class="text-sm text-neutral-400 py-4 text-center">No data collected yet.</p>
+      <% end %>
     </div>
 
     <%!-- Response time chart --%>
     <div class="card-line !p-5 mb-6">
-      <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Response Time</p>
+      <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Response Time ({@range})</p>
       <%= if @response_points != [] do %>
         <RavnerWeb.UptimeComponents.response_chart points={@response_points} height={180} />
       <% else %>
-        <p class="text-sm text-neutral-400 py-8 text-center">No response time data available yet.</p>
+        <div class="py-10 text-center">
+          <.icon name="hero-chart-bar" class="w-8 h-8 text-neutral-200 mx-auto mb-2 dark:text-neutral-700" />
+          <p class="text-sm text-neutral-400">
+            <%= if @monitoring_active do %>
+              Response time data will appear after checks run.
+            <% else %>
+              Enable monitoring to collect response time data.
+            <% end %>
+          </p>
+        </div>
       <% end %>
     </div>
 
-    <%!-- Calendar + Incidents --%>
+    <%!-- Calendar + Daily Stats + Incidents --%>
     <div class="grid grid-cols-3 gap-6 mb-6">
+      <%!-- Interactive calendar --%>
       <div class="card-line !p-5">
         <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Monthly View</p>
         <RavnerWeb.UptimeComponents.availability_calendar
           days={@calendar_days}
           month={@calendar_month}
+          on_click="select_day"
         />
-      </div>
 
-      <div class="col-span-2 card-line !p-5">
-        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Incidents</p>
-        <%= if @windows == [] do %>
-          <p class="text-sm text-neutral-400 py-4">No incidents in this period.</p>
-        <% else %>
-          <div class="space-y-4 max-h-96 overflow-y-auto">
-            <div :for={w <- @windows} class="border-b border-neutral-100 dark:border-neutral-800 pb-4 last:border-0">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-red-400"></span>
-                  <span class="text-sm font-medium">
-                    {Calendar.strftime(w.started_at, "%b %d, %H:%M")}
-                  </span>
-                  <span class="text-neutral-300">&rarr;</span>
-                  <span class="text-sm">
-                    <%= if w.ended_at do %>
-                      {Calendar.strftime(w.ended_at, "%b %d, %H:%M")}
-                    <% else %>
-                      <span class="text-red-500 text-xs font-medium">ongoing</span>
-                    <% end %>
-                  </span>
-                </div>
-                <span class="text-xs text-neutral-500">
-                  {format_duration(w.duration_seconds || DateTime.diff(DateTime.utc_now(), w.started_at, :second))}
+        <%!-- Selected day stats --%>
+        <%= if @selected_day do %>
+          <div class="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs font-medium">{Calendar.strftime(@selected_day.date, "%B %d, %Y")}</p>
+              <button phx-click="clear_day" class="text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                <.icon name="hero-x-mark" class="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-neutral-500">Uptime:</span>
+                <span class={[
+                  "font-medium ml-1",
+                  @selected_day.uptime_percent >= 99.5 && "text-green-600",
+                  @selected_day.uptime_percent < 99.5 && @selected_day.uptime_percent >= 95 && "text-yellow-600",
+                  @selected_day.uptime_percent < 95 && "text-red-600"
+                ]}>
+                  {@selected_day.uptime_percent}%
                 </span>
               </div>
-
-              <%!-- Notes --%>
-              <%= if Map.get(w, :notes, []) != [] do %>
-                <div class="mt-2 ml-4 pl-3 border-l-2 border-neutral-100 dark:border-neutral-700 space-y-1.5">
-                  <div :for={note <- w.notes}>
-                    <p class="text-[11px] text-neutral-400">
-                      {(note.author && note.author.name) || "System"} &middot; {Calendar.strftime(note.inserted_at, "%b %d %H:%M")}
-                    </p>
-                    <p class="text-sm text-neutral-600 dark:text-neutral-300">{note.content}</p>
-                  </div>
-                </div>
-              <% end %>
-
-              <%!-- Add note form --%>
-              <%= if @current_scope.user.role in [:admin, :editor] do %>
-                <form phx-submit="add_note" phx-value-window_id={w.id} class="mt-2 ml-4 flex gap-2">
-                  <input
-                    type="text"
-                    name="note[content]"
-                    value=""
-                    placeholder="Add note..."
-                    required
-                    class="flex-1 text-xs border border-neutral-200 rounded px-2.5 py-1 dark:border-neutral-700 dark:bg-neutral-800"
-                  />
-                  <button type="submit" class="px-2.5 py-1 text-xs border border-neutral-200 rounded hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer">
-                    Add
-                  </button>
-                </form>
-              <% end %>
+              <div>
+                <span class="text-neutral-500">Incidents:</span>
+                <span class="font-medium ml-1">{@selected_day.incidents}</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-neutral-500">Avg response:</span>
+                <span class="font-medium ml-1">
+                  <%= if @selected_day.avg_response_ms do %>
+                    {@selected_day.avg_response_ms}ms
+                  <% else %>
+                    &mdash;
+                  <% end %>
+                </span>
+              </div>
             </div>
           </div>
         <% end %>
       </div>
+
+      <%!-- Daily stats table + Incidents --%>
+      <div class="col-span-2 space-y-6">
+        <%!-- Daily breakdown table --%>
+        <div class="card-line !p-5">
+          <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Daily Breakdown ({@range})</p>
+          <%= if @daily_stats != [] do %>
+            <div class="max-h-64 overflow-y-auto">
+              <table class="w-full text-xs">
+                <thead class="text-left text-neutral-500 uppercase tracking-wide border-b border-neutral-100 dark:border-neutral-800">
+                  <tr>
+                    <th class="pb-2 font-normal">Date</th>
+                    <th class="pb-2 font-normal">Uptime</th>
+                    <th class="pb-2 font-normal">Incidents</th>
+                    <th class="pb-2 font-normal">Avg Response</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-neutral-50 dark:divide-neutral-800">
+                  <tr :for={day <- Enum.reverse(@daily_stats)} class="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/30">
+                    <td class="py-1.5 font-medium">{Calendar.strftime(day.date, "%b %d")}</td>
+                    <td class="py-1.5">
+                      <span class={[
+                        day.uptime_percent >= 99.5 && "text-green-600",
+                        day.uptime_percent < 99.5 && day.uptime_percent >= 95 && "text-yellow-600",
+                        day.uptime_percent < 95 && "text-red-600"
+                      ]}>
+                        {day.uptime_percent}%
+                      </span>
+                    </td>
+                    <td class="py-1.5">{day.incidents}</td>
+                    <td class="py-1.5 text-neutral-500">
+                      <%= if day.avg_response_ms, do: "#{day.avg_response_ms}ms", else: "\u2014" %>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          <% else %>
+            <p class="text-sm text-neutral-400 py-4 text-center">No daily data available.</p>
+          <% end %>
+        </div>
+
+        <%!-- Incidents --%>
+        <div class="card-line !p-5">
+          <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Incidents ({@range})</p>
+          <%= if @windows == [] do %>
+            <p class="text-sm text-neutral-400 py-4">No incidents in this period.</p>
+          <% else %>
+            <div class="space-y-4 max-h-72 overflow-y-auto">
+              <div
+                :for={w <- @windows}
+                class="border-b border-neutral-100 dark:border-neutral-800 pb-4 last:border-0"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                    <span class="text-sm font-medium">
+                      {Calendar.strftime(w.started_at, "%b %d, %H:%M")}
+                    </span>
+                    <span class="text-neutral-300">&rarr;</span>
+                    <span class="text-sm">
+                      <%= if w.ended_at do %>
+                        {Calendar.strftime(w.ended_at, "%b %d, %H:%M")}
+                      <% else %>
+                        <span class="text-red-500 text-xs font-medium">ongoing</span>
+                      <% end %>
+                    </span>
+                  </div>
+                  <span class="text-xs text-neutral-500">
+                    {format_duration(w.duration_seconds || DateTime.diff(DateTime.utc_now(), w.started_at, :second))}
+                  </span>
+                </div>
+
+                <%!-- Notes --%>
+                <%= if Map.get(w, :notes, []) != [] do %>
+                  <div class="mt-2 ml-4 pl-3 border-l-2 border-neutral-100 dark:border-neutral-700 space-y-1.5">
+                    <div :for={note <- w.notes}>
+                      <p class="text-[11px] text-neutral-400">
+                        {(note.author && note.author.name) || "System"} &middot; {Calendar.strftime(note.inserted_at, "%b %d %H:%M")}
+                      </p>
+                      <p class="text-sm text-neutral-600 dark:text-neutral-300">{note.content}</p>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%!-- Add note form --%>
+                <%= if @current_scope.user.role in [:admin, :editor] do %>
+                  <form phx-submit="add_note" phx-value-window_id={w.id} class="mt-2 ml-4 flex gap-2">
+                    <input
+                      type="text"
+                      name="note[content]"
+                      value=""
+                      placeholder="Add note..."
+                      required
+                      class="flex-1 text-xs border border-neutral-200 rounded px-2.5 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+                    />
+                    <button type="submit" class="px-2.5 py-1 text-xs border border-neutral-200 rounded hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer">
+                      Add
+                    </button>
+                  </form>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
     </div>
   </div>
+
+  <%!-- CSV Download Hook --%>
+  <script :type={Phoenix.LiveView.ColocatedHook} name=".CsvDownload">
+    export default {
+      mounted() {
+        this.handleEvent("download_csv", ({content, filename}) => {
+          const blob = new Blob([content], {type: "text/csv"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+  </script>
 </Layouts.app>

@@ -799,8 +799,17 @@ defmodule Ravner.Domains do
     changeset = DomainMetadata.changeset(%DomainMetadata{}, attrs)
 
     if changeset.valid? do
+      # ponytail: merge explicit nil attrs into changes — Ecto cast ignores nil-on-nil
+      # but we need nil values to overwrite existing DB values on conflict.
+      explicit_nils =
+        attrs
+        |> Map.drop([:domain_id, :inserted_at, :updated_at])
+        |> Enum.filter(fn {_k, v} -> is_nil(v) end)
+        |> Map.new()
+
       changes =
         changeset.changes
+        |> Map.merge(explicit_nils)
         |> Map.put(:inserted_at, now)
         |> Map.put(:updated_at, now)
 
