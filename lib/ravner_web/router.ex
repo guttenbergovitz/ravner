@@ -140,6 +140,7 @@ defmodule RavnerWeb.Router do
       live("/brands/new", AdminLive.BrandLive.Index, :new)
       live("/brands/:id/edit", AdminLive.BrandLive.Index, :edit)
       live("/jobs", AdminLive.Jobs, :index)
+      live("/uptime", AdminLive.Uptime, :index)
     end
 
     get("/settings/backup/download", BackupController, :download)

@@ -1,0 +1,82 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-light tracking-tight">Uptime Monitor</h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Real-time status of all monitored domains.
+        </p>
+      </div>
+      <%!-- TODO: Task 7 adds the /admin/uptime/report route; using plain href to avoid ~p compile check --%>
+      <a
+        href="/admin/uptime/report"
+        class="px-4 py-2 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800"
+      >
+        View Reports
+      </a>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mb-8">
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Monitored</p>
+        <p class="text-2xl font-light">{length(@monitors)}</p>
+      </div>
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Up</p>
+        <p class="text-2xl font-light text-green-600">
+          {Enum.count(@monitors, &(&1.status == :up))}
+        </p>
+      </div>
+      <div class="card-line p-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-1">Down</p>
+        <p class="text-2xl font-light text-red-600">
+          {Enum.count(@monitors, &(&1.status == :down))}
+        </p>
+      </div>
+    </div>
+
+    <div class="card-line overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 dark:bg-neutral-800 text-left text-xs uppercase tracking-wide text-neutral-500">
+          <tr>
+            <th class="px-4 py-3 font-normal">Status</th>
+            <th class="px-4 py-3 font-normal">Domain</th>
+            <th class="px-4 py-3 font-normal">Last Check</th>
+            <th class="px-4 py-3 font-normal">Interval</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <tr :for={m <- @monitors} class="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50">
+            <td class="px-4 py-3">
+              <%= cond do %>
+                <% m.status == :up -> %>
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up"></span>
+                <% m.status == :down -> %>
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="Down"></span>
+                <% true -> %>
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="Degraded"></span>
+              <% end %>
+            </td>
+            <td class="px-4 py-3 font-medium">
+              <a href={"/admin/uptime/report/#{m.domain.id}"} class="hover:underline">
+                {m.domain.name}
+              </a>
+            </td>
+            <td class="px-4 py-3 text-neutral-500">
+              <%= if m.meta.last_heartbeat_at do %>
+                {Calendar.strftime(m.meta.last_heartbeat_at, "%H:%M:%S")}
+              <% else %>
+                <span class="text-neutral-300">&mdash;</span>
+              <% end %>
+            </td>
+            <td class="px-4 py-3">
+              <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                {m.meta.heartbeat_interval_minutes} min
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Layouts.app>
