@@ -47,16 +47,20 @@ defmodule RavnerWeb.UptimeComponents do
         fill={bar_color(day.percent)}
         opacity={bar_opacity(day.percent)}
       >
-        <title>{Calendar.strftime(day.date, "%b %d")} — {day.percent}%</title>
+        <title>{Calendar.strftime(day.date, "%b %d")} — {if day.percent, do: "#{day.percent}%", else: "No data"}</title>
       </rect>
     </svg>
     """
   end
 
+  defp bar_color(nil), do: "#d4d4d4"
   defp bar_color(percent) when percent >= 99.5, do: "#22c55e"
+  defp bar_color(percent) when percent >= 98.0, do: "#4ade80"
   defp bar_color(percent) when percent >= 95.0, do: "#eab308"
+  defp bar_color(percent) when percent >= 90.0, do: "#f97316"
   defp bar_color(_percent), do: "#ef4444"
 
+  defp bar_opacity(nil), do: "0.4"
   defp bar_opacity(percent) when percent >= 99.5, do: "0.85"
   defp bar_opacity(percent) when percent >= 95.0, do: "0.9"
   defp bar_opacity(_percent), do: "0.9"
@@ -234,6 +238,7 @@ defmodule RavnerWeb.UptimeComponents do
   attr :on_click, :string, default: nil
 
   def availability_calendar(assigns) do
+    today = Date.utc_today()
     day_map = Map.new(assigns.days, fn d -> {d.date, d.uptime_percent} end)
 
     first = Date.beginning_of_month(assigns.month)
@@ -252,6 +257,7 @@ defmodule RavnerWeb.UptimeComponents do
       assigns
       |> assign(:weeks, weeks)
       |> assign(:day_map, day_map)
+      |> assign(:today, today)
       |> assign(:month_name, Calendar.strftime(first, "%B %Y"))
 
     ~H"""
@@ -266,22 +272,28 @@ defmodule RavnerWeb.UptimeComponents do
         </span>
         <%= for week <- @weeks do %>
           <%= for day <- week do %>
-            <%= if day do %>
-              <% pct = Map.get(@day_map, day, 100.0) %>
-              <div
-                class={[
-                  "aspect-square rounded-sm flex items-center justify-center text-[9px] font-medium transition-colors",
-                  calendar_cell_class(pct),
-                  @on_click && "cursor-pointer hover:ring-2 hover:ring-neutral-300 dark:hover:ring-neutral-600"
-                ]}
-                title={"#{Calendar.strftime(day, "%b %d")} \u2014 #{pct}%"}
-                phx-click={@on_click}
-                phx-value-date={Date.to_iso8601(day)}
-              >
-                {day.day}
-              </div>
-            <% else %>
-              <div></div>
+            <%= cond do %>
+              <% is_nil(day) -> %>
+                <div></div>
+              <% Date.compare(day, @today) == :gt -> %>
+                <%!-- Future day: empty/muted --%>
+                <div class="aspect-square rounded-sm flex items-center justify-center text-[9px] text-neutral-300 dark:text-neutral-700">
+                  {day.day}
+                </div>
+              <% true -> %>
+                <% pct = Map.get(@day_map, day) %>
+                <div
+                  class={[
+                    "aspect-square rounded-sm flex items-center justify-center text-[9px] font-medium transition-colors",
+                    calendar_cell_class(pct),
+                    @on_click && "cursor-pointer hover:ring-2 hover:ring-neutral-300 dark:hover:ring-neutral-600"
+                  ]}
+                  title={calendar_title(day, pct)}
+                  phx-click={@on_click}
+                  phx-value-date={Date.to_iso8601(day)}
+                >
+                  {day.day}
+                </div>
             <% end %>
           <% end %>
         <% end %>
@@ -290,11 +302,24 @@ defmodule RavnerWeb.UptimeComponents do
     """
   end
 
+  defp calendar_title(day, nil), do: "#{Calendar.strftime(day, "%b %d")} — No data"
+  defp calendar_title(day, pct), do: "#{Calendar.strftime(day, "%b %d")} — #{pct}%"
+
+  # nil = no data collected
+  defp calendar_cell_class(nil),
+    do: "bg-neutral-50 text-neutral-400 dark:bg-neutral-800/50 dark:text-neutral-500"
+
   defp calendar_cell_class(percent) when percent >= 99.5,
     do: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
 
+  defp calendar_cell_class(percent) when percent >= 98.0,
+    do: "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-500"
+
   defp calendar_cell_class(percent) when percent >= 95.0,
     do: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+
+  defp calendar_cell_class(percent) when percent >= 90.0,
+    do: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
 
   defp calendar_cell_class(_percent),
     do: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"

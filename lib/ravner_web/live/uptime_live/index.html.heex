@@ -54,11 +54,14 @@
         <div class="shrink-0">
           <%= cond do %>
             <% m.status == :up -> %>
-              <span class="inline-block w-3 h-3 rounded-full bg-green-500 shadow-sm shadow-green-500/30"></span>
+              <span class="inline-block w-3 h-3 rounded-full bg-green-500 shadow-sm shadow-green-500/30">
+              </span>
             <% m.status == :down -> %>
-              <span class="inline-block w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-500/30 animate-pulse"></span>
+              <span class="inline-block w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-500/30 animate-pulse">
+              </span>
             <% true -> %>
-              <span class="inline-block w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/30"></span>
+              <span class="inline-block w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/30">
+              </span>
           <% end %>
         </div>
 
@@ -93,9 +96,17 @@
           </span>
         </div>
 
-        <%!-- Interval badge --%>
-        <div class="w-16 text-right shrink-0">
-          <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <%!-- Active scans + interval --%>
+        <div class="w-40 text-right shrink-0 flex items-center justify-end gap-1.5 flex-wrap">
+          <%= if m.active_scans != [] do %>
+            <span
+              :for={scan <- m.active_scans}
+              class="inline-flex px-1 py-0.5 text-[9px] uppercase tracking-wide rounded-sm font-medium bg-neutral-50 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500"
+            >
+              {scan}
+            </span>
+          <% end %>
+          <span class="inline-flex px-1.5 py-0.5 text-[10px] uppercase tracking-wide rounded-sm font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
             {m.meta.heartbeat_interval_minutes}m
           </span>
         </div>
@@ -106,7 +117,9 @@
     <%= if @monitors == [] do %>
       <div class="card-line p-12 text-center">
         <p class="text-neutral-500 text-sm">No domains are configured for uptime monitoring.</p>
-        <p class="text-neutral-400 text-xs mt-1">Set a heartbeat interval on any domain to start monitoring.</p>
+        <p class="text-neutral-400 text-xs mt-1">
+          Set a heartbeat interval on any domain to start monitoring.
+        </p>
       </div>
     <% end %>
   </div>

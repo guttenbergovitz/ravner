@@ -42,7 +42,8 @@ defmodule RavnerWeb.UptimeLive.Index do
           meta: meta,
           status: status,
           bar_data: bar_data,
-          uptime_percent: uptime_pct
+          uptime_percent: uptime_pct,
+          active_scans: active_scans(meta)
         }
       end)
 
@@ -51,7 +52,11 @@ defmodule RavnerWeb.UptimeLive.Index do
 
     avg_uptime =
       if enriched != [] do
-        enriched |> Enum.map(& &1.uptime_percent) |> Enum.sum() |> Kernel./(length(enriched)) |> Float.round(2)
+        enriched
+        |> Enum.map(& &1.uptime_percent)
+        |> Enum.sum()
+        |> Kernel./(length(enriched))
+        |> Float.round(2)
       else
         100.0
       end
@@ -61,5 +66,20 @@ defmodule RavnerWeb.UptimeLive.Index do
     |> assign(:up_count, up_count)
     |> assign(:down_count, down_count)
     |> assign(:avg_uptime, avg_uptime)
+  end
+
+  defp active_scans(meta) do
+    scans = []
+    scans = if meta.scan_interval_days, do: ["Security" | scans], else: scans
+    scans = if meta.http_scan_interval_days, do: ["HTTP" | scans], else: scans
+    scans = if meta.dns_scan_interval_days, do: ["DNS" | scans], else: scans
+
+    a11y = Map.get(meta, :a11y_scan_interval_days)
+    scans = if a11y, do: ["A11y" | scans], else: scans
+
+    lighthouse = Map.get(meta, :lighthouse_scan_interval_days)
+    scans = if lighthouse, do: ["Lighthouse" | scans], else: scans
+
+    Enum.reverse(scans)
   end
 end
