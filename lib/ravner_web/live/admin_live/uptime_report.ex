@@ -11,7 +11,8 @@ defmodule RavnerWeb.AdminLive.UptimeReport do
      |> assign(:page_title, "Uptime Report")
      |> assign(:range, "7d")
      |> assign(:domain_id, nil)
-     |> assign(:report, [])}
+     |> assign(:report, [])
+     |> assign(:note_form, to_form(%{"content" => ""}, as: :note))}
   end
 
   @impl true
@@ -26,6 +27,26 @@ defmodule RavnerWeb.AdminLive.UptimeReport do
   @impl true
   def handle_event("set_range", %{"range" => range}, socket) do
     {:noreply, socket |> assign(:range, range) |> load_report()}
+  end
+
+  @impl true
+  def handle_event("add_note", %{"note" => %{"content" => content}, "window_id" => window_id}, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Uptime.create_note(%{
+           content: content,
+           downtime_window_id: String.to_integer(window_id),
+           author_id: user.id
+         }) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> load_report()
+         |> assign(:note_form, to_form(%{"content" => ""}, as: :note))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to add note.")}
+    end
   end
 
   defp load_report(socket) do
@@ -49,6 +70,11 @@ defmodule RavnerWeb.AdminLive.UptimeReport do
           domain = Domains.get_domain!(domain_id)
           windows = Uptime.downtime_windows(domain_id, from_dt, to_dt)
           checks = Uptime.recent_checks(domain_id, 120)
+
+          windows =
+            Enum.map(windows, fn w ->
+              Map.put(w, :notes, Uptime.list_notes(w.id))
+            end)
 
           [%{
             domain: domain,
