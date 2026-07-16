@@ -235,7 +235,7 @@ defmodule Ravner.Uptime do
       up_count = Enum.count(day_checks, & &1.is_up)
 
       uptime_pct =
-        if total > 0, do: Float.round(up_count / total * 100, 1), else: 100.0
+        if total > 0, do: Float.round(up_count / total * 100, 1), else: nil
 
       response_times =
         day_checks
@@ -292,6 +292,140 @@ defmodule Ravner.Uptime do
     |> Enum.map(fn %{date: date, uptime_percent: pct} ->
       %{date: date, percent: pct}
     end)
+  end
+
+  @doc """
+  Returns hourly stats for a specific day (24 entries, one per hour).
+  Each: %{hour: 0..23, checks: int, up: int, uptime_percent: float | nil, avg_response_ms: int | nil}
+  """
+  def hourly_stats(domain_id, %Date{} = date) do
+    day_start = DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
+    day_end = DateTime.new!(date, ~T[23:59:59], "Etc/UTC")
+
+    checks =
+      HeartbeatCheck
+      |> where(domain_id: ^domain_id)
+      |> where([c], c.checked_at >= ^day_start and c.checked_at <= ^day_end)
+      |> select([c], %{
+        hour: fragment("EXTRACT(HOUR FROM ?)::integer", c.checked_at),
+        is_up: c.is_up,
+        response_time_ms: c.response_time_ms
+      })
+      |> Repo.all()
+      |> Enum.group_by(& &1.hour)
+
+    for hour <- 0..23 do
+      hour_checks = Map.get(checks, hour, [])
+      total = length(hour_checks)
+      up_count = Enum.count(hour_checks, & &1.is_up)
+
+      response_times =
+        hour_checks
+        |> Enum.map(& &1.response_time_ms)
+        |> Enum.reject(&is_nil/1)
+
+      %{
+        hour: hour,
+        checks: total,
+        up: up_count,
+        uptime_percent: if(total > 0, do: Float.round(up_count / total * 100, 1), else: nil),
+        avg_response_ms:
+          if(response_times != [], do: div(Enum.sum(response_times), length(response_times)), else: nil)
+      }
+    end
+  end
+
+  @doc """
+  Returns a human-readable status summary for a domain.
+  Returns %{text: String.t(), since: DateTime.t() | nil, last_incident: map() | nil}
+  """
+  def status_summary(domain_id) do
+    open = open_downtime(domain_id)
+
+    if open do
+      duration = DateTime.diff(DateTime.utc_now(), open.started_at, :second)
+
+      %{
+        status: :down,
+        text: "Down since #{Calendar.strftime(open.started_at, "%H:%M UTC")} (#{humanize_duration(duration)} ago)",
+        since: open.started_at,
+        last_incident: nil
+      }
+    else
+      # Find last closed incident
+      last_window =
+        DowntimeWindow
+        |> where(domain_id: ^domain_id)
+        |> where([w], not is_nil(w.ended_at))
+        |> order_by(desc: :ended_at)
+        |> limit(1)
+        |> Repo.one()
+
+      # Find streak of consecutive up checks
+      last_down_check =
+        HeartbeatCheck
+        |> where(domain_id: ^domain_id)
+        |> where([c], c.is_up == false)
+        |> order_by(desc: :checked_at)
+        |> limit(1)
+        |> select([c], c.checked_at)
+        |> Repo.one()
+
+      up_since = last_down_check || get_first_check_time(domain_id)
+
+      up_duration =
+        if up_since do
+          DateTime.diff(DateTime.utc_now(), up_since, :second)
+        else
+          nil
+        end
+
+      text =
+        cond do
+          is_nil(up_since) ->
+            "No monitoring data collected yet"
+
+          last_window ->
+            ago = DateTime.diff(DateTime.utc_now(), last_window.ended_at, :second)
+
+            "Running smoothly for #{humanize_duration(up_duration)}. Last incident #{humanize_duration(ago)} ago, lasted #{humanize_duration(last_window.duration_seconds)}."
+
+          true ->
+            "Running smoothly for #{humanize_duration(up_duration)}. No incidents recorded."
+        end
+
+      %{
+        status: :up,
+        text: text,
+        since: up_since,
+        last_incident: last_window && %{ended_at: last_window.ended_at, duration: last_window.duration_seconds}
+      }
+    end
+  end
+
+  defp get_first_check_time(domain_id) do
+    HeartbeatCheck
+    |> where(domain_id: ^domain_id)
+    |> order_by(asc: :checked_at)
+    |> limit(1)
+    |> select([c], c.checked_at)
+    |> Repo.one()
+  end
+
+  defp humanize_duration(nil), do: "—"
+  defp humanize_duration(seconds) when seconds < 60, do: "#{seconds}s"
+  defp humanize_duration(seconds) when seconds < 3600, do: "#{div(seconds, 60)} min"
+
+  defp humanize_duration(seconds) when seconds < 86400 do
+    hours = div(seconds, 3600)
+    mins = div(rem(seconds, 3600), 60)
+    if mins > 0, do: "#{hours}h #{mins}min", else: "#{hours}h"
+  end
+
+  defp humanize_duration(seconds) do
+    days = div(seconds, 86400)
+    hours = div(rem(seconds, 86400), 3600)
+    if hours > 0, do: "#{days}d #{hours}h", else: "#{days}d"
   end
 
   # --- Downtime Notes ---
