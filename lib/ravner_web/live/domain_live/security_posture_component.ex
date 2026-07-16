@@ -93,12 +93,27 @@ defmodule RavnerWeb.DomainLive.SecurityPostureComponent do
                       completed
                     </span>
                   </div>
-                  <span class="text-[10px] text-neutral-400 font-light">
-                    Last scan {Calendar.strftime(
-                      @latest_security_scan.completed_at || @latest_security_scan.inserted_at,
-                      "%Y-%m-%d %H:%M"
-                    )}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-neutral-400 font-light">
+                      {Calendar.strftime(
+                        @latest_security_scan.completed_at || @latest_security_scan.inserted_at,
+                        "%Y-%m-%d %H:%M"
+                      )}
+                    </span>
+                    <%= if @current_scope && @current_scope.user.role == :admin do %>
+                      <button
+                        type="button"
+                        phx-click="delete_scan"
+                        phx-value-id={@latest_security_scan.id}
+                        phx-target={@myself}
+                        data-confirm="Delete this scan and its findings?"
+                        class="text-neutral-300 hover:text-red-500 transition-colors"
+                        title="Delete scan"
+                      >
+                        <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                      </button>
+                    <% end %>
+                  </div>
                 </div>
 
                 <%= if findings != [] do %>
