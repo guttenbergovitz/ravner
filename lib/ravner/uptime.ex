@@ -198,6 +198,102 @@ defmodule Ravner.Uptime do
     |> Repo.all()
   end
 
+  # --- Chart data helpers ---
+
+  @doc """
+  Returns daily uptime stats for the last N days.
+  Each entry: %{date: Date.t(), uptime_percent: float(), incidents: integer(), avg_response_ms: integer() | nil}
+  """
+  def daily_stats(domain_id, days \\ 30) do
+    today = Date.utc_today()
+    start_date = Date.add(today, -(days - 1))
+
+    # Get all checks in the range
+    from_dt = DateTime.new!(start_date, ~T[00:00:00], "Etc/UTC")
+    to_dt = DateTime.utc_now()
+
+    checks_by_day =
+      HeartbeatCheck
+      |> where(domain_id: ^domain_id)
+      |> where([c], c.checked_at >= ^from_dt)
+      |> select([c], %{
+        date: fragment("(?::date)", c.checked_at),
+        is_up: c.is_up,
+        response_time_ms: c.response_time_ms
+      })
+      |> Repo.all()
+      |> Enum.group_by(& &1.date)
+
+    # Get downtime windows overlapping the range
+    windows = downtime_windows(domain_id, from_dt, to_dt)
+
+    # Build a stat for each day
+    Date.range(start_date, today)
+    |> Enum.map(fn date ->
+      day_checks = Map.get(checks_by_day, date, [])
+      total = length(day_checks)
+      up_count = Enum.count(day_checks, & &1.is_up)
+
+      uptime_pct =
+        if total > 0, do: Float.round(up_count / total * 100, 1), else: 100.0
+
+      response_times =
+        day_checks
+        |> Enum.map(& &1.response_time_ms)
+        |> Enum.reject(&is_nil/1)
+
+      avg_response =
+        if response_times != [],
+          do: div(Enum.sum(response_times), length(response_times)),
+          else: nil
+
+      # Count incidents that started on this day
+      day_start = DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
+      day_end = DateTime.new!(date, ~T[23:59:59], "Etc/UTC")
+
+      incidents =
+        Enum.count(windows, fn w ->
+          DateTime.compare(w.started_at, day_start) != :lt &&
+            DateTime.compare(w.started_at, day_end) != :gt
+        end)
+
+      %{
+        date: date,
+        uptime_percent: uptime_pct,
+        incidents: incidents,
+        avg_response_ms: avg_response
+      }
+    end)
+  end
+
+  @doc """
+  Returns response time data points for charting.
+  List of %{at: DateTime.t(), ms: integer()} ordered ascending by time.
+  """
+  def response_time_series(domain_id, hours \\ 24) do
+    since = DateTime.add(DateTime.utc_now(), -hours, :hour)
+
+    HeartbeatCheck
+    |> where(domain_id: ^domain_id)
+    |> where([c], c.checked_at >= ^since)
+    |> where([c], not is_nil(c.response_time_ms))
+    |> order_by(asc: :checked_at)
+    |> select([c], %{at: c.checked_at, ms: c.response_time_ms})
+    |> Repo.all()
+  end
+
+  @doc """
+  Returns uptime percentage per day for the last N days.
+  Lightweight version of daily_stats for the uptime bar visualization.
+  List of %{date: Date.t(), percent: float()}
+  """
+  def uptime_bar_data(domain_id, days \\ 30) do
+    daily_stats(domain_id, days)
+    |> Enum.map(fn %{date: date, uptime_percent: pct} ->
+      %{date: date, percent: pct}
+    end)
+  end
+
   # --- Downtime Notes ---
 
   def list_notes(downtime_window_id) do
