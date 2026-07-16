@@ -32,10 +32,22 @@ defmodule Ravner.Lighthouse.LighthouseScan do
   def changeset(scan, attrs) do
     scan
     |> cast(attrs, [
-      :domain_id, :url, :status,
-      :performance_score, :accessibility_score, :best_practices_score, :seo_score,
-      :fcp_ms, :lcp_ms, :tbt_ms, :cls, :speed_index_ms,
-      :results_raw, :error_message, :started_at, :completed_at
+      :domain_id,
+      :url,
+      :status,
+      :performance_score,
+      :accessibility_score,
+      :best_practices_score,
+      :seo_score,
+      :fcp_ms,
+      :lcp_ms,
+      :tbt_ms,
+      :cls,
+      :speed_index_ms,
+      :results_raw,
+      :error_message,
+      :started_at,
+      :completed_at
     ])
     |> validate_required([:domain_id, :url, :status])
     |> validate_inclusion(:status, ~w(pending running completed failed))

@@ -177,8 +177,12 @@ defmodule RavnerWeb.AdminLive.Settings do
   def handle_event("deselect_all_severities", _params, socket) do
     case Ravner.ScanConfig.update(%{nuclei_severities: ["critical"]}) do
       {:ok, new_config} ->
-        {:noreply, assign(socket, :scan_config, new_config) |> put_flash(:info, "At least critical severity is always enabled")}
-      {:error, _} -> {:noreply, socket}
+        {:noreply,
+         assign(socket, :scan_config, new_config)
+         |> put_flash(:info, "At least critical severity is always enabled")}
+
+      {:error, _} ->
+        {:noreply, socket}
     end
   end
 
@@ -232,7 +236,11 @@ defmodule RavnerWeb.AdminLive.Settings do
     )
   end
 
-  @nuclei_template_paths ["/app/.nuclei-templates", "/app/nuclei-templates", "/root/nuclei-templates"]
+  @nuclei_template_paths [
+    "/app/.nuclei-templates",
+    "/app/nuclei-templates",
+    "/root/nuclei-templates"
+  ]
 
   defp check_nuclei_status do
     available? = System.find_executable("nuclei") != nil
@@ -242,7 +250,9 @@ defmodule RavnerWeb.AdminLive.Settings do
     {templates_count, templates_date} =
       if templates_path do
         count =
-          case System.cmd("find", [templates_path, "-name", "*.yaml", "-type", "f"], stderr_to_stdout: true) do
+          case System.cmd("find", [templates_path, "-name", "*.yaml", "-type", "f"],
+                 stderr_to_stdout: true
+               ) do
             {output, 0} -> output |> String.split("\n", trim: true) |> length()
             _ -> 0
           end
@@ -251,7 +261,9 @@ defmodule RavnerWeb.AdminLive.Settings do
           case File.stat(templates_path) do
             {:ok, %{mtime: mtime}} ->
               mtime |> NaiveDateTime.from_erl!() |> NaiveDateTime.to_date() |> Date.to_iso8601()
-            _ -> nil
+
+            _ ->
+              nil
           end
 
         {count, date}

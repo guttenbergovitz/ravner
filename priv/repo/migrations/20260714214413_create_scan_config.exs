@@ -3,9 +3,15 @@ defmodule Ravner.Repo.Migrations.CreateScanConfig do
 
   def change do
     create table(:scan_config) do
-      add :nuclei_severities, {:array, :string}, null: false, default: fragment("ARRAY['critical','high','medium']")
+      add :nuclei_severities, {:array, :string},
+        null: false,
+        default: fragment("ARRAY['critical','high','medium']")
+
       add :nuclei_tags, {:array, :string}, null: false, default: fragment("ARRAY[]::text[]")
-      add :nuclei_exclude_tags, {:array, :string}, null: false, default: fragment("ARRAY[]::text[]")
+
+      add :nuclei_exclude_tags, {:array, :string},
+        null: false,
+        default: fragment("ARRAY[]::text[]")
 
       timestamps(type: :utc_datetime)
     end

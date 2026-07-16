@@ -133,7 +133,10 @@ if config_env() == :prod do
 
   config :ravner,
          :uptime_mail_from,
-         System.get_env("UPTIME_MAIL_FROM", System.get_env("SMTP_MAIL_FROM") || "noreply@example.com")
+         System.get_env(
+           "UPTIME_MAIL_FROM",
+           System.get_env("SMTP_MAIL_FROM") || "noreply@example.com"
+         )
 
   config :ravner, :uptime_mail_from_name, System.get_env("UPTIME_MAIL_FROM_NAME", "Ravner Uptime")
 end

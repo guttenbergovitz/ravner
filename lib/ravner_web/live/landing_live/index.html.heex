@@ -11,15 +11,23 @@
             Portfolio health at a glance
           </p>
         </div>
-        <.link navigate={~p"/dashboard"} class="text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors flex items-center gap-1">
+        <.link
+          navigate={~p"/dashboard"}
+          class="text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors flex items-center gap-1"
+        >
           Full dashboard <.icon name="hero-arrow-right" class="w-3 h-3" />
         </.link>
       </div>
 
       <%!-- Key metrics row --%>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <.link navigate={~p"/domains"} class="border border-neutral-200 p-5 hover:border-neutral-400 transition-colors dark:border-neutral-700">
-          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">{@pulse.total_domains}</div>
+        <.link
+          navigate={~p"/domains"}
+          class="border border-neutral-200 p-5 hover:border-neutral-400 transition-colors dark:border-neutral-700"
+        >
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@pulse.total_domains}
+          </div>
           <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">Domains</div>
           <div class="text-[10px] font-light text-neutral-400 mt-2">{@pulse.total_apex} apex</div>
         </.link>
@@ -33,9 +41,13 @@
             {@pulse.http_200}
             <span class="text-sm text-neutral-300">/ {@pulse.http_200 + @pulse.http_errors}</span>
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">HTTP Healthy</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">
+            HTTP Healthy
+          </div>
           <%= if @pulse.http_errors > 0 do %>
-            <div class="text-[10px] font-light text-red-500 mt-2">{@pulse.http_errors} errors</div>
+            <div class="text-[10px] font-light text-red-500 mt-2">
+              {@pulse.http_errors} errors
+            </div>
           <% end %>
         </div>
 
@@ -50,21 +62,27 @@
           </div>
           <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">SSL Healthy</div>
           <%= if @pulse.ssl_expiring > 0 do %>
-            <div class="text-[10px] font-light text-amber-600 mt-2">{@pulse.ssl_expiring} expiring</div>
+            <div class="text-[10px] font-light text-amber-600 mt-2">
+              {@pulse.ssl_expiring} expiring
+            </div>
           <% end %>
         </div>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
           <div class={[
             "text-2xl font-light",
-            @pulse.a11y_scanned > 0 && @pulse.a11y_compliant == @pulse.a11y_scanned && "text-green-600",
-            @pulse.a11y_scanned > 0 && @pulse.a11y_compliant < @pulse.a11y_scanned && "text-red-600",
+            @pulse.a11y_scanned > 0 && @pulse.a11y_compliant == @pulse.a11y_scanned &&
+              "text-green-600",
+            @pulse.a11y_scanned > 0 && @pulse.a11y_compliant < @pulse.a11y_scanned &&
+              "text-red-600",
             @pulse.a11y_scanned == 0 && "text-neutral-300"
           ]}>
             {@pulse.a11y_compliant}
             <span class="text-sm text-neutral-300">/ {@pulse.a11y_scanned}</span>
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">EAA Compliant</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">
+            EAA Compliant
+          </div>
           <%= if @pulse.a11y_scanned == 0 do %>
             <div class="text-[10px] font-light text-neutral-400 mt-2">no scans yet</div>
           <% end %>
@@ -78,7 +96,9 @@
             Recent Accessibility Scans
           </h2>
           <%= if @pulse.recent_a11y == [] do %>
-            <p class="text-sm font-light text-neutral-400 py-4">No accessibility scans completed yet.</p>
+            <p class="text-sm font-light text-neutral-400 py-4">
+              No accessibility scans completed yet.
+            </p>
           <% else %>
             <div class="space-y-3">
               <%= for scan <- @pulse.recent_a11y do %>
@@ -91,8 +111,11 @@
                       "w-2 h-2 rounded-full shrink-0",
                       scan.violations == 0 && "bg-green-500",
                       scan.violations > 0 && "bg-red-400"
-                    ]}></span>
-                    <span class="text-sm font-light text-neutral-900 dark:text-neutral-100">{scan.domain_name}</span>
+                    ]}>
+                    </span>
+                    <span class="text-sm font-light text-neutral-900 dark:text-neutral-100">
+                      {scan.domain_name}
+                    </span>
                   </div>
                   <div class="flex items-center gap-4 text-xs text-neutral-400">
                     <span class={[
@@ -126,7 +149,9 @@
               </span>
             </div>
             <div class="flex items-center justify-between text-xs">
-              <span class="font-light text-neutral-600 dark:text-neutral-400">nuclei (security)</span>
+              <span class="font-light text-neutral-600 dark:text-neutral-400">
+                nuclei (security)
+              </span>
               <span class={"flex items-center gap-1 " <> if(@pulse.nuclei_ok, do: "text-green-600", else: "text-red-500")}>
                 <%= if @pulse.nuclei_ok do %>
                   <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> ready
@@ -136,7 +161,9 @@
               </span>
             </div>
             <div class="flex items-center justify-between text-xs">
-              <span class="font-light text-neutral-600 dark:text-neutral-400">Security findings</span>
+              <span class="font-light text-neutral-600 dark:text-neutral-400">
+                Security findings
+              </span>
               <span class={[
                 @pulse.security_findings == 0 && "text-green-600",
                 @pulse.security_findings > 0 && "text-amber-600"
@@ -147,7 +174,10 @@
           </div>
 
           <div class="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-700">
-            <.link navigate={~p"/admin/settings"} class="text-[10px] font-light text-neutral-400 hover:text-neutral-900 transition-colors flex items-center gap-1">
+            <.link
+              navigate={~p"/admin/settings"}
+              class="text-[10px] font-light text-neutral-400 hover:text-neutral-900 transition-colors flex items-center gap-1"
+            >
               Settings <.icon name="hero-arrow-right" class="w-3 h-3" />
             </.link>
           </div>
@@ -238,7 +268,10 @@
         </div>
 
         <%= if @detail_popup do %>
-          <div class="fixed inset-0 z-50 flex items-center justify-center" phx-click="close_detail">
+          <div
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            phx-click="close_detail"
+          >
             <div class="absolute inset-0 bg-black/10"></div>
             <div
               class="relative bg-white border border-neutral-200 max-w-lg w-full mx-4 p-8 dark:bg-neutral-800 dark:border-neutral-700"
@@ -391,7 +424,9 @@
       <div class="max-w-6xl mx-auto px-6 py-28">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-24">
           <div>
-            <h2 class="text-2xl font-thin tracking-tight text-neutral-900 mb-12">Who is it for</h2>
+            <h2 class="text-2xl font-thin tracking-tight text-neutral-900 mb-12">
+              Who is it for
+            </h2>
             <ul class="space-y-8">
               <li class="flex items-start gap-5">
                 <.icon name="hero-code-bracket" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
@@ -434,9 +469,14 @@
             </h2>
             <ul class="space-y-8">
               <li class="flex items-start gap-5">
-                <.icon name="hero-arrow-down-tray" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
+                <.icon
+                  name="hero-arrow-down-tray"
+                  class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
+                />
                 <div>
-                  <span class="text-base font-normal text-neutral-900">Import or add domains</span>
+                  <span class="text-base font-normal text-neutral-900">
+                    Import or add domains
+                  </span>
                   <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
                     Bulk import from CSV or add one by one. Auto-scan on arrival.
                   </p>

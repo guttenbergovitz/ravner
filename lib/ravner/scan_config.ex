@@ -53,7 +53,10 @@ defmodule Ravner.ScanConfig do
   defp validate_values_in(changeset, field, allowed) do
     validate_change(changeset, field, fn _, values ->
       invalid = Enum.reject(values, &(&1 in allowed))
-      if invalid == [], do: [], else: [{field, "contains invalid values: #{Enum.join(invalid, ", ")}"}]
+
+      if invalid == [],
+        do: [],
+        else: [{field, "contains invalid values: #{Enum.join(invalid, ", ")}"}]
     end)
   end
 end

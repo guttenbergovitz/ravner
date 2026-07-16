@@ -18,9 +18,9 @@ defmodule Ravner.Repo.Migrations.CreateNotificationTables do
     create index(:uptime_notification_policies, [:domain_id])
 
     create unique_index(:uptime_notification_policies, [:scope],
-      where: "scope = 'global'",
-      name: :uptime_notification_policies_global_unique
-    )
+             where: "scope = 'global'",
+             name: :uptime_notification_policies_global_unique
+           )
 
     # Named notification groups
     create table(:uptime_notification_groups) do
@@ -37,8 +37,7 @@ defmodule Ravner.Repo.Migrations.CreateNotificationTables do
       add :policy_id, references(:uptime_notification_policies, on_delete: :delete_all),
         null: false
 
-      add :group_id, references(:uptime_notification_groups, on_delete: :delete_all),
-        null: false
+      add :group_id, references(:uptime_notification_groups, on_delete: :delete_all), null: false
     end
 
     create unique_index(:uptime_policy_groups, [:policy_id, :group_id])
@@ -60,8 +59,7 @@ defmodule Ravner.Repo.Migrations.CreateNotificationTables do
 
     # Delivery tracking (idempotency)
     create table(:uptime_notification_deliveries) do
-      add :downtime_window_id, references(:downtime_windows, on_delete: :delete_all),
-        null: false
+      add :downtime_window_id, references(:downtime_windows, on_delete: :delete_all), null: false
 
       add :recipient_id, references(:uptime_notification_recipients, on_delete: :delete_all),
         null: false
@@ -75,9 +73,10 @@ defmodule Ravner.Repo.Migrations.CreateNotificationTables do
       timestamps(type: :utc_datetime, updated_at: false)
     end
 
-    create unique_index(:uptime_notification_deliveries,
-      [:downtime_window_id, :recipient_id, :event_type, :sequence, :channel],
-      name: :uptime_deliveries_idempotent_idx
-    )
+    create unique_index(
+             :uptime_notification_deliveries,
+             [:downtime_window_id, :recipient_id, :event_type, :sequence, :channel],
+             name: :uptime_deliveries_idempotent_idx
+           )
   end
 end

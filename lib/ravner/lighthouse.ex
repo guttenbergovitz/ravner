@@ -68,7 +68,11 @@ defmodule Ravner.Lighthouse do
 
   defp external_redirect?(domain_name, final_url) do
     final_host =
-      final_url |> URI.parse() |> Map.get(:host, "") |> to_string() |> String.replace_prefix("www.", "")
+      final_url
+      |> URI.parse()
+      |> Map.get(:host, "")
+      |> to_string()
+      |> String.replace_prefix("www.", "")
 
     domain_root = domain_name |> String.replace_prefix("www.", "")
     final_host != "" && !String.ends_with?(final_host, domain_root)
@@ -110,8 +114,10 @@ defmodule Ravner.Lighthouse do
   defp execute_lighthouse(url) do
     args = [
       url,
-      "--output", "json",
-      "--output-path", "stdout",
+      "--output",
+      "json",
+      "--output-path",
+      "stdout",
       "--chrome-flags=--headless --no-sandbox --disable-gpu",
       "--only-categories=performance,accessibility,best-practices,seo",
       "--quiet"
@@ -222,7 +228,11 @@ defmodule Ravner.Lighthouse do
       last_lighthouse_scan_at: DateTime.utc_now(:second)
     })
 
-    ActivityLog.emit(:done, "Lighthouse done — #{domain_name}: perf #{scores.performance}, seo #{scores.seo}")
+    ActivityLog.emit(
+      :done,
+      "Lighthouse done — #{domain_name}: perf #{scores.performance}, seo #{scores.seo}"
+    )
+
     broadcast(scan.domain_id, updated)
     {:ok, updated}
   end
@@ -237,7 +247,11 @@ defmodule Ravner.Lighthouse do
       })
       |> Repo.update()
 
-    ActivityLog.emit(:error, "Lighthouse failed — #{domain_name}: #{String.slice(reason, 0, 100)}")
+    ActivityLog.emit(
+      :error,
+      "Lighthouse failed — #{domain_name}: #{String.slice(reason, 0, 100)}"
+    )
+
     broadcast(scan.domain_id, updated)
     {:error, updated}
   end

@@ -15,8 +15,8 @@ defmodule Ravner.Repo.Migrations.CreateDowntimeWindows do
     create index(:downtime_windows, [:domain_id, :started_at])
 
     create index(:downtime_windows, [:domain_id],
-      where: "ended_at IS NULL",
-      name: :downtime_windows_open_idx
-    )
+             where: "ended_at IS NULL",
+             name: :downtime_windows_open_idx
+           )
   end
 end

@@ -880,11 +880,17 @@
                       <% nil -> %>
                         <%!-- no scan --%>
                       <% 0 -> %>
-                        <span title="EAA Compliant (0 WCAG violations)" class="text-green-500 shrink-0">
+                        <span
+                          title="EAA Compliant (0 WCAG violations)"
+                          class="text-green-500 shrink-0"
+                        >
                           <.icon name="hero-check-badge" class="w-4 h-4" />
                         </span>
                       <% count -> %>
-                        <span title={"EAA Non-Compliant (#{count} violations)"} class="text-red-400 shrink-0">
+                        <span
+                          title={"EAA Non-Compliant (#{count} violations)"}
+                          class="text-red-400 shrink-0"
+                        >
                           <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
                         </span>
                     <% end %>
@@ -894,15 +900,24 @@
                       <% nil -> %>
                         <%!-- no scan --%>
                       <% score when score >= 90 -> %>
-                        <span title={"Performance: #{score}"} class="text-green-500 shrink-0 text-[10px] font-medium">
+                        <span
+                          title={"Performance: #{score}"}
+                          class="text-green-500 shrink-0 text-[10px] font-medium"
+                        >
                           {score}
                         </span>
                       <% score when score >= 50 -> %>
-                        <span title={"Performance: #{score}"} class="text-amber-500 shrink-0 text-[10px] font-medium">
+                        <span
+                          title={"Performance: #{score}"}
+                          class="text-amber-500 shrink-0 text-[10px] font-medium"
+                        >
                           {score}
                         </span>
                       <% score -> %>
-                        <span title={"Performance: #{score}"} class="text-red-500 shrink-0 text-[10px] font-medium">
+                        <span
+                          title={"Performance: #{score}"}
+                          class="text-red-500 shrink-0 text-[10px] font-medium"
+                        >
                           {score}
                         </span>
                     <% end %>

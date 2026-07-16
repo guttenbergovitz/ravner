@@ -8,8 +8,7 @@ defmodule Ravner.Uptime.NotificationGroup do
 
     has_many :recipients, Ravner.Uptime.NotificationRecipient, foreign_key: :group_id
 
-    many_to_many :policies, Ravner.Uptime.NotificationPolicy,
-      join_through: "uptime_policy_groups"
+    many_to_many :policies, Ravner.Uptime.NotificationPolicy, join_through: "uptime_policy_groups"
 
     timestamps(type: :utc_datetime)
   end

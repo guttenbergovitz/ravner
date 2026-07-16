@@ -67,8 +67,17 @@ defmodule RavnerWeb.DomainLive.LighthouseReport do
       |> Enum.filter(&is_map/1)
       |> Enum.sort_by(fn a -> a["score"] || 1 end)
 
-    opportunities = Enum.filter(items, &(Map.has_key?(&1, "numericValue") && &1["score"] != nil && &1["score"] < 1))
-    diagnostics = Enum.filter(items, &(!Map.has_key?(&1, "numericValue") && &1["score"] != nil && &1["score"] < 1))
+    opportunities =
+      Enum.filter(
+        items,
+        &(Map.has_key?(&1, "numericValue") && &1["score"] != nil && &1["score"] < 1)
+      )
+
+    diagnostics =
+      Enum.filter(
+        items,
+        &(!Map.has_key?(&1, "numericValue") && &1["score"] != nil && &1["score"] < 1)
+      )
 
     {Enum.take(opportunities, 10), Enum.take(diagnostics, 10)}
   end
@@ -96,7 +105,10 @@ defmodule RavnerWeb.DomainLive.LighthouseReport do
             Domains
           </.link>
           <.icon name="hero-chevron-right" class="w-3 h-3" />
-          <.link navigate={~p"/domains/#{@domain.id}"} class="hover:text-neutral-900 transition-colors">
+          <.link
+            navigate={~p"/domains/#{@domain.id}"}
+            class="hover:text-neutral-900 transition-colors"
+          >
             {@domain.name}
           </.link>
           <.icon name="hero-chevron-right" class="w-3 h-3" />
@@ -199,7 +211,10 @@ defmodule RavnerWeb.DomainLive.LighthouseReport do
                 <h2 class="text-sm font-normal">Opportunities</h2>
                 <.icon
                   name="hero-chevron-down"
-                  class={["w-4 h-4 text-neutral-400 transition-transform", @show_section == "opportunities" && "rotate-180"]}
+                  class={[
+                    "w-4 h-4 text-neutral-400 transition-transform",
+                    @show_section == "opportunities" && "rotate-180"
+                  ]}
                 />
               </button>
               <%= if @show_section == "opportunities" do %>
@@ -228,7 +243,10 @@ defmodule RavnerWeb.DomainLive.LighthouseReport do
                 <h2 class="text-sm font-normal">Diagnostics</h2>
                 <.icon
                   name="hero-chevron-down"
-                  class={["w-4 h-4 text-neutral-400 transition-transform", @show_section == "diagnostics" && "rotate-180"]}
+                  class={[
+                    "w-4 h-4 text-neutral-400 transition-transform",
+                    @show_section == "diagnostics" && "rotate-180"
+                  ]}
                 />
               </button>
               <%= if @show_section == "diagnostics" do %>

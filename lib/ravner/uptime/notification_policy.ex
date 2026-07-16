@@ -12,15 +12,21 @@ defmodule Ravner.Uptime.NotificationPolicy do
     belongs_to :domain, Ravner.Domains.Domain
     has_many :recipients, Ravner.Uptime.NotificationRecipient, foreign_key: :policy_id
 
-    many_to_many :groups, Ravner.Uptime.NotificationGroup,
-      join_through: "uptime_policy_groups"
+    many_to_many :groups, Ravner.Uptime.NotificationGroup, join_through: "uptime_policy_groups"
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(policy, attrs) do
     policy
-    |> cast(attrs, [:name, :scope, :domain_id, :enabled, :still_down_interval_minutes, :max_reminders])
+    |> cast(attrs, [
+      :name,
+      :scope,
+      :domain_id,
+      :enabled,
+      :still_down_interval_minutes,
+      :max_reminders
+    ])
     |> validate_required([:name, :scope])
     |> validate_inclusion(:scope, ["global", "group", "domain"])
   end

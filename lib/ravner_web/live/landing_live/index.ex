@@ -65,7 +65,12 @@ defmodule RavnerWeb.LandingLive.Index do
           where: s.status == "completed",
           order_by: [desc: s.completed_at],
           limit: 5,
-          select: %{domain_name: d.name, domain_id: d.id, violations: s.violations_count, at: s.completed_at}
+          select: %{
+            domain_name: d.name,
+            domain_id: d.id,
+            violations: s.violations_count,
+            at: s.completed_at
+          }
         )
       )
 

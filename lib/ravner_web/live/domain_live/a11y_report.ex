@@ -238,7 +238,10 @@ defmodule RavnerWeb.DomainLive.A11yReport do
                           </span>
                         </div>
                         <%= if issue["context"] do %>
-                          <pre class="mt-1.5 text-[10px] font-mono text-neutral-500 bg-neutral-50 border border-neutral-100 p-2 overflow-x-auto max-h-16" phx-no-curly-interpolation>{issue["context"]}</pre>
+                          <pre
+                            class="mt-1.5 text-[10px] font-mono text-neutral-500 bg-neutral-50 border border-neutral-100 p-2 overflow-x-auto max-h-16"
+                            phx-no-curly-interpolation
+                          >{issue["context"]}</pre>
                         <% end %>
                       </div>
                     <% end %>

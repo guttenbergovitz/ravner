@@ -189,7 +189,8 @@
           <% end %>
         <% else %>
           <span class="text-red-500 flex items-center gap-1">
-            <.icon name="hero-exclamation-triangle" class="w-3.5 h-3.5" /> No templates directory found
+            <.icon name="hero-exclamation-triangle" class="w-3.5 h-3.5" />
+            No templates directory found
           </span>
         <% end %>
       </div>
@@ -197,13 +198,21 @@
       <%!-- Severity checkboxes --%>
       <div class="mb-4">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">Severity Levels</span>
+          <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+            Severity Levels
+          </span>
           <div class="flex gap-2">
-            <button phx-click="select_all_severities" class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors">
+            <button
+              phx-click="select_all_severities"
+              class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors"
+            >
               Select all
             </button>
             <span class="text-neutral-300">·</span>
-            <button phx-click="deselect_all_severities" class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors">
+            <button
+              phx-click="deselect_all_severities"
+              class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors"
+            >
               Min only
             </button>
           </div>
@@ -220,7 +229,8 @@
                 active && severity == "high" && "bg-orange-50 border-orange-300 text-orange-700",
                 active && severity == "medium" && "bg-yellow-50 border-yellow-300 text-yellow-700",
                 active && severity == "low" && "bg-blue-50 border-blue-300 text-blue-700",
-                active && severity == "info" && "bg-neutral-100 border-neutral-300 text-neutral-700",
+                active && severity == "info" &&
+                  "bg-neutral-100 border-neutral-300 text-neutral-700",
                 !active && "border-neutral-200 text-neutral-400 opacity-50"
               ]}
             >
@@ -233,7 +243,9 @@
       <%!-- Tag categories (exclude list) --%>
       <div class="mb-4">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">Exclude Categories</span>
+          <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+            Exclude Categories
+          </span>
           <span class="text-[10px] text-neutral-400">click to exclude from scans</span>
         </div>
         <div class="flex flex-wrap gap-2">
