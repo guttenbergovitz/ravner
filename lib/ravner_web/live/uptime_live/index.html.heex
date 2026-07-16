@@ -66,15 +66,25 @@
         </div>
 
         <%!-- Domain info --%>
-        <div class="w-48 shrink-0">
+        <div class="w-52 shrink-0">
           <.link navigate={~p"/uptime/#{m.domain.id}"} class="font-medium text-sm hover:underline">
             {m.domain.name}
           </.link>
           <p class="text-[11px] text-neutral-400 mt-0.5">
             <%= if m.meta.last_heartbeat_at do %>
-              Last: {Calendar.strftime(m.meta.last_heartbeat_at, "%H:%M:%S")}
+              <% ago = DateTime.diff(DateTime.utc_now(), m.meta.last_heartbeat_at, :second) %>
+              <%= cond do %>
+                <% ago < 120 -> %>
+                  <span class="text-green-500">Checked just now</span>
+                <% ago < 3600 -> %>
+                  Checked {div(ago, 60)} min ago
+                <% ago < 86400 -> %>
+                  Checked {div(ago, 3600)}h ago
+                <% true -> %>
+                  <span class="text-amber-500">Last check {div(ago, 86400)}d ago</span>
+              <% end %>
             <% else %>
-              No checks yet
+              <span class="text-neutral-300">No checks yet</span>
             <% end %>
           </p>
         </div>
