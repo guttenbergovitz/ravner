@@ -105,6 +105,10 @@ defmodule RavnerWeb.Router do
       live("/ownership/organizations/:id", OwnershipLive.OrganizationShow, :show)
       live("/ownership/projects/:id", OwnershipLive.ProjectShow, :show)
       live("/ownership/people/:id", OwnershipLive.PersonShow, :show)
+
+      # Uptime monitoring (accessible to all authenticated users)
+      live("/uptime", UptimeLive.Index, :index)
+      live("/uptime/:domain_id", UptimeLive.Show, :show)
     end
   end
 
@@ -140,9 +144,6 @@ defmodule RavnerWeb.Router do
       live("/brands/new", AdminLive.BrandLive.Index, :new)
       live("/brands/:id/edit", AdminLive.BrandLive.Index, :edit)
       live("/jobs", AdminLive.Jobs, :index)
-      live("/uptime", AdminLive.Uptime, :index)
-      live("/uptime/report", AdminLive.UptimeReport, :index)
-      live("/uptime/report/:domain_id", AdminLive.UptimeReport, :show)
       live("/uptime/notifications", AdminLive.UptimeNotifications, :index)
     end
 

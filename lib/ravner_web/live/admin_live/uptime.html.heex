@@ -8,7 +8,7 @@
         </p>
       </div>
       <.link
-        navigate={~p"/admin/uptime/report"}
+        navigate={~p"/uptime"}
         class="px-4 py-2 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800"
       >
         View Reports
@@ -49,15 +49,21 @@
             <td class="px-4 py-3">
               <%= cond do %>
                 <% m.status == :up -> %>
-                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up"></span>
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up">
+                  </span>
                 <% m.status == :down -> %>
-                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="Down"></span>
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="Down">
+                  </span>
                 <% true -> %>
-                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="Degraded"></span>
+                  <span
+                    class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500"
+                    title="Degraded"
+                  >
+                  </span>
               <% end %>
             </td>
             <td class="px-4 py-3 font-medium">
-              <.link navigate={~p"/admin/uptime/report/#{m.domain.id}"} class="hover:underline">
+              <.link navigate={~p"/uptime/#{m.domain.id}"} class="hover:underline">
                 {m.domain.name}
               </.link>
             </td>

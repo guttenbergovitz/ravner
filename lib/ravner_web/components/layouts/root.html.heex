@@ -57,7 +57,7 @@
               </li>
               <li>
                 <.link
-                  href={"/uptime"}
+                  href={~p"/uptime"}
                   class={[
                     "hover:text-neutral-500 transition-colors",
                     (String.starts_with?(@conn.request_path, "/uptime") &&

@@ -9,7 +9,7 @@
       </div>
       <div class="flex items-center gap-4">
         <.link
-          navigate={~p"/admin/uptime"}
+          navigate={~p"/uptime"}
           class="text-xs text-neutral-500 hover:text-neutral-700 transition-colors dark:hover:text-neutral-300"
         >
           &larr; Status
@@ -21,7 +21,8 @@
             phx-value-range={r}
             class={[
               "px-4 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer",
-              @range == r && "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+              @range == r &&
+                "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
               @range != r && "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400"
             ]}
           >
@@ -44,7 +45,7 @@
         <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
           <tr :for={row <- @report} class="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50">
             <td class="px-4 py-3 font-medium">
-              <.link navigate={~p"/admin/uptime/report/#{row.domain.id}"} class="hover:underline">
+              <.link navigate={~p"/uptime/#{row.domain.id}"} class="hover:underline">
                 {row.domain.name}
               </.link>
             </td>
@@ -60,7 +61,9 @@
             </td>
             <td class="px-4 py-3 text-neutral-500">{length(row.windows)}</td>
             <td class="px-4 py-3 text-neutral-500">
-              {format_duration(Enum.reduce(row.windows, 0, fn w, acc -> acc + (w.duration_seconds || 0) end))}
+              {format_duration(
+                Enum.reduce(row.windows, 0, fn w, acc -> acc + (w.duration_seconds || 0) end)
+              )}
             </td>
           </tr>
         </tbody>
@@ -92,7 +95,9 @@
                   </span>
                 </div>
                 <span class="text-xs text-neutral-500">
-                  {format_duration(w.duration_seconds || DateTime.diff(DateTime.utc_now(), w.started_at, :second))}
+                  {format_duration(
+                    w.duration_seconds || DateTime.diff(DateTime.utc_now(), w.started_at, :second)
+                  )}
                 </span>
               </div>
 
@@ -101,7 +106,10 @@
                 <div class="mt-3 pl-4 border-l-2 border-neutral-200 dark:border-neutral-700 space-y-2">
                   <div :for={note <- w.notes} class="text-sm">
                     <p class="text-xs text-neutral-400">
-                      {(note.author && note.author.name) || "System"} &mdash; {Calendar.strftime(note.inserted_at, "%Y-%m-%d %H:%M")}
+                      {(note.author && note.author.name) || "System"} &mdash; {Calendar.strftime(
+                        note.inserted_at,
+                        "%Y-%m-%d %H:%M"
+                      )}
                     </p>
                     <p class="text-neutral-700 dark:text-neutral-300">{note.content}</p>
                   </div>
