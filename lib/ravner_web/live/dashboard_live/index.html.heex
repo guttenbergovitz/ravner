@@ -92,6 +92,21 @@
       >
         📊 Lifecycle Landscape
       </button>
+      <button
+        phx-click="select_tab"
+        phx-value-tab="uptime"
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "uptime",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        💓 Uptime & Alerts
+      </button>
     </div>
 
     <%!-- Render Tabs Content --%>
@@ -663,6 +678,81 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      <% @current_tab == "uptime" -> %>
+        <%!-- TAB 5: UPTIME & ALERTS --%>
+        <div class="space-y-8">
+          <%!-- Summary metrics --%>
+          <div class="grid grid-cols-4 gap-6">
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2">Monitored</div>
+              <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">{@uptime_summary.monitored}</div>
+            </div>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2">Currently Up</div>
+              <div class="text-2xl font-light text-green-600">{@uptime_summary.up}</div>
+            </div>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2">Currently Down</div>
+              <div class="text-2xl font-light text-red-600">{@uptime_summary.down}</div>
+            </div>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2">Avg Uptime (30d)</div>
+              <div class={["text-2xl font-light", @uptime_summary.avg_uptime >= 99.0 && "text-green-600", @uptime_summary.avg_uptime < 99.0 && "text-amber-600"]}>
+                {@uptime_summary.avg_uptime}%
+              </div>
+            </div>
+          </div>
+
+          <%!-- Recent incidents --%>
+          <div class="border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-sm font-normal text-neutral-800 dark:text-neutral-200">Recent Incidents (7 days)</h3>
+              <.link navigate={~p"/uptime"} class="text-[10px] text-neutral-400 hover:text-neutral-600 uppercase tracking-widest transition-colors">
+                View all &rarr;
+              </.link>
+            </div>
+            <%= if @uptime_summary.recent_incidents == [] do %>
+              <div class="py-12 text-center border border-dashed border-neutral-200 text-sm font-light text-neutral-400 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+                No incidents in the last 7 days. All monitored services operational.
+              </div>
+            <% else %>
+              <div class="divide-y divide-neutral-100 dark:divide-neutral-700">
+                <div :for={incident <- @uptime_summary.recent_incidents} class="py-4 first:pt-0 last:pb-0">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <span class="w-2 h-2 rounded-full bg-red-400 shrink-0"></span>
+                      <.link navigate={~p"/uptime/#{incident.domain_id}"} class="text-sm font-medium hover:underline">
+                        {incident.domain.name}
+                      </.link>
+                      <span class="text-xs text-neutral-400">
+                        {Calendar.strftime(incident.started_at, "%b %d, %H:%M")}
+                        <%= if incident.ended_at do %>
+                          &rarr; {Calendar.strftime(incident.ended_at, "%H:%M")}
+                        <% else %>
+                          &rarr; <span class="text-red-500 font-medium">ongoing</span>
+                        <% end %>
+                      </span>
+                    </div>
+                    <span class="text-[10px] text-neutral-500">
+                      <%= if incident.duration_seconds do %>
+                        {div(incident.duration_seconds, 60)} min
+                      <% else %>
+                        ongoing
+                      <% end %>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Link to full uptime page --%>
+          <div class="text-center">
+            <.link navigate={~p"/uptime"} class="inline-flex items-center gap-2 px-6 py-3 border border-neutral-200 text-xs font-medium uppercase tracking-widest hover:border-neutral-900 transition-colors dark:border-neutral-700 dark:hover:border-neutral-100">
+              <.icon name="hero-heart" class="w-4 h-4" /> Open Uptime Monitor
+            </.link>
           </div>
         </div>
     <% end %>

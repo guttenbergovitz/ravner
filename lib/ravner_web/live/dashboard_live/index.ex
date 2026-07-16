@@ -2,6 +2,7 @@ defmodule RavnerWeb.DashboardLive.Index do
   use RavnerWeb, :live_view
 
   alias Ravner.Domains
+  alias Ravner.Uptime
 
   @impl true
   def mount(_params, _session, socket) do
@@ -16,6 +17,9 @@ defmodule RavnerWeb.DashboardLive.Index do
         _ -> 1
       end
 
+    # Uptime summary
+    uptime_summary = build_uptime_summary()
+
     {:ok,
      socket
      |> assign(:page_title, "Ravner")
@@ -23,6 +27,7 @@ defmodule RavnerWeb.DashboardLive.Index do
      |> assign(:http_chart, http_chart)
      |> assign(:scan_chart, scan_chart)
      |> assign(:top_subs_max, top_subs_max)
+     |> assign(:uptime_summary, uptime_summary)
      |> assign(:current_tab, "risks")}
   end
 
@@ -98,5 +103,47 @@ defmodule RavnerWeb.DashboardLive.Index do
       end)
 
     bars
+  end
+
+  defp build_uptime_summary do
+    monitors = Uptime.list_monitored_domains()
+    now = DateTime.utc_now()
+    thirty_days_ago = DateTime.add(now, -30, :day)
+
+    monitored_count = length(monitors)
+
+    up_count = Enum.count(monitors, fn m -> m.is_up == true end)
+    down_count = Enum.count(monitors, fn m -> m.is_up == false end)
+
+    # Recent incidents (last 7 days)
+    week_ago = DateTime.add(now, -7, :day)
+
+    recent_incidents =
+      monitors
+      |> Enum.flat_map(fn m ->
+        Uptime.downtime_windows(m.domain_id, week_ago, now)
+        |> Enum.map(fn w -> Map.put(w, :domain, m.domain) end)
+      end)
+      |> Enum.sort_by(& &1.started_at, {:desc, DateTime})
+      |> Enum.take(5)
+
+    avg_uptime =
+      if monitored_count > 0 do
+        monitors
+        |> Enum.map(fn m -> Uptime.uptime_percent(m.domain_id, thirty_days_ago, now) end)
+        |> Enum.sum()
+        |> Kernel./(monitored_count)
+        |> Float.round(2)
+      else
+        100.0
+      end
+
+    %{
+      monitored: monitored_count,
+      up: up_count,
+      down: down_count,
+      avg_uptime: avg_uptime,
+      recent_incidents: recent_incidents
+    }
   end
 end
