@@ -74,7 +74,8 @@ config :ravner, Oban,
        {"30 * * * *", Ravner.Workers.HttpxScanDispatcher},
        {"45 * * * *", Ravner.Workers.DnsxScanDispatcher},
        {"0 5 * * *", Ravner.Workers.A11yScanDispatcher},
-       {"0 6 * * *", Ravner.Workers.LighthouseScanDispatcher}
+       {"0 6 * * *", Ravner.Workers.LighthouseScanDispatcher},
+       {"0 4 * * *", Ravner.Workers.HeartbeatRetentionWorker}
      ]}
   ],
   queues: [
