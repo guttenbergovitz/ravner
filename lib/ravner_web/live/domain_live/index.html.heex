@@ -45,6 +45,22 @@
               >
                 Show empty
               </button>
+              <button
+                phx-click="toggle_monitored_only"
+                aria-pressed={@monitored_only}
+                class={[
+                  "inline-flex items-center gap-1.5 text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
+                  if(@monitored_only,
+                    do:
+                      "bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100",
+                    else:
+                      "text-neutral-400 border-neutral-200 hover:border-neutral-400 dark:text-neutral-500 dark:border-neutral-700 dark:hover:border-neutral-500"
+                  )
+                ]}
+                title="Show only domains with uptime monitoring enabled"
+              >
+                <.icon name="hero-heart" class="w-3 h-3" /> Monitored
+              </button>
             </div>
           </div>
         </div>
@@ -924,12 +940,20 @@
 
                     <%!-- Uptime heartbeat indicator --%>
                     <%= if domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes do %>
+                      <% stale = domain.domain_metadata.last_heartbeat_at &&
+                        DateTime.diff(DateTime.utc_now(), domain.domain_metadata.last_heartbeat_at, :minute) >
+                          domain.domain_metadata.heartbeat_interval_minutes * 3 %>
                       <span
-                        title={"Heartbeat: every #{domain.domain_metadata.heartbeat_interval_minutes}min — #{if domain.domain_metadata.is_up, do: "UP", else: "DOWN"}"}
+                        title={"Heartbeat: every #{domain.domain_metadata.heartbeat_interval_minutes}min — #{cond do
+                          stale -> "STALE (no recent checks)"
+                          domain.domain_metadata.is_up -> "UP"
+                          true -> "DOWN"
+                        end}"}
                         class={[
                           "shrink-0 flex items-center gap-0.5",
-                          domain.domain_metadata.is_up && "text-green-500",
-                          domain.domain_metadata.is_up == false && "text-red-500"
+                          !stale && domain.domain_metadata.is_up && "text-green-500",
+                          !stale && domain.domain_metadata.is_up == false && "text-red-500",
+                          stale && "text-neutral-400"
                         ]}
                       >
                         <.icon name="hero-heart" class="w-3.5 h-3.5" />

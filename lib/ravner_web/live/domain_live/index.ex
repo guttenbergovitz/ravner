@@ -166,9 +166,19 @@ defmodule RavnerWeb.DomainLive.Index do
   def handle_event("toggle_filter_subdomains", _params, socket) do
     params = build_params(socket, include_subdomains: !socket.assigns.include_subdomains, page: 1)
 
+
     {:noreply,
      socket
      |> assign(:include_subdomains, !socket.assigns.include_subdomains)
+     |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("toggle_monitored_only", _params, socket) do
+    params = build_params(socket, monitored_only: !socket.assigns.monitored_only, page: 1)
+
+    {:noreply,
+     socket
+     |> assign(:monitored_only, !socket.assigns.monitored_only)
      |> push_patch(to: ~p"/domains?#{params}")}
   end
 
@@ -455,6 +465,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:selection_mode, false)
     |> assign(:selected_ids, MapSet.new())
     |> assign(:include_subdomains, false)
+    |> assign(:monitored_only, false)
     |> assign(:bulk_include_subdomains, false)
     |> assign(:bulk_action, nil)
     |> assign(:bulk_actions_menu_open, false)
@@ -529,6 +540,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:search, filters.search)
     |> assign(:ip_filter, filters.ip)
     |> assign(:include_subdomains, filters.include_subdomains)
+    |> assign(:monitored_only, filters.monitored_only)
     |> assign(:technical_status_filter, filters.technical_status)
     |> assign(:lifecycle_filter, filters.lifecycle)
     |> assign(:project_filter, filters.project_id)
@@ -578,6 +590,7 @@ defmodule RavnerWeb.DomainLive.Index do
       search: Map.get(params, "search", ""),
       ip: Map.get(params, "ip", ""),
       include_subdomains: Map.get(params, "include_subdomains", "false") == "true",
+      monitored_only: Map.get(params, "monitored_only", "false") == "true",
       technical_status:
         params |> Map.get("technical_status", "") |> parse_technical_status_list(),
       lifecycle: params |> Map.get("lifecycle", "") |> parse_lifecycle_list(),
@@ -800,10 +813,18 @@ defmodule RavnerWeb.DomainLive.Index do
         Map.get(socket.assigns, :include_subdomains, false)
       )
 
+    monitored =
+      Keyword.get(
+        overrides,
+        :monitored_only,
+        Map.get(socket.assigns, :monitored_only, false)
+      )
+
     [
       search: search,
       ip: ip,
       include_subdomains: if(subdomains, do: "true", else: ""),
+      monitored_only: if(monitored, do: "true", else: ""),
       lifecycle: Enum.map_join(extract_param.(:lifecycle, :lifecycle_filter), ",", &to_string/1),
       technical_status:
         Enum.map_join(

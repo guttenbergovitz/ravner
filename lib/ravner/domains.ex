@@ -353,6 +353,7 @@ defmodule Ravner.Domains do
       Keyword.get(opts, :organization_id, nil),
       Keyword.get(opts, :brand_id, nil)
     )
+    |> filter_by_monitored(Keyword.get(opts, :monitored_only, false))
   end
 
   defp filter_by_type(query, true), do: query
@@ -428,6 +429,15 @@ defmodule Ravner.Domains do
         joined_query
     end
   end
+
+  defp filter_by_monitored(query, true) do
+    query
+    |> join(:inner, [d], m in DomainMetadata,
+      on: m.domain_id == d.id and not is_nil(m.heartbeat_interval_minutes)
+    )
+  end
+
+  defp filter_by_monitored(query, _), do: query
 
   def suggest_domains(query, limit \\ 5)
 

@@ -27,8 +27,16 @@ defmodule RavnerWeb.UptimeLive.Index do
       Enum.map(monitors, fn meta ->
         open_window = Uptime.open_downtime(meta.domain_id)
 
+        # Consider data stale if last check was more than 3x the interval ago
+        stale? =
+          meta.last_heartbeat_at &&
+            DateTime.diff(now, meta.last_heartbeat_at, :minute) >
+              (meta.heartbeat_interval_minutes || 5) * 3
+
         status =
           cond do
+            is_nil(meta.last_heartbeat_at) -> :unknown
+            stale? -> :unknown
             open_window -> :down
             meta.is_up == false -> :degraded
             true -> :up
