@@ -42,15 +42,27 @@
             <.icon name="hero-trash" class="w-3.5 h-3.5" /> Purge
           </button>
         <% end %>
-        <%!-- CSV Export --%>
-        <button
-          phx-click="export_csv"
-          id="export-csv-btn"
-          phx-hook=".CsvDownload"
-          class="px-3 py-1.5 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer flex items-center gap-1.5"
-        >
-          <.icon name="hero-arrow-down-tray" class="w-3.5 h-3.5" /> CSV
-        </button>
+        <%!-- CSV Export with range selector --%>
+        <div class="flex items-center gap-1">
+          <select
+            phx-change="set_csv_range"
+            name="range"
+            class="text-[10px] border border-neutral-200 rounded px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+          >
+            <option value="7" selected={@csv_range == "7"}>7d</option>
+            <option value="30" selected={@csv_range == "30"}>30d</option>
+            <option value="90" selected={@csv_range == "90"}>90d</option>
+            <option value="365" selected={@csv_range == "365"}>1y</option>
+          </select>
+          <button
+            phx-click="export_csv"
+            id="export-csv-btn"
+            phx-hook=".CsvDownload"
+            class="px-3 py-1.5 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer flex items-center gap-1.5"
+          >
+            <.icon name="hero-arrow-down-tray" class="w-3.5 h-3.5" /> CSV
+          </button>
+        </div>
       </div>
     </div>
 
@@ -93,7 +105,53 @@
       </div>
     </div>
 
-    <%!-- CENTRAL: 30-day bar + Response chart --%>
+    <%!-- CENTRAL CHART: Year / Month / Day with prev/next --%>
+    <div class="card-line !p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <%!-- View switcher --%>
+        <div class="flex bg-neutral-100 p-0.5 rounded-md dark:bg-neutral-800">
+          <button
+            :for={v <- ["year", "month", "day"]}
+            phx-click="set_chart_view"
+            phx-value-view={v}
+            class={[
+              "px-3 py-1 text-[10px] font-medium rounded-sm transition-colors cursor-pointer uppercase tracking-wide",
+              @chart_view == v && "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+              @chart_view != v && "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+            ]}
+          >
+            {v}
+          </button>
+        </div>
+        <%!-- Title + prev/next --%>
+        <div class="flex items-center gap-3">
+          <button phx-click="chart_prev" class="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer dark:hover:text-neutral-300">
+            <.icon name="hero-chevron-left" class="w-4 h-4" />
+          </button>
+          <span class="text-sm font-medium text-neutral-700 dark:text-neutral-300 min-w-[140px] text-center">
+            {@chart_title}
+          </span>
+          <button
+            phx-click="chart_next"
+            class={["transition-colors cursor-pointer", @chart_offset == 0 && "text-neutral-200 dark:text-neutral-700", @chart_offset < 0 && "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"]}
+            disabled={@chart_offset == 0}
+          >
+            <.icon name="hero-chevron-right" class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      <%!-- Chart --%>
+      <%= if @chart_data != [] do %>
+        <RavnerWeb.UptimeComponents.downtime_chart data={@chart_data} />
+      <% else %>
+        <p class="text-sm text-neutral-400 py-8 text-center">No data for this period.</p>
+      <% end %>
+      <p class="text-[10px] text-neutral-400 mt-2 text-center">
+        Bars show downtime %. Taller bar = more downtime. Grey dots = no monitoring data.
+      </p>
+    </div>
+
+    <%!-- 30-day uptime bar (compact) --%>
     <div class="card-line !p-5 mb-6">
       <div class="flex items-center justify-between mb-3">
         <p class="text-xs uppercase tracking-wide text-neutral-500">30-Day Availability</p>

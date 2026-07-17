@@ -323,4 +323,150 @@ defmodule RavnerWeb.UptimeComponents do
 
   defp calendar_cell_class(_percent),
     do: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+
+  @doc """
+  Renders a vertical bar chart showing downtime % per time unit.
+  Bars grow downward from 100% line — taller bar = more downtime.
+
+  ## Assigns
+  - `data` - list of %{label: String, uptime_percent: float | nil}
+  - `class` - optional CSS class
+  """
+  attr :data, :list, required: true
+  attr :class, :string, default: ""
+
+  def downtime_chart(assigns) do
+    width = 700
+    height = 200
+    padding_x = 30
+    padding_y = 20
+    chart_width = width - padding_x * 2
+    chart_height = height - padding_y * 2
+
+    n = length(assigns.data)
+    bar_width = if n > 0, do: Float.round(chart_width / n * 0.7, 1), else: 10
+    gap = if n > 0, do: Float.round(chart_width / n * 0.3, 1), else: 2
+
+    bars =
+      assigns.data
+      |> Enum.with_index()
+      |> Enum.map(fn {item, i} ->
+        x = Float.round(padding_x + i * (bar_width + gap), 1)
+
+        {bar_h, color, opacity, downtime_pct} =
+          case item.uptime_percent do
+            nil -> {0, "#d4d4d4", "0.3", nil}
+            pct ->
+              dt = Float.round(100.0 - pct, 2)
+              h = Float.round(dt / 100 * chart_height, 1)
+              {h, downtime_bar_color(pct), "0.85", dt}
+          end
+
+        %{
+          x: x,
+          bar_width: bar_width,
+          bar_height: bar_h,
+          y: Float.round(padding_y + chart_height - bar_h, 1),
+          color: color,
+          opacity: opacity,
+          label: item.label,
+          downtime_pct: downtime_pct,
+          uptime_pct: item.uptime_percent
+        }
+      end)
+
+    assigns =
+      assigns
+      |> assign(:width, width)
+      |> assign(:height, height)
+      |> assign(:padding_x, padding_x)
+      |> assign(:padding_y, padding_y)
+      |> assign(:chart_height, chart_height)
+      |> assign(:bars, bars)
+
+    ~H"""
+    <svg
+      viewBox={"0 0 #{@width} #{@height}"}
+      class={["w-full", @class]}
+      role="img"
+      aria-label="Downtime bar chart"
+    >
+      <%!-- Baseline (100% uptime line) --%>
+      <line
+        x1={@padding_x}
+        y1={@padding_y + @chart_height}
+        x2={@width - @padding_x}
+        y2={@padding_y + @chart_height}
+        stroke="currentColor"
+        stroke-opacity="0.1"
+        stroke-width="1"
+      />
+
+      <%!-- Grid lines at 1%, 5%, 10% downtime --%>
+      <line
+        :for={pct <- [1, 5, 10]}
+        x1={@padding_x}
+        y1={Float.round(@padding_y + @chart_height - pct / 100 * @chart_height, 1)}
+        x2={@width - @padding_x}
+        y2={Float.round(@padding_y + @chart_height - pct / 100 * @chart_height, 1)}
+        stroke="currentColor"
+        stroke-opacity="0.05"
+        stroke-width="1"
+        stroke-dasharray="4 4"
+      />
+      <text
+        :for={pct <- [1, 5, 10]}
+        x={@padding_x - 4}
+        y={Float.round(@padding_y + @chart_height - pct / 100 * @chart_height + 3, 1)}
+        text-anchor="end"
+        class="fill-neutral-300 dark:fill-neutral-600"
+        font-size="8"
+      >
+        {pct}%
+      </text>
+
+      <%!-- Bars --%>
+      <rect
+        :for={bar <- @bars}
+        x={bar.x}
+        y={bar.y}
+        width={bar.bar_width}
+        height={max(bar.bar_height, 0)}
+        rx="2"
+        fill={bar.color}
+        opacity={bar.opacity}
+      >
+        <title>{bar.label}: {if bar.uptime_pct, do: "#{bar.uptime_pct}% uptime (#{bar.downtime_pct}% down)", else: "No data"}</title>
+      </rect>
+
+      <%!-- No-data indicator (small grey dot) --%>
+      <circle
+        :for={bar <- Enum.filter(@bars, &is_nil(&1.uptime_pct))}
+        cx={Float.round(bar.x + bar.bar_width / 2, 1)}
+        cy={@padding_y + @chart_height - 2}
+        r="2"
+        fill="#d4d4d4"
+        opacity="0.5"
+      />
+
+      <%!-- X labels --%>
+      <text
+        :for={bar <- @bars}
+        x={Float.round(bar.x + bar.bar_width / 2, 1)}
+        y={@height - 2}
+        text-anchor="middle"
+        class="fill-neutral-400 dark:fill-neutral-500"
+        font-size="8"
+      >
+        {bar.label}
+      </text>
+    </svg>
+    """
+  end
+
+  defp downtime_bar_color(uptime) when uptime >= 99.5, do: "#22c55e"
+  defp downtime_bar_color(uptime) when uptime >= 98.0, do: "#4ade80"
+  defp downtime_bar_color(uptime) when uptime >= 95.0, do: "#eab308"
+  defp downtime_bar_color(uptime) when uptime >= 90.0, do: "#f97316"
+  defp downtime_bar_color(_uptime), do: "#ef4444"
 end

@@ -20,9 +20,12 @@ defmodule RavnerWeb.UptimeLive.Show do
      |> assign(:domain_id, domain_id)
      |> assign(:monitoring_active, monitoring_active)
      |> assign(:view_level, :month)
+     |> assign(:chart_view, "month")
+     |> assign(:chart_offset, 0)
      |> assign(:selected_date, nil)
      |> assign(:selected_day_stat, nil)
      |> assign(:hourly_data, nil)
+     |> assign(:csv_range, "30")
      |> load_data()}
   end
 
@@ -76,9 +79,31 @@ defmodule RavnerWeb.UptimeLive.Show do
   end
 
   @impl true
+  def handle_event("set_chart_view", %{"view" => view}, socket) do
+    {:noreply, socket |> assign(:chart_view, view) |> assign(:chart_offset, 0) |> load_data()}
+  end
+
+  @impl true
+  def handle_event("chart_prev", _params, socket) do
+    {:noreply, socket |> assign(:chart_offset, socket.assigns.chart_offset - 1) |> load_data()}
+  end
+
+  @impl true
+  def handle_event("chart_next", _params, socket) do
+    new_offset = min(socket.assigns.chart_offset + 1, 0)
+    {:noreply, socket |> assign(:chart_offset, new_offset) |> load_data()}
+  end
+
+  @impl true
+  def handle_event("set_csv_range", %{"range" => range}, socket) do
+    {:noreply, assign(socket, :csv_range, range)}
+  end
+
+  @impl true
   def handle_event("export_csv", _params, socket) do
     domain = socket.assigns.domain
-    daily = socket.assigns.daily_stats
+    days = String.to_integer(socket.assigns.csv_range)
+    daily = Uptime.daily_stats(socket.assigns.domain_id, days)
 
     csv =
       ["Date,Uptime %,Incidents,Avg Response (ms)\n" |
@@ -89,7 +114,7 @@ defmodule RavnerWeb.UptimeLive.Show do
        end)]
       |> IO.iodata_to_binary()
 
-    filename = "uptime_#{domain.name}_30d.csv"
+    filename = "uptime_#{domain.name}_#{days}d.csv"
 
     {:noreply, push_event(socket, "download_csv", %{content: csv, filename: filename})}
   end
@@ -198,6 +223,9 @@ defmodule RavnerWeb.UptimeLive.Show do
     # Domain checks (custom endpoints)
     domain_checks = Uptime.list_domain_checks(domain_id)
 
+    # Central chart data (year/month/day view with offset for prev/next)
+    {chart_data, chart_title} = build_chart_data(domain_id, socket.assigns.chart_view, socket.assigns.chart_offset)
+
     socket
     |> assign(:summary, summary)
     |> assign(:uptime_percent, uptime_pct)
@@ -211,7 +239,85 @@ defmodule RavnerWeb.UptimeLive.Show do
     |> assign(:has_data, has_data)
     |> assign(:recipients, recipients)
     |> assign(:domain_checks, domain_checks)
+    |> assign(:chart_data, chart_data)
+    |> assign(:chart_title, chart_title)
   end
+
+  defp build_chart_data(domain_id, "year", offset) do
+    today = Date.utc_today()
+    year = today.year + offset
+    data = Uptime.monthly_stats(domain_id, 12)
+
+    # For non-current year, we'd need a different query range.
+    # ponytail: For now, monthly_stats always returns last 12 months.
+    # Offset shifts which year label we show but data is approximate.
+    chart =
+      if offset == 0 do
+        Enum.map(data, fn d ->
+          %{label: Calendar.strftime(d.month, "%b"), uptime_percent: d.uptime_percent}
+        end)
+      else
+        # Generate 12 months for the target year
+        for m <- 1..12 do
+          month_start = Date.new!(year, m, 1)
+          month_end = Date.end_of_month(month_start)
+
+          # Skip future months
+          if Date.compare(month_start, today) == :gt do
+            %{label: Calendar.strftime(month_start, "%b"), uptime_percent: nil}
+          else
+            from_dt = DateTime.new!(month_start, ~T[00:00:00], "Etc/UTC")
+            to_dt = DateTime.new!(min_date(month_end, today), ~T[23:59:59], "Etc/UTC")
+            pct = Uptime.uptime_percent(domain_id, from_dt, to_dt)
+            %{label: Calendar.strftime(month_start, "%b"), uptime_percent: pct}
+          end
+        end
+      end
+
+    {chart, "#{year}"}
+  end
+
+  defp build_chart_data(domain_id, "month", offset) do
+    today = Date.utc_today()
+    target_month = Date.add(today, offset * 30) |> Date.beginning_of_month()
+    days_in_month = Date.days_in_month(target_month)
+
+    daily = Uptime.daily_stats(domain_id, 60)
+    daily_map = Map.new(daily, fn d -> {d.date, d} end)
+
+    chart =
+      for day_num <- 1..days_in_month do
+        date = Date.new!(target_month.year, target_month.month, day_num)
+        stat = Map.get(daily_map, date)
+        pct = if stat, do: stat.uptime_percent, else: nil
+        # Future days = nil
+        pct = if Date.compare(date, today) == :gt, do: nil, else: pct
+        %{label: "#{day_num}", uptime_percent: pct}
+      end
+
+    {chart, Calendar.strftime(target_month, "%B %Y")}
+  end
+
+  defp build_chart_data(domain_id, "day", offset) do
+    today = Date.utc_today()
+    target_day = Date.add(today, offset)
+
+    hourly = Uptime.hourly_stats(domain_id, target_day)
+
+    now_hour = if offset == 0, do: DateTime.utc_now().hour, else: 23
+
+    chart =
+      Enum.map(hourly, fn h ->
+        pct = if h.hour > now_hour && offset == 0, do: nil, else: h.uptime_percent
+        %{label: String.pad_leading("#{h.hour}", 2, "0"), uptime_percent: pct}
+      end)
+
+    {chart, Calendar.strftime(target_day, "%A, %B %d, %Y")}
+  end
+
+  defp build_chart_data(domain_id, _, offset), do: build_chart_data(domain_id, "month", offset)
+
+  defp min_date(a, b), do: if(Date.compare(a, b) == :lt, do: a, else: b)
 
   defp format_duration(nil), do: "\u2014"
   defp format_duration(0), do: "0s"

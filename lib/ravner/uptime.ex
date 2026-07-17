@@ -284,6 +284,37 @@ defmodule Ravner.Uptime do
   end
 
   @doc """
+  Returns monthly uptime stats for the last 12 months.
+  Each: %{month: Date (first of month), uptime_percent: float | nil, incidents: int}
+  """
+  def monthly_stats(domain_id, months \\ 12) do
+    today = Date.utc_today()
+
+    for i <- (months - 1)..0//-1 do
+      month_start = today |> Date.add(-i * 30) |> Date.beginning_of_month()
+      month_end = Date.end_of_month(month_start)
+      from_dt = DateTime.new!(month_start, ~T[00:00:00], "Etc/UTC")
+      to_dt = DateTime.new!(month_end, ~T[23:59:59], "Etc/UTC")
+
+      # Clamp to now if month is current
+      to_dt = if Date.compare(month_end, today) == :gt, do: DateTime.utc_now(), else: to_dt
+
+      checks_count =
+        HeartbeatCheck
+        |> where(domain_id: ^domain_id)
+        |> where([c], c.checked_at >= ^from_dt and c.checked_at <= ^to_dt)
+        |> Repo.aggregate(:count)
+
+      uptime_pct =
+        if checks_count > 0, do: uptime_percent(domain_id, from_dt, to_dt), else: nil
+
+      windows = downtime_windows(domain_id, from_dt, to_dt)
+
+      %{month: month_start, uptime_percent: uptime_pct, incidents: length(windows)}
+    end
+  end
+
+  @doc """
   Returns uptime percentage per day for the last N days.
   Lightweight version of daily_stats for the uptime bar visualization.
   List of %{date: Date.t(), percent: float()}
