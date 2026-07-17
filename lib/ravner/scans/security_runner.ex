@@ -153,7 +153,7 @@ defmodule Ravner.Scans.SecurityRunner do
           if active_scanner == "lonkero" do
             run_lonkero(domain_name)
           else
-            run_nuclei(domain_name, config, httpx_metadata)
+            run_nuclei(scan.domain_id, domain_name, config, httpx_metadata)
           end
 
         case scan_result do
@@ -260,18 +260,37 @@ defmodule Ravner.Scans.SecurityRunner do
     end
   end
 
-  defp run_nuclei(domain_name, config, httpx_metadata) do
+  defp run_nuclei(domain_id, domain_name, config, httpx_metadata) do
     # 1. Gather technologies from HTTPX metadata
     httpx_techs = Map.get(httpx_metadata, :tech_stack, [])
     server_header = Map.get(httpx_metadata, :server_header, "")
 
-    # 2. Run a quick Nuclei fingerprinting scan to detect additional technologies
+    # 2. Gather technologies from the DB (DomainMetadata + TechEvidence)
+    import Ecto.Query
+
+    db_metadata = Repo.get_by(Ravner.Domains.DomainMetadata, domain_id: domain_id)
+    db_tech_stack = (db_metadata && db_metadata.tech_stack) || []
+    db_server_header = (db_metadata && db_metadata.server_header) || ""
+
+    db_tech_evidence =
+      Repo.all(
+        from(e in Ravner.Domains.TechEvidence,
+          where: e.domain_id == ^domain_id,
+          select: e.name
+        )
+      )
+
+    # 3. Run a quick Nuclei fingerprinting scan to detect additional technologies
     fingerprint_techs = run_nuclei_fingerprint(domain_name)
 
     # Combine all detected technology strings
     detected_tech_strings =
-      (httpx_techs ++ fingerprint_techs ++ [server_header])
+      (httpx_techs ++
+         db_tech_stack ++
+         db_tech_evidence ++ fingerprint_techs ++ [server_header, db_server_header])
       |> Enum.reject(&is_nil/1)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
       |> Enum.map(&String.downcase/1)
       |> Enum.uniq()
 
@@ -280,7 +299,7 @@ defmodule Ravner.Scans.SecurityRunner do
 
     Ravner.ActivityLog.emit(:step, "Fingerprinted technologies: #{tech_info}")
 
-    # 3. Map detected technologies to Nuclei tags
+    # 4. Map detected technologies to Nuclei tags
     tech_tags = resolve_tech_tags(detected_tech_strings)
 
     # 4. Determine final tags to scan
