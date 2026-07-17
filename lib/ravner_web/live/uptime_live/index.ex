@@ -43,13 +43,15 @@ defmodule RavnerWeb.UptimeLive.Index do
           end
 
         bar_data = Uptime.uptime_bar_data(meta.domain_id, 30)
-        uptime_pct = Uptime.uptime_percent(meta.domain_id, thirty_days_ago, now)
+        has_data = Enum.any?(bar_data, fn d -> d.percent != nil end)
+        uptime_pct = if has_data, do: Uptime.uptime_percent(meta.domain_id, thirty_days_ago, now), else: nil
 
         %{
           domain: meta.domain,
           meta: meta,
           status: status,
           bar_data: bar_data,
+          has_data: has_data,
           uptime_percent: uptime_pct,
           active_scans: active_scans(meta)
         }
@@ -59,14 +61,14 @@ defmodule RavnerWeb.UptimeLive.Index do
     down_count = Enum.count(enriched, &(&1.status == :down))
 
     avg_uptime =
-      if enriched != [] do
-        enriched
-        |> Enum.map(& &1.uptime_percent)
-        |> Enum.sum()
-        |> Kernel./(length(enriched))
-        |> Float.round(2)
-      else
-        100.0
+      case Enum.filter(enriched, & &1.uptime_percent) do
+        [] -> nil
+        with_data ->
+          with_data
+          |> Enum.map(& &1.uptime_percent)
+          |> Enum.sum()
+          |> Kernel./(length(with_data))
+          |> Float.round(2)
       end
 
     socket
