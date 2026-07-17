@@ -175,6 +175,17 @@ defmodule RavnerWeb.UptimeLive.Show do
     end
   end
 
+  @impl true
+  def handle_event("update_check_interval", %{"id" => id, "interval" => interval}, socket) do
+    if socket.assigns.current_scope.user.role in [:admin, :editor] do
+      check = Uptime.get_domain_check!(id)
+      Uptime.update_domain_check(check, %{check_interval_minutes: String.to_integer(interval)})
+      {:noreply, load_data(socket)}
+    else
+      {:noreply, put_flash(socket, :error, "Permission denied.")}
+    end
+  end
+
   defp inspect_errors(%Ecto.Changeset{} = cs) do
     Ecto.Changeset.traverse_errors(cs, fn {msg, _} -> msg end)
     |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{Enum.join(v, ", ")}" end)
