@@ -199,6 +199,19 @@ defmodule Ravner.Uptime do
     |> Repo.all()
   end
 
+  @doc """
+  Returns the timestamp of the most recent heartbeat check for a domain.
+  Returns nil if no checks exist.
+  """
+  def last_check_time(domain_id) do
+    HeartbeatCheck
+    |> where(domain_id: ^domain_id)
+    |> order_by(desc: :checked_at)
+    |> limit(1)
+    |> select([c], c.checked_at)
+    |> Repo.one()
+  end
+
   # --- Chart data helpers ---
 
   @doc """

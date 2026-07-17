@@ -67,8 +67,8 @@
                 <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up"></span>
               <% m.status == :down -> %>
                 <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="Down"></span>
-              <% m.status == :unknown -> %>
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-neutral-300 dark:bg-neutral-600" title="No recent data"></span>
+              <% m.status == :pending -> %>
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-700" title="Awaiting data"></span>
               <% true -> %>
                 <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="Degraded"></span>
             <% end %>
@@ -81,12 +81,12 @@
             </.link>
             <p class="text-[11px] text-neutral-400 mt-0.5">
               <%= cond do %>
-                <% is_nil(m.meta.last_heartbeat_at) -> %>
+                <% m.status == :pending -> %>
                   <span class="text-neutral-300">Awaiting first check</span>
-                <% m.status == :unknown -> %>
-                  <span class="text-amber-500">Stale — last check {div(DateTime.diff(DateTime.utc_now(), m.meta.last_heartbeat_at, :second), 86400)}d ago</span>
+                <% is_nil(m.last_check) -> %>
+                  <span class="text-neutral-300">No checks recorded</span>
                 <% true -> %>
-                  <% ago = DateTime.diff(DateTime.utc_now(), m.meta.last_heartbeat_at, :second) %>
+                  <% ago = DateTime.diff(DateTime.utc_now(), m.last_check, :second) %>
                   <%= cond do %>
                     <% ago < 120 -> %>
                       <span class="text-green-500">Checked just now</span>

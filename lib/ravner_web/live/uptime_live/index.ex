@@ -27,24 +27,22 @@ defmodule RavnerWeb.UptimeLive.Index do
       Enum.map(monitors, fn meta ->
         open_window = Uptime.open_downtime(meta.domain_id)
 
-        # Consider data stale if last check was more than 3x the interval ago
-        stale? =
-          meta.last_heartbeat_at &&
-            DateTime.diff(now, meta.last_heartbeat_at, :minute) >
-              (meta.heartbeat_interval_minutes || 5) * 3
+        bar_data = Uptime.uptime_bar_data(meta.domain_id, 30)
+        has_data = Enum.any?(bar_data, fn d -> d.percent != nil end)
 
+        # Status based on ACTUAL heartbeat_checks data, not stale domain_metadata
         status =
           cond do
-            is_nil(meta.last_heartbeat_at) -> :unknown
-            stale? -> :unknown
+            !has_data -> :pending
             open_window -> :down
             meta.is_up == false -> :degraded
             true -> :up
           end
 
-        bar_data = Uptime.uptime_bar_data(meta.domain_id, 30)
-        has_data = Enum.any?(bar_data, fn d -> d.percent != nil end)
         uptime_pct = if has_data, do: Uptime.uptime_percent(meta.domain_id, thirty_days_ago, now), else: nil
+
+        # Last real check time from heartbeat_checks (not domain_metadata)
+        last_check = Uptime.last_check_time(meta.domain_id)
 
         %{
           domain: meta.domain,
@@ -53,6 +51,7 @@ defmodule RavnerWeb.UptimeLive.Index do
           bar_data: bar_data,
           has_data: has_data,
           uptime_percent: uptime_pct,
+          last_check: last_check,
           active_scans: active_scans(meta)
         }
       end)
