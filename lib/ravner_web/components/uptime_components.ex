@@ -366,7 +366,7 @@ defmodule RavnerWeb.UptimeComponents do
           x: x,
           bar_width: bar_width,
           bar_height: bar_h,
-          y: Float.round(padding_y + chart_height - bar_h, 1),
+          y: Float.round((padding_y + chart_height - bar_h) * 1.0, 1),
           color: color,
           opacity: opacity,
           label: item.label,
