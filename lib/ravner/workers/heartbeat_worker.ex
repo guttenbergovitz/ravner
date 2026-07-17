@@ -17,6 +17,7 @@ defmodule Ravner.Workers.HeartbeatWorker do
 
     args = [
       "-silent",
+      "-no-color",
       "-status-code",
       "-timeout",
       "5",
