@@ -33,6 +33,7 @@ ARG NUCLEI_TEMPLATES_VERSION=10.4.3
 ARG HTTPX_VERSION=1.9.0
 ARG KATANA_VERSION=1.6.1
 ARG WEBANALYZE_VERSION=0.4.3
+ARG LONKERO_VERSION=3.7.3
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -119,6 +120,23 @@ RUN curl -fsSL -o /tmp/nuclei-templates.tar.gz \
  && tar -xzf /tmp/nuclei-templates.tar.gz -C /root/ \
  && mv /root/nuclei-templates-${NUCLEI_TEMPLATES_VERSION} /root/.nuclei-templates \
  && rm /tmp/nuclei-templates.tar.gz
+
+# ─── Fetch lonkero (Bountyy Oy) ──────────────────────────────────────────────
+FROM debian:${DEBIAN_VERSION} AS lonkero
+ARG LONKERO_VERSION
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl ca-certificates tar \
+ && case "${TARGETARCH}" in \
+      amd64) lonkero_arch=x64 ;; \
+      arm64) lonkero_arch=arm64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/lonkero.tar.gz \
+      "https://github.com/bountyyfi/lonkero/releases/download/v${LONKERO_VERSION}/lonkero-linux-${lonkero_arch}.tar.gz" \
+ && tar -xzf /tmp/lonkero.tar.gz -C /tmp \
+ && install -m 0755 /tmp/lonkero /usr/local/bin/lonkero \
+ && rm -rf /var/lib/apt/lists/* /tmp/lonkero /tmp/lonkero.tar.gz
 
 # ─── Fetch httpx (ProjectDiscovery) ──────────────────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS httpx
@@ -237,6 +255,7 @@ COPY --from=dnsx    /usr/local/bin/dnsx              /usr/local/bin/dnsx
 COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
 COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
 COPY --from=nuclei  --chown=ravner:ravner /root/.nuclei-templates /app/.nuclei-templates
+COPY --from=lonkero /usr/local/bin/lonkero           /usr/local/bin/lonkero
 COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=katana  /usr/local/bin/katana            /usr/local/bin/katana
 COPY --from=webanalyze /usr/local/bin/webanalyze     /usr/local/bin/webanalyze

@@ -107,11 +107,13 @@ defmodule Ravner.Scans.SecurityRunner do
 
   defp do_security_scan(scan, domain_name, liveview_pid) do
     send_progress(scan.id, 5, liveview_pid)
+    config = Ravner.ScanConfig.get()
+    active_scanner = config.security_scanner
 
     with :ok <- check_binary("httpx"),
          :ok <- check_binary("naabu"),
-         :ok <- check_binary("nuclei") do
-      run_pipeline(scan, domain_name, liveview_pid)
+         :ok <- check_binary(active_scanner) do
+      run_pipeline(scan, domain_name, liveview_pid, config)
     else
       {:error, reason} -> fail_scan(scan, reason, liveview_pid)
     end
@@ -123,7 +125,7 @@ defmodule Ravner.Scans.SecurityRunner do
       fail_scan(scan, "unexpected error during scan: #{inspect(e)}", liveview_pid)
   end
 
-  defp run_pipeline(scan, domain_name, liveview_pid) do
+  defp run_pipeline(scan, domain_name, liveview_pid, config) do
     # Phase 1: httpx (tech, status, server, CDN, redirect)
     Ravner.ActivityLog.emit(:step, "Security — HTTP fingerprinting #{domain_name}…")
     send_progress(scan.id, 10, liveview_pid)
@@ -157,40 +159,48 @@ defmodule Ravner.Scans.SecurityRunner do
         port_info = if ports != [], do: ": #{Enum.join(ports, ", ")}", else: ""
         Ravner.ActivityLog.emit(:step, "Found #{length(ports)} open ports#{port_info}")
 
-        # Phase 3: nuclei vulnerability scan
+        # Phase 3: vulnerability scan
+        active_scanner = config.security_scanner
         Ravner.ActivityLog.emit(
           :step,
-          "Security — running nuclei templates (critical/high/medium)…"
+          "Security — running #{active_scanner} vulnerability scan…"
         )
 
         send_progress(scan.id, 60, liveview_pid)
 
-        case run_nuclei(domain_name) do
-          {:ok, nuclei_findings} ->
+        scan_result =
+          if active_scanner == "lonkero" do
+            run_lonkero(domain_name)
+          else
+            run_nuclei(domain_name, config)
+          end
+
+        case scan_result do
+          {:ok, scanner_findings} ->
             send_progress(scan.id, 90, liveview_pid)
 
-            if nuclei_findings != [] do
-              Enum.each(Enum.take(nuclei_findings, 5), fn f ->
-                severity = f["severity"] || "medium"
-                name = f["name"] || f["template_id"] || "unknown"
+            if scanner_findings != [] do
+              Enum.each(Enum.take(scanner_findings, 5), fn f ->
+                severity = f[:severity] || f["severity"] || "medium"
+                name = f[:title] || f["name"] || f["template_id"] || "unknown"
                 Ravner.ActivityLog.emit(:step, "  ⚠ [#{severity}] #{name}")
               end)
 
-              if length(nuclei_findings) > 5 do
+              if length(scanner_findings) > 5 do
                 Ravner.ActivityLog.emit(
                   :step,
-                  "  … and #{length(nuclei_findings) - 5} more findings"
+                  "  … and #{length(scanner_findings) - 5} more findings"
                 )
               end
             else
               Ravner.ActivityLog.emit(:step, "No vulnerabilities found — clean scan")
             end
 
-            all_findings = naabu_findings ++ nuclei_findings
+            all_findings = naabu_findings ++ scanner_findings
 
             summary =
               "#{length(ports)} open ports, " <>
-                "#{length(nuclei_findings)} findings"
+                "#{length(scanner_findings)} findings"
 
             metadata_attrs =
               httpx_metadata
@@ -208,8 +218,8 @@ defmodule Ravner.Scans.SecurityRunner do
             )
 
           {:error, reason} ->
-            Ravner.ActivityLog.emit(:error, "Nuclei failed: #{reason}")
-            fail_scan(scan, "nuclei: #{reason}", liveview_pid)
+            Ravner.ActivityLog.emit(:error, "#{active_scanner} failed: #{reason}")
+            fail_scan(scan, "#{active_scanner}: #{reason}", liveview_pid)
         end
 
       {:error, reason} ->
@@ -269,9 +279,7 @@ defmodule Ravner.Scans.SecurityRunner do
     end
   end
 
-  defp run_nuclei(domain_name) do
-    config = Ravner.ScanConfig.get()
-
+  defp run_nuclei(domain_name, config) do
     severity_arg = Enum.join(config.nuclei_severities, ",")
 
     args =
@@ -301,6 +309,47 @@ defmodule Ravner.Scans.SecurityRunner do
 
       {output, code} ->
         {:error, "exited with code #{code}: #{String.slice(output, 0, 200)}"}
+    end
+  end
+
+  defp run_lonkero(domain_name) do
+    temp_file = Path.join(System.tmp_dir!(), "lonkero_#{System.unique_integer([:positive])}.json")
+
+    args = [
+      "scan",
+      domain_name,
+      "-f",
+      "json",
+      "-o",
+      temp_file,
+      "--no-ml",
+      "--concurrency",
+      "10",
+      "-q"
+    ]
+
+    case SystemCommand.run_with_timeout("lonkero", args, @nuclei_timeout) do
+      {output, status} when is_integer(status) ->
+        case File.read(temp_file) do
+          {:ok, content} ->
+            File.rm(temp_file)
+            {:ok, SecurityScans.parse_lonkero_output(content)}
+
+          {:error, _} ->
+            if status == 0 do
+              {:ok, []}
+            else
+              {:error, "exited with code #{status}: #{String.slice(output, 0, 200)}"}
+            end
+        end
+
+      {:error, :timeout} ->
+        File.rm(temp_file)
+        {:error, "timed out after #{@nuclei_timeout}ms"}
+
+      {:error, reason} ->
+        File.rm(temp_file)
+        {:error, reason}
     end
   end
 

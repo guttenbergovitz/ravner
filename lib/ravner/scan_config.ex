@@ -15,13 +15,15 @@ defmodule Ravner.ScanConfig do
     field :nuclei_severities, {:array, :string}, default: ["critical", "high", "medium"]
     field :nuclei_tags, {:array, :string}, default: []
     field :nuclei_exclude_tags, {:array, :string}, default: []
+    field :security_scanner, :string, default: "nuclei"
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(config, attrs) do
     config
-    |> cast(attrs, [:nuclei_severities, :nuclei_tags, :nuclei_exclude_tags])
+    |> cast(attrs, [:nuclei_severities, :nuclei_tags, :nuclei_exclude_tags, :security_scanner])
+    |> validate_inclusion(:security_scanner, ["nuclei", "lonkero"])
     |> validate_values_in(:nuclei_severities, @valid_severities)
     |> validate_values_in(:nuclei_tags, @valid_tags)
     |> validate_values_in(:nuclei_exclude_tags, @valid_tags)

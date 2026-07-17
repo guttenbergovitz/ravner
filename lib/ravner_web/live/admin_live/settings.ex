@@ -13,6 +13,7 @@ defmodule RavnerWeb.AdminLive.Settings do
     if admin?(socket.assigns.current_scope) do
       {pa11y_available?, pa11y_version} = check_pa11y()
       nuclei_status = check_nuclei_status()
+      lonkero_status = check_lonkero_status()
       scan_config = Ravner.ScanConfig.get()
 
       last_security_scan = last_scan_time("security_scans")
@@ -30,6 +31,7 @@ defmodule RavnerWeb.AdminLive.Settings do
        |> assign(:pa11y_available?, pa11y_available?)
        |> assign(:pa11y_version, pa11y_version)
        |> assign(:nuclei_status, nuclei_status)
+       |> assign(:lonkero_status, lonkero_status)
        |> assign(:scan_config, scan_config)
        |> assign(:last_security_scan, last_security_scan)
        |> assign(:last_a11y_scan, last_a11y_scan)
@@ -187,6 +189,20 @@ defmodule RavnerWeb.AdminLive.Settings do
   end
 
   @impl true
+  def handle_event("set_security_scanner", %{"scanner" => scanner}, socket) do
+    case Ravner.ScanConfig.update(%{security_scanner: scanner}) do
+      {:ok, new_config} ->
+        {:noreply,
+         socket
+         |> assign(:scan_config, new_config)
+         |> put_flash(:info, "Security scanner updated to #{scanner}")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update security scanner")}
+    end
+  end
+
+  @impl true
   def handle_event("update_nuclei_templates", _params, socket) do
     liveview_pid = self()
 
@@ -276,6 +292,28 @@ defmodule RavnerWeb.AdminLive.Settings do
       templates_path: templates_path,
       templates_count: templates_count,
       templates_date: templates_date
+    }
+  end
+
+  defp check_lonkero_status do
+    available? = System.find_executable("lonkero") != nil
+
+    version =
+      if available? do
+        case System.cmd("lonkero", ["version"], stderr_to_stdout: true) do
+          {out, 0} ->
+            out |> String.trim() |> String.split("\n") |> List.first() || "unknown"
+
+          _ ->
+            "unknown"
+        end
+      else
+        nil
+      end
+
+    %{
+      available?: available?,
+      version: version
     }
   end
 

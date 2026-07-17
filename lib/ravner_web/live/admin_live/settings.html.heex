@@ -169,111 +169,169 @@
     <div class="border border-neutral-200 p-6 mb-8">
       <h2 class="text-lg font-light tracking-tight mb-2">Security Scanner</h2>
       <p class="text-sm font-light text-neutral-500 mb-4">
-        Nuclei templates are pre-loaded in the container. Configure which severity levels and categories to include in scans.
+        Configure the active vulnerability scanner and adjust settings for security scanning.
       </p>
 
-      <div class="flex items-center gap-3 text-xs mb-4">
-        <span class={"flex items-center gap-1.5 " <> if(@nuclei_status.available?, do: "text-green-600", else: "text-red-500")}>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs mb-6 pb-6 border-b border-neutral-100">
+        <span class="text-neutral-400 uppercase tracking-wider text-[10px]">Status:</span>
+        <span class={["flex items-center gap-1.5", if(@nuclei_status.available?, do: "text-green-600", else: "text-red-500")]}>
           <%= if @nuclei_status.available? do %>
             <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> nuclei installed
           <% else %>
             <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> nuclei not found
           <% end %>
         </span>
-        <span class="text-neutral-400">·</span>
-        <%= if @nuclei_status.templates_path do %>
-          <span class="text-neutral-500">{@nuclei_status.templates_count} templates</span>
-          <%= if @nuclei_status.templates_date do %>
-            <span class="text-neutral-400">·</span>
-            <span class="text-neutral-500">from {@nuclei_status.templates_date}</span>
+        <span class="text-neutral-300">·</span>
+        <span class={["flex items-center gap-1.5", if(@lonkero_status.available?, do: "text-green-600", else: "text-red-500")]}>
+          <%= if @lonkero_status.available? do %>
+            <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> lonkero {@lonkero_status.version}
+          <% else %>
+            <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> lonkero not found
           <% end %>
-        <% else %>
-          <span class="text-red-500 flex items-center gap-1">
-            <.icon name="hero-exclamation-triangle" class="w-3.5 h-3.5" />
-            No templates directory found
-          </span>
-        <% end %>
+        </span>
       </div>
 
-      <%!-- Severity checkboxes --%>
-      <div class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
-            Severity Levels
-          </span>
-          <div class="flex gap-2">
-            <button
-              phx-click="select_all_severities"
-              class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors"
-            >
-              Select all
-            </button>
-            <span class="text-neutral-300">·</span>
-            <button
-              phx-click="deselect_all_severities"
-              class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors"
-            >
-              Min only
-            </button>
+      <%!-- Active Scanner Selection --%>
+      <div class="mb-6">
+        <span class="block text-xs font-normal uppercase tracking-wide text-neutral-500 mb-3">
+          Active Security Scanner
+        </span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            phx-click="set_security_scanner"
+            phx-value-scanner="nuclei"
+            class={[
+              "flex flex-col items-start p-4 border text-left transition-all",
+              @scan_config.security_scanner == "nuclei" && "border-neutral-900 bg-neutral-50/50",
+              @scan_config.security_scanner != "nuclei" && "border-neutral-200 hover:border-neutral-400 text-neutral-500"
+            ]}
+          >
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class={["w-2 h-2 rounded-full", @scan_config.security_scanner == "nuclei" && "bg-neutral-900", @scan_config.security_scanner != "nuclei" && "bg-transparent border border-neutral-300"]}></span>
+              <span class="font-normal text-sm text-neutral-900">Nuclei Scanner</span>
+            </div>
+            <span class="text-xs font-light">
+              Highly customizable, template-driven vulnerability scanner. Good for custom signature checks, but consumes more server resources.
+            </span>
+          </button>
+
+          <button
+            phx-click="set_security_scanner"
+            phx-value-scanner="lonkero"
+            class={[
+              "flex flex-col items-start p-4 border text-left transition-all",
+              @scan_config.security_scanner == "lonkero" && "border-neutral-900 bg-neutral-50/50",
+              @scan_config.security_scanner != "lonkero" && "border-neutral-200 hover:border-neutral-400 text-neutral-500"
+            ]}
+          >
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class={["w-2 h-2 rounded-full", @scan_config.security_scanner == "lonkero" && "bg-neutral-900", @scan_config.security_scanner != "lonkero" && "bg-transparent border border-neutral-300"]}></span>
+              <span class="font-normal text-sm text-neutral-900">Lonkero Scanner</span>
+            </div>
+            <span class="text-xs font-light">
+              Rust-based, context-aware smart scanner. 5x faster, resource-efficient, and optimized to run safely on production systems.
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <%= if @scan_config.security_scanner == "nuclei" do %>
+        <%!-- Nuclei templates config --%>
+        <div class="flex items-center gap-3 text-xs mb-4">
+          <%= if @nuclei_status.templates_path do %>
+            <span class="text-neutral-500">{@nuclei_status.templates_count} templates</span>
+            <%= if @nuclei_status.templates_date do %>
+              <span class="text-neutral-400">·</span>
+              <span class="text-neutral-500">from {@nuclei_status.templates_date}</span>
+            <% end %>
+          <% else %>
+            <span class="text-red-500 flex items-center gap-1">
+              <.icon name="hero-exclamation-triangle" class="w-3.5 h-3.5" />
+              No templates directory found
+            </span>
+          <% end %>
+        </div>
+
+        <%!-- Severity checkboxes --%>
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+              Severity Levels
+            </span>
+            <div class="flex gap-2">
+              <button
+                phx-click="select_all_severities"
+                class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors"
+              >
+                Select all
+              </button>
+              <span class="text-neutral-300">·</span>
+              <button
+                phx-click="deselect_all_severities"
+                class="text-[10px] text-neutral-400 hover:text-neutral-900 transition-colors"
+              >
+                Min only
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <%= for severity <- Ravner.ScanConfig.valid_severities() do %>
+              <% active = severity in @scan_config.nuclei_severities %>
+              <button
+                phx-click="toggle_severity"
+                phx-value-severity={severity}
+                class={[
+                  "px-3 py-1.5 text-xs border transition-colors",
+                  active && severity == "critical" && "bg-red-50 border-red-300 text-red-700",
+                  active && severity == "high" && "bg-orange-50 border-orange-300 text-orange-700",
+                  active && severity == "medium" && "bg-yellow-50 border-yellow-300 text-yellow-700",
+                  active && severity == "low" && "bg-blue-50 border-blue-300 text-blue-700",
+                  active && severity == "info" &&
+                    "bg-neutral-100 border-neutral-300 text-neutral-700",
+                  !active && "border-neutral-200 text-neutral-400 opacity-50"
+                ]}
+              >
+                {severity}
+              </button>
+            <% end %>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <%= for severity <- Ravner.ScanConfig.valid_severities() do %>
-            <% active = severity in @scan_config.nuclei_severities %>
-            <button
-              phx-click="toggle_severity"
-              phx-value-severity={severity}
-              class={[
-                "px-3 py-1.5 text-xs border transition-colors",
-                active && severity == "critical" && "bg-red-50 border-red-300 text-red-700",
-                active && severity == "high" && "bg-orange-50 border-orange-300 text-orange-700",
-                active && severity == "medium" && "bg-yellow-50 border-yellow-300 text-yellow-700",
-                active && severity == "low" && "bg-blue-50 border-blue-300 text-blue-700",
-                active && severity == "info" &&
-                  "bg-neutral-100 border-neutral-300 text-neutral-700",
-                !active && "border-neutral-200 text-neutral-400 opacity-50"
-              ]}
-            >
-              {severity}
-            </button>
-          <% end %>
-        </div>
-      </div>
 
-      <%!-- Tag categories (exclude list) --%>
-      <div class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
-            Exclude Categories
-          </span>
-          <span class="text-[10px] text-neutral-400">click to exclude from scans</span>
+        <%!-- Tag categories (exclude list) --%>
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+              Exclude Categories
+            </span>
+            <span class="text-[10px] text-neutral-400">click to exclude from scans</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <%= for tag <- Ravner.ScanConfig.valid_tags() do %>
+              <% excluded = tag in @scan_config.nuclei_exclude_tags %>
+              <button
+                phx-click="toggle_exclude_tag"
+                phx-value-tag={tag}
+                class={[
+                  "px-3 py-1.5 text-xs border transition-colors",
+                  excluded && "bg-red-50 border-red-200 text-red-500 line-through",
+                  !excluded && "border-neutral-200 text-neutral-600 hover:border-neutral-400"
+                ]}
+              >
+                {tag}
+              </button>
+            <% end %>
+          </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <%= for tag <- Ravner.ScanConfig.valid_tags() do %>
-            <% excluded = tag in @scan_config.nuclei_exclude_tags %>
-            <button
-              phx-click="toggle_exclude_tag"
-              phx-value-tag={tag}
-              class={[
-                "px-3 py-1.5 text-xs border transition-colors",
-                excluded && "bg-red-50 border-red-200 text-red-500 line-through",
-                !excluded && "border-neutral-200 text-neutral-600 hover:border-neutral-400"
-              ]}
-            >
-              {tag}
-            </button>
-          <% end %>
-        </div>
-      </div>
 
-      <div class="flex items-center gap-3">
-        <button
-          phx-click="update_nuclei_templates"
-          class="btn-line text-xs flex items-center gap-1.5"
-        >
-          <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Update Nuclei Templates
-        </button>
-      </div>
+        <div class="flex items-center gap-3">
+          <button
+            phx-click="update_nuclei_templates"
+            class="btn-line text-xs flex items-center gap-1.5"
+          >
+            <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Update Nuclei Templates
+          </button>
+        </div>
+      <% end %>
 
       <%= if @last_security_scan do %>
         <p class="text-[10px] text-neutral-400 mt-3">
