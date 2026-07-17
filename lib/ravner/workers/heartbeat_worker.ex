@@ -72,7 +72,7 @@ defmodule Ravner.Workers.HeartbeatWorker do
     ]
 
     case SystemCommand.run_with_timeout("httpx", args, 10_000) do
-      {:ok, %{exit_code: 0, output: output}} ->
+      {output, 0} ->
         output = String.trim(output)
 
         cond do
@@ -89,7 +89,7 @@ defmodule Ravner.Workers.HeartbeatWorker do
             {false, "unexpected_output"}
         end
 
-      {:ok, %{exit_code: code}} ->
+      {_output, code} ->
         {false, "exit_code_#{code}"}
 
       {:error, :timeout} ->
