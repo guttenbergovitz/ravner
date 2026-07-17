@@ -29,26 +29,6 @@ defmodule Ravner.Scans.SecurityRunner do
   @scan_timeout 300_000
   @nuclei_timeout 240_000
 
-  # Common nuclei flags to keep runs predictable inside our timeout budget:
-  # disable self/template update probes, refuse to read stdin, cap concurrency
-  # and request rate so we don't get throttled or run wildly long. `-mhe`
-  # mirrors `-c` so nuclei doesn't warn about concurrency > max-host-error.
-  # ponytail: concurrency was 50 but caused OOM (exit 137) on containers
-  # with <1GB RAM. 10 threads keeps nuclei under ~300MB. Upgrade path:
-  # increase -c if container memory is bumped above 2GB.
-  @nuclei_perf_flags [
-    "-disable-update-check",
-    "-no-stdin",
-    "-c",
-    "10",
-    "-mhe",
-    "10",
-    "-bulk-size",
-    "10",
-    "-rl",
-    "100"
-  ]
-
   # ─── Public API ───────────────────────────────────────────────────────────
 
   @doc """
@@ -173,7 +153,7 @@ defmodule Ravner.Scans.SecurityRunner do
           if active_scanner == "lonkero" do
             run_lonkero(domain_name)
           else
-            run_nuclei(domain_name, config)
+            run_nuclei(domain_name, config, httpx_metadata)
           end
 
         case scan_result do
@@ -280,8 +260,93 @@ defmodule Ravner.Scans.SecurityRunner do
     end
   end
 
-  defp run_nuclei(domain_name, config) do
+  defp run_nuclei(domain_name, config, httpx_metadata) do
+    # 1. Gather technologies from HTTPX metadata
+    httpx_techs = Map.get(httpx_metadata, :tech_stack, [])
+    server_header = Map.get(httpx_metadata, :server_header, "")
+
+    # 2. Run a quick Nuclei fingerprinting scan to detect additional technologies
+    fingerprint_techs = run_nuclei_fingerprint(domain_name)
+
+    # Combine all detected technology strings
+    detected_tech_strings =
+      (httpx_techs ++ fingerprint_techs ++ [server_header])
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&String.downcase/1)
+      |> Enum.uniq()
+
+    tech_info =
+      if detected_tech_strings != [], do: Enum.join(detected_tech_strings, ", "), else: "none"
+
+    Ravner.ActivityLog.emit(:step, "Fingerprinted technologies: #{tech_info}")
+
+    # 3. Map detected technologies to Nuclei tags
+    tech_tags = resolve_tech_tags(detected_tech_strings)
+
+    # 4. Determine final tags to scan
+    {mode, final_tags} =
+      if tech_tags != [] do
+        # We found specific technologies! Run a focused/profiled scan
+        {:profiled, tech_tags}
+      else
+        # No specific technologies found. Use user's configured tags or a sensible default
+        if config.nuclei_tags != [] do
+          {:configured, config.nuclei_tags}
+        else
+          {:generic, ["cves", "misconfig", "exposure"]}
+        end
+      end
+
+    # Log what mode and tags we are using
+    case mode do
+      :profiled ->
+        Ravner.ActivityLog.emit(
+          :step,
+          "Running profiled Nuclei scan with tags: #{Enum.join(final_tags, ", ")}"
+        )
+
+      :configured ->
+        Ravner.ActivityLog.emit(
+          :step,
+          "Running Nuclei scan with configured tags: #{Enum.join(final_tags, ", ")}"
+        )
+
+      :generic ->
+        Ravner.ActivityLog.emit(
+          :step,
+          "No specific technologies matched. Running generic scan with tags: #{Enum.join(final_tags, ", ")}"
+        )
+    end
+
+    # Build arguments for the scan
     severity_arg = Enum.join(config.nuclei_severities, ",")
+
+    # Exclusions
+    exclude_args =
+      if config.nuclei_exclude_tags != [] do
+        ["-etags", Enum.join(config.nuclei_exclude_tags, ",")]
+      else
+        []
+      end
+
+    # Lightweight/performance-optimized execution flags
+    perf_flags = [
+      "-disable-update-check",
+      "-no-stdin",
+      "-c",
+      "10",
+      "-mhe",
+      "10",
+      "-bulk-size",
+      "10",
+      "-rl",
+      "100",
+      "-timeout",
+      "3",
+      "-retries",
+      "0",
+      "-no-interactsh"
+    ]
 
     args =
       [
@@ -289,14 +354,14 @@ defmodule Ravner.Scans.SecurityRunner do
         domain_name,
         "-severity",
         severity_arg,
+        "-tags",
+        Enum.join(final_tags, ","),
         "-jsonl",
-        "-silent",
-        "-timeout",
-        "10"
+        "-silent"
       ] ++
-        tag_flags(config) ++
+        exclude_args ++
         nuclei_template_flags() ++
-        @nuclei_perf_flags
+        perf_flags
 
     case SystemCommand.run_with_timeout("nuclei", args, @nuclei_timeout) do
       {output, 0} ->
@@ -311,6 +376,139 @@ defmodule Ravner.Scans.SecurityRunner do
       {output, code} ->
         {:error, "exited with code #{code}: #{String.slice(output, 0, 200)}"}
     end
+  end
+
+  defp run_nuclei_fingerprint(domain_name) do
+    args =
+      [
+        "-u",
+        domain_name,
+        "-tags",
+        "tech",
+        "-severity",
+        "info",
+        "-jsonl",
+        "-silent",
+        "-timeout",
+        "3",
+        "-retries",
+        "0",
+        "-no-interactsh",
+        "-c",
+        "10",
+        "-rl",
+        "100"
+      ] ++ nuclei_template_flags()
+
+    case SystemCommand.run_with_timeout("nuclei", args, 30_000) do
+      {output, 0} ->
+        output
+        |> String.split("\n")
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.flat_map(fn line ->
+          case Jason.decode(line) do
+            {:ok, data} ->
+              template_id = data["template-id"] || ""
+              name = get_in(data, ["info", "name"]) || ""
+              tags = get_in(data, ["info", "tags"]) || []
+              [template_id, name | tags]
+
+            _ ->
+              []
+          end
+        end)
+        |> Enum.uniq()
+
+      _ ->
+        []
+    end
+  end
+
+  defp resolve_tech_tags(detected_techs) do
+    tags = []
+
+    # 1. Java / Spring Boot
+    tags =
+      if matches_any?(detected_techs, ["java", "spring", "springboot", "log4j"]),
+        do: ["spring", "springboot", "log4j", "java" | tags],
+        else: tags
+
+    # 2. WordPress
+    tags =
+      if matches_any?(detected_techs, ["wordpress", "wp", "wp-plugin"]),
+        do: ["wordpress", "wp-plugin" | tags],
+        else: tags
+
+    # 3. PHP / Laravel
+    tags =
+      if matches_any?(detected_techs, ["php", "laravel", "thinkphp"]),
+        do: ["php", "laravel", "thinkphp" | tags],
+        else: tags
+
+    # 4. Servers (Nginx, Apache, IIS)
+    tags =
+      if matches_any?(detected_techs, ["nginx"]),
+        do: ["nginx", "http-header" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["apache", "httpd"]),
+        do: ["apache", "http-header" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["iis", "microsoft-iis"]),
+        do: ["iis", "http-header" | tags],
+        else: tags
+
+    # 5. Common panels & infrastructures
+    tags =
+      if matches_any?(detected_techs, ["cpanel", "whm"]),
+        do: ["cpanel" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["coldfusion"]),
+        do: ["coldfusion" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["django", "python"]),
+        do: ["django", "python" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["drupal"]),
+        do: ["drupal" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["joomla"]),
+        do: ["joomla" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["magento"]),
+        do: ["magento" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["rails", "ruby"]),
+        do: ["rails", "ruby" | tags],
+        else: tags
+
+    tags =
+      if matches_any?(detected_techs, ["tomcat"]),
+        do: ["tomcat" | tags],
+        else: tags
+
+    Enum.uniq(tags)
+  end
+
+  defp matches_any?(list, patterns) do
+    Enum.any?(list, fn item ->
+      Enum.any?(patterns, &String.contains?(item, &1))
+    end)
   end
 
   defp run_lonkero(domain_name) do
@@ -470,12 +668,6 @@ defmodule Ravner.Scans.SecurityRunner do
     "/app/nuclei-templates",
     "/root/nuclei-templates"
   ]
-
-  defp tag_flags(%{nuclei_tags: tags, nuclei_exclude_tags: exclude}) do
-    tag_args = if tags != [], do: ["-tags", Enum.join(tags, ",")], else: []
-    exclude_args = if exclude != [], do: ["-etags", Enum.join(exclude, ",")], else: []
-    tag_args ++ exclude_args
-  end
 
   defp nuclei_template_flags do
     case Enum.find(@nuclei_template_paths, &File.dir?/1) do

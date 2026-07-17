@@ -72,11 +72,17 @@
         <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Uptime (30d)</p>
         <p class={[
           "text-2xl font-light",
-          @uptime_percent >= 99.9 && "text-green-600",
-          @uptime_percent >= 99.0 && @uptime_percent < 99.9 && "text-yellow-600",
-          @uptime_percent < 99.0 && "text-red-600"
+          @uptime_percent && @uptime_percent >= 99.9 && "text-green-600",
+          @uptime_percent && @uptime_percent >= 99.0 && @uptime_percent < 99.9 &&
+            "text-yellow-600",
+          @uptime_percent && @uptime_percent < 99.0 && "text-red-600",
+          is_nil(@uptime_percent) && "text-neutral-400"
         ]}>
-          {@uptime_percent}%
+          <%= if @uptime_percent do %>
+            {@uptime_percent}%
+          <% else %>
+            &mdash;
+          <% end %>
         </p>
       </div>
       <div class="card-line !p-4">
@@ -152,12 +158,12 @@
       </div>
       <%!-- Chart --%>
       <%= if @chart_data != [] do %>
-        <RavnerWeb.UptimeComponents.downtime_chart data={@chart_data} />
+        <RavnerWeb.UptimeComponents.uptime_chart data={@chart_data} />
       <% else %>
         <p class="text-sm text-neutral-400 py-8 text-center">No data for this period.</p>
       <% end %>
       <p class="text-[10px] text-neutral-400 mt-2 text-center">
-        Bars show downtime %. Taller bar = more downtime. Grey dots = no monitoring data.
+        Bars show uptime %. Taller bar = better availability. Grey dots = no monitoring data.
       </p>
     </div>
 

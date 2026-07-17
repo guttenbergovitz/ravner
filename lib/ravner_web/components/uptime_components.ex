@@ -330,8 +330,8 @@ defmodule RavnerWeb.UptimeComponents do
     do: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
 
   @doc """
-  Renders a vertical bar chart showing downtime % per time unit.
-  Bars grow downward from 100% line — taller bar = more downtime.
+  Renders a vertical bar chart showing uptime/availability % per time unit.
+  Bars grow upward from 0% to 100% — taller bar = better availability.
 
   ## Assigns
   - `data` - list of %{label: String, uptime_percent: float | nil}
@@ -340,7 +340,7 @@ defmodule RavnerWeb.UptimeComponents do
   attr :data, :list, required: true
   attr :class, :string, default: ""
 
-  def downtime_chart(assigns) do
+  def uptime_chart(assigns) do
     width = 720
     height = 220
     padding_x = 35
@@ -359,15 +359,14 @@ defmodule RavnerWeb.UptimeComponents do
       |> Enum.map(fn {item, i} ->
         x = Float.round(padding_x + i * (bar_width + gap), 1)
 
-        {bar_h, color, opacity, downtime_pct} =
+        {bar_h, color, opacity} =
           case item.uptime_percent do
             nil ->
-              {0, "#d4d4d4", "0.3", nil}
+              {0, "#d4d4d4", "0.3"}
 
             pct ->
-              dt = Float.round(100.0 - pct, 2)
-              h = Float.round(dt / 100 * chart_height, 1)
-              {h, downtime_bar_color(pct), "0.85", dt}
+              h = Float.round(pct / 100 * chart_height, 1)
+              {h, uptime_bar_color(pct), "0.85"}
           end
 
         %{
@@ -378,7 +377,6 @@ defmodule RavnerWeb.UptimeComponents do
           color: color,
           opacity: opacity,
           label: item.label,
-          downtime_pct: downtime_pct,
           uptime_pct: item.uptime_percent
         }
       end)
@@ -397,7 +395,7 @@ defmodule RavnerWeb.UptimeComponents do
       viewBox={"0 0 #{@width} #{@height}"}
       class={["w-full", @class]}
       role="img"
-      aria-label="Downtime bar chart"
+      aria-label="Uptime / Availability bar chart"
     >
       <%!-- Y-axis title --%>
       <text
@@ -408,10 +406,10 @@ defmodule RavnerWeb.UptimeComponents do
         class="fill-neutral-400 dark:fill-neutral-500"
         font-size="9"
       >
-        Downtime %
+        Uptime %
       </text>
 
-      <%!-- Baseline (0% downtime = 100% uptime) --%>
+      <%!-- Baseline (0% uptime) --%>
       <line
         x1={@padding_x}
         y1={@padding_y + @chart_height}
@@ -422,9 +420,9 @@ defmodule RavnerWeb.UptimeComponents do
         stroke-width="1"
       />
 
-      <%!-- Grid lines at 1%, 5%, 10% downtime --%>
+      <%!-- Grid lines at 90%, 95%, 99%, 100% uptime --%>
       <line
-        :for={pct <- [1, 5, 10]}
+        :for={pct <- [90, 95, 99, 100]}
         x1={@padding_x}
         y1={Float.round(@padding_y + @chart_height - pct / 100 * @chart_height, 1)}
         x2={@width - @padding_x}
@@ -435,11 +433,11 @@ defmodule RavnerWeb.UptimeComponents do
         stroke-dasharray="4 4"
       />
       <text
-        :for={pct <- [1, 5, 10]}
+        :for={pct <- [90, 95, 99, 100]}
         x={@padding_x - 4}
         y={Float.round(@padding_y + @chart_height - pct / 100 * @chart_height + 3, 1)}
         text-anchor="end"
-        class="fill-neutral-300 dark:fill-neutral-600"
+        class="fill-neutral-400 dark:fill-neutral-500"
         font-size="8"
       >
         {pct}%
@@ -458,7 +456,7 @@ defmodule RavnerWeb.UptimeComponents do
       >
         <title>
           {bar.label}: {if bar.uptime_pct,
-            do: "#{bar.uptime_pct}% uptime (#{bar.downtime_pct}% down)",
+            do: "#{bar.uptime_pct}% uptime",
             else: "No data"}
         </title>
       </rect>
@@ -488,9 +486,9 @@ defmodule RavnerWeb.UptimeComponents do
     """
   end
 
-  defp downtime_bar_color(uptime) when uptime >= 99.5, do: "#22c55e"
-  defp downtime_bar_color(uptime) when uptime >= 98.0, do: "#4ade80"
-  defp downtime_bar_color(uptime) when uptime >= 95.0, do: "#eab308"
-  defp downtime_bar_color(uptime) when uptime >= 90.0, do: "#f97316"
-  defp downtime_bar_color(_uptime), do: "#ef4444"
+  defp uptime_bar_color(uptime) when uptime >= 99.5, do: "#22c55e"
+  defp uptime_bar_color(uptime) when uptime >= 98.0, do: "#4ade80"
+  defp uptime_bar_color(uptime) when uptime >= 95.0, do: "#eab308"
+  defp uptime_bar_color(uptime) when uptime >= 90.0, do: "#f97316"
+  defp uptime_bar_color(_uptime), do: "#ef4444"
 end

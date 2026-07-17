@@ -5,6 +5,8 @@ defmodule RavnerWeb.UptimeLive.Show do
   alias Ravner.Uptime.Notifications
   alias Ravner.Domains
 
+  @tick_interval 15_000
+
   @impl true
   def mount(%{"domain_id" => domain_id}, _session, socket) do
     domain_id = String.to_integer(domain_id)
@@ -12,6 +14,8 @@ defmodule RavnerWeb.UptimeLive.Show do
 
     monitoring_active =
       domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes != nil
+
+    if connected?(socket), do: Process.send_after(self(), :tick, @tick_interval)
 
     {:ok,
      socket
@@ -27,6 +31,12 @@ defmodule RavnerWeb.UptimeLive.Show do
      |> assign(:hourly_data, nil)
      |> assign(:csv_range, "30")
      |> load_data()}
+  end
+
+  @impl true
+  def handle_info(:tick, socket) do
+    Process.send_after(self(), :tick, @tick_interval)
+    {:noreply, load_data(socket)}
   end
 
   # --- Drill-down events ---
