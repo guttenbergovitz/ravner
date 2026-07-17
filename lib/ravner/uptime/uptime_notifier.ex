@@ -17,7 +17,14 @@ defmodule Ravner.Uptime.UptimeNotifier do
     {from_name, from_email}
   end
 
-  def deliver_incident_open(to_email, domain_name, started_at) do
+  defp base_url do
+    RavnerWeb.Endpoint.url()
+  end
+
+  def deliver_incident_open(to_email, domain_name, started_at, opts \\ []) do
+    domain_id = Keyword.get(opts, :domain_id)
+    link = if domain_id, do: "#{base_url()}/uptime/#{domain_id}", else: "#{base_url()}/uptime"
+
     new()
     |> to(to_email)
     |> from(sender())
@@ -32,12 +39,17 @@ defmodule Ravner.Uptime.UptimeNotifier do
     We detected multiple consecutive failures. Monitoring will continue
     and you'll be notified when the domain recovers.
 
-    \u2014 Ravner Uptime Monitor
+    View details: #{link}
+
+    — Ravner Uptime Monitor
     """)
     |> Mailer.deliver()
   end
 
-  def deliver_incident_resolved(to_email, domain_name, started_at, ended_at, duration_seconds) do
+  def deliver_incident_resolved(to_email, domain_name, started_at, ended_at, duration_seconds, opts \\ []) do
+    domain_id = Keyword.get(opts, :domain_id)
+    link = if domain_id, do: "#{base_url()}/uptime/#{domain_id}", else: "#{base_url()}/uptime"
+
     new()
     |> to(to_email)
     |> from(sender())
@@ -51,16 +63,21 @@ defmodule Ravner.Uptime.UptimeNotifier do
     Resolved: #{Calendar.strftime(ended_at, "%Y-%m-%d %H:%M UTC")}
     Duration: #{format_duration(duration_seconds)}
 
-    \u2014 Ravner Uptime Monitor
+    View details: #{link}
+
+    — Ravner Uptime Monitor
     """)
     |> Mailer.deliver()
   end
 
-  def deliver_still_down(to_email, domain_name, started_at, reminder_number) do
+  def deliver_still_down(to_email, domain_name, started_at, reminder_number, opts \\ []) do
+    domain_id = Keyword.get(opts, :domain_id)
+    link = if domain_id, do: "#{base_url()}/uptime/#{domain_id}", else: "#{base_url()}/uptime"
+
     new()
     |> to(to_email)
     |> from(sender())
-    |> subject("[STILL DOWN] #{domain_name} \u2014 reminder ##{reminder_number}")
+    |> subject("[STILL DOWN] #{domain_name} — reminder ##{reminder_number}")
     |> text_body("""
     STILL DOWN (Reminder ##{reminder_number})
 
@@ -70,7 +87,9 @@ defmodule Ravner.Uptime.UptimeNotifier do
 
     The domain has not recovered yet.
 
-    \u2014 Ravner Uptime Monitor
+    View details: #{link}
+
+    — Ravner Uptime Monitor
     """)
     |> Mailer.deliver()
   end

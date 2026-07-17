@@ -127,9 +127,11 @@ defmodule Ravner.Uptime.Notifications do
 
   defp send_via_channel("email", email, _phone, event, window, domain_name, sequence) do
     if email do
+      opts = [domain_id: window.domain_id]
+
       case event do
         "incident_open" ->
-          UptimeNotifier.deliver_incident_open(email, domain_name, window.started_at)
+          UptimeNotifier.deliver_incident_open(email, domain_name, window.started_at, opts)
 
         "incident_resolved" ->
           UptimeNotifier.deliver_incident_resolved(
@@ -137,11 +139,12 @@ defmodule Ravner.Uptime.Notifications do
             domain_name,
             window.started_at,
             window.ended_at,
-            window.duration_seconds
+            window.duration_seconds,
+            opts
           )
 
         "still_down" ->
-          UptimeNotifier.deliver_still_down(email, domain_name, window.started_at, sequence)
+          UptimeNotifier.deliver_still_down(email, domain_name, window.started_at, sequence, opts)
       end
     else
       {:error, :no_email}
