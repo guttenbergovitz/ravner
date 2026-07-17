@@ -24,6 +24,12 @@ defmodule RavnerWeb.DomainLive.A11yReport do
     issues = if scan, do: scan.results_raw["issues"] || [], else: []
     grouped = group_by_principle(issues)
 
+    expanded =
+      grouped
+      |> Enum.filter(&(&1.count > 0))
+      |> Enum.map(& &1.key)
+      |> MapSet.new()
+
     {:ok,
      socket
      |> assign(:page_title, "A11y Report — #{domain.name}")
@@ -31,7 +37,7 @@ defmodule RavnerWeb.DomainLive.A11yReport do
      |> assign(:scan, scan)
      |> assign(:issues, issues)
      |> assign(:grouped, grouped)
-     |> assign(:expanded, MapSet.new())}
+     |> assign(:expanded, expanded)}
   end
 
   @impl true

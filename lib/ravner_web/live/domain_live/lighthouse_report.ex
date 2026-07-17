@@ -94,6 +94,12 @@ defmodule RavnerWeb.DomainLive.LighthouseReport do
   defp format_cls(nil), do: "—"
   defp format_cls(cls), do: Float.round(cls, 3) |> to_string()
 
+  defp format_description(nil), do: ""
+
+  defp format_description(desc) do
+    Regex.replace(~r/\[([^\]]+)\]\(([^)]+)\)/, desc, "\\1 (\\2)")
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -202,62 +208,65 @@ defmodule RavnerWeb.DomainLive.LighthouseReport do
 
           <%!-- Opportunities --%>
           <%= if @opportunities != [] do %>
-            <div class="card-line mb-4">
-              <button
-                phx-click="toggle_section"
-                phx-value-section="opportunities"
-                class="w-full flex items-center justify-between py-2 text-left"
-              >
-                <h2 class="text-sm font-normal">Opportunities</h2>
-                <.icon
-                  name="hero-chevron-down"
-                  class={[
-                    "w-4 h-4 text-neutral-400 transition-transform",
-                    @show_section == "opportunities" && "rotate-180"
-                  ]}
-                />
-              </button>
-              <%= if @show_section == "opportunities" do %>
-                <div class="mt-3 border-t border-neutral-100 pt-3 space-y-2">
-                  <%= for audit <- @opportunities do %>
-                    <div class="flex items-center justify-between py-1.5 text-sm">
-                      <span class="font-light text-neutral-700">{audit["title"]}</span>
-                      <span :if={audit["displayValue"]} class="text-xs text-neutral-400 shrink-0 ml-4">
+            <div class="card-line mb-6">
+              <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-4 uppercase tracking-wider">
+                Opportunities
+              </h2>
+              <div class="space-y-4">
+                <%= for audit <- @opportunities do %>
+                  <div class="pb-4 border-b border-neutral-100 dark:border-neutral-800 last:border-0 last:pb-0">
+                    <div class="flex items-start justify-between text-sm">
+                      <span class="font-medium text-neutral-850 dark:text-neutral-200">
+                        {audit["title"]}
+                      </span>
+                      <span
+                        :if={audit["displayValue"]}
+                        class="text-xs font-mono text-amber-700 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-2 py-0.5 border border-amber-100 dark:border-amber-900/30 shrink-0 ml-4"
+                      >
                         {audit["displayValue"]}
                       </span>
                     </div>
-                  <% end %>
-                </div>
-              <% end %>
+                    <p
+                      :if={audit["description"]}
+                      class="text-xs font-light text-neutral-500 dark:text-neutral-450 mt-1.5 leading-relaxed"
+                    >
+                      {format_description(audit["description"])}
+                    </p>
+                  </div>
+                <% end %>
+              </div>
             </div>
           <% end %>
 
           <%!-- Diagnostics --%>
           <%= if @diagnostics != [] do %>
             <div class="card-line">
-              <button
-                phx-click="toggle_section"
-                phx-value-section="diagnostics"
-                class="w-full flex items-center justify-between py-2 text-left"
-              >
-                <h2 class="text-sm font-normal">Diagnostics</h2>
-                <.icon
-                  name="hero-chevron-down"
-                  class={[
-                    "w-4 h-4 text-neutral-400 transition-transform",
-                    @show_section == "diagnostics" && "rotate-180"
-                  ]}
-                />
-              </button>
-              <%= if @show_section == "diagnostics" do %>
-                <div class="mt-3 border-t border-neutral-100 pt-3 space-y-2">
-                  <%= for audit <- @diagnostics do %>
-                    <div class="py-1.5 text-sm">
-                      <span class="font-light text-neutral-700">{audit["title"]}</span>
+              <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-4 uppercase tracking-wider">
+                Diagnostics
+              </h2>
+              <div class="space-y-4">
+                <%= for audit <- @diagnostics do %>
+                  <div class="pb-4 border-b border-neutral-100 dark:border-neutral-800 last:border-0 last:pb-0">
+                    <div class="flex items-start justify-between text-sm">
+                      <span class="font-medium text-neutral-850 dark:text-neutral-200">
+                        {audit["title"]}
+                      </span>
+                      <span
+                        :if={audit["displayValue"]}
+                        class="text-xs font-mono text-neutral-600 bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-450 px-2 py-0.5 border border-neutral-200 dark:border-neutral-700 shrink-0 ml-4"
+                      >
+                        {audit["displayValue"]}
+                      </span>
                     </div>
-                  <% end %>
-                </div>
-              <% end %>
+                    <p
+                      :if={audit["description"]}
+                      class="text-xs font-light text-neutral-500 dark:text-neutral-450 mt-1.5 leading-relaxed"
+                    >
+                      {format_description(audit["description"])}
+                    </p>
+                  </div>
+                <% end %>
+              </div>
             </div>
           <% end %>
         <% end %>
