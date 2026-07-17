@@ -339,5 +339,20 @@
       <p>* Required keys must be configured for full functionality.</p>
       <p>Environment variables: CHAOS_API_KEY, SECURITYTRAILS_API_KEY, SHODAN_API_KEY</p>
     </div>
+
+    <%!-- Delivery Settings link --%>
+    <div class="border border-neutral-200 p-6 mt-8 dark:border-neutral-700">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-light tracking-tight mb-1">Email & SMS Delivery</h2>
+          <p class="text-sm font-light text-neutral-500">
+            Configure email mailer and SMS provider for uptime notifications.
+          </p>
+        </div>
+        <.link navigate={~p"/admin/settings/delivery"} class="px-4 py-2 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800">
+          Configure &rarr;
+        </.link>
+      </div>
+    </div>
   </div>
 </Layouts.app>
