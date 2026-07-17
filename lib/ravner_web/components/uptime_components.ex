@@ -336,16 +336,17 @@ defmodule RavnerWeb.UptimeComponents do
   attr :class, :string, default: ""
 
   def downtime_chart(assigns) do
-    width = 700
-    height = 200
-    padding_x = 30
-    padding_y = 20
+    width = 720
+    height = 220
+    padding_x = 35
+    padding_y = 25
     chart_width = width - padding_x * 2
-    chart_height = height - padding_y * 2
+    chart_height = height - padding_y * 2 - 15
 
     n = length(assigns.data)
-    bar_width = if n > 0, do: Float.round(chart_width / n * 0.7, 1), else: 10
-    gap = if n > 0, do: Float.round(chart_width / n * 0.3, 1), else: 2
+    # Ensure all bars fit: n*bar + (n-1)*gap = chart_width
+    bar_width = if n > 0, do: Float.round(chart_width * 0.65 / n, 1), else: 10
+    gap = if n > 1, do: Float.round((chart_width - n * bar_width) / (n - 1), 1), else: 2
 
     bars =
       assigns.data
@@ -391,7 +392,19 @@ defmodule RavnerWeb.UptimeComponents do
       role="img"
       aria-label="Downtime bar chart"
     >
-      <%!-- Baseline (100% uptime line) --%>
+      <%!-- Y-axis title --%>
+      <text
+        x="10"
+        y={@padding_y + @chart_height / 2}
+        text-anchor="middle"
+        transform={"rotate(-90, 10, #{@padding_y + @chart_height / 2})"}
+        class="fill-neutral-400 dark:fill-neutral-500"
+        font-size="9"
+      >
+        Downtime %
+      </text>
+
+      <%!-- Baseline (0% downtime = 100% uptime) --%>
       <line
         x1={@padding_x}
         y1={@padding_y + @chart_height}
