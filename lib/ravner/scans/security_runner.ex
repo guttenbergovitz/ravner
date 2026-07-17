@@ -316,18 +316,28 @@ defmodule Ravner.Scans.SecurityRunner do
   defp run_lonkero(domain_name) do
     temp_file = Path.join(System.tmp_dir!(), "lonkero_#{System.unique_integer([:positive])}.json")
 
-    args = [
-      "scan",
-      domain_name,
-      "-f",
-      "json",
-      "-o",
-      temp_file,
-      "--no-ml",
-      "--concurrency",
-      "10",
-      "-q"
-    ]
+    license_args =
+      case Ravner.ApiKeys.get_effective_key("lonkero") do
+        {_source, key, _} when is_binary(key) and key != "" ->
+          ["-L", key]
+
+        _ ->
+          []
+      end
+
+    args =
+      [
+        "scan",
+        domain_name,
+        "-f",
+        "json",
+        "-o",
+        temp_file,
+        "--no-ml",
+        "--concurrency",
+        "10",
+        "-q"
+      ] ++ license_args
 
     case SystemCommand.run_with_timeout("lonkero", args, @nuclei_timeout) do
       {output, status} when is_integer(status) ->
