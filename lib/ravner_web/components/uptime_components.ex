@@ -47,7 +47,11 @@ defmodule RavnerWeb.UptimeComponents do
         fill={bar_color(day.percent)}
         opacity={bar_opacity(day.percent)}
       >
-        <title>{Calendar.strftime(day.date, "%b %d")} — {if day.percent, do: "#{day.percent}%", else: "No data"}</title>
+        <title>
+          {Calendar.strftime(day.date, "%b %d")} — {if day.percent,
+            do: "#{day.percent}%",
+            else: "No data"}
+        </title>
       </rect>
     </svg>
     """
@@ -286,7 +290,8 @@ defmodule RavnerWeb.UptimeComponents do
                   class={[
                     "aspect-square rounded-sm flex items-center justify-center text-[9px] font-medium transition-colors",
                     calendar_cell_class(pct),
-                    @on_click && "cursor-pointer hover:ring-2 hover:ring-neutral-300 dark:hover:ring-neutral-600"
+                    @on_click &&
+                      "cursor-pointer hover:ring-2 hover:ring-neutral-300 dark:hover:ring-neutral-600"
                   ]}
                   title={calendar_title(day, pct)}
                   phx-click={@on_click}
@@ -356,7 +361,9 @@ defmodule RavnerWeb.UptimeComponents do
 
         {bar_h, color, opacity, downtime_pct} =
           case item.uptime_percent do
-            nil -> {0, "#d4d4d4", "0.3", nil}
+            nil ->
+              {0, "#d4d4d4", "0.3", nil}
+
             pct ->
               dt = Float.round(100.0 - pct, 2)
               h = Float.round(dt / 100 * chart_height, 1)
@@ -449,7 +456,11 @@ defmodule RavnerWeb.UptimeComponents do
         fill={bar.color}
         opacity={bar.opacity}
       >
-        <title>{bar.label}: {if bar.uptime_pct, do: "#{bar.uptime_pct}% uptime (#{bar.downtime_pct}% down)", else: "No data"}</title>
+        <title>
+          {bar.label}: {if bar.uptime_pct,
+            do: "#{bar.uptime_pct}% uptime (#{bar.downtime_pct}% down)",
+            else: "No data"}
+        </title>
       </rect>
 
       <%!-- No-data indicator (small grey dot) --%>

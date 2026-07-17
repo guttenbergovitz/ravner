@@ -18,7 +18,14 @@ defmodule Ravner.Uptime.DomainCheck do
 
   def changeset(check, attrs) do
     check
-    |> cast(attrs, [:url, :label, :check_interval_minutes, :failure_threshold, :enabled, :domain_id])
+    |> cast(attrs, [
+      :url,
+      :label,
+      :check_interval_minutes,
+      :failure_threshold,
+      :enabled,
+      :domain_id
+    ])
     |> validate_required([:url, :domain_id, :check_interval_minutes])
     |> validate_number(:check_interval_minutes, greater_than_or_equal_to: 1)
     |> validate_url()
@@ -26,9 +33,12 @@ defmodule Ravner.Uptime.DomainCheck do
 
   defp validate_url(changeset) do
     case get_field(changeset, :url) do
-      nil -> changeset
+      nil ->
+        changeset
+
       url ->
         uri = URI.parse(url)
+
         if uri.scheme in ["http", "https"] && uri.host && uri.host != "" do
           changeset
         else

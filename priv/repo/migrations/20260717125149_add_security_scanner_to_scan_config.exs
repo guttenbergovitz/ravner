@@ -7,4 +7,3 @@ defmodule Ravner.Repo.Migrations.AddSecurityScannerToScanConfig do
     end
   end
 end
-

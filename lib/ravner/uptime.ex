@@ -375,7 +375,10 @@ defmodule Ravner.Uptime do
         up: up_count,
         uptime_percent: if(total > 0, do: Float.round(up_count / total * 100, 1), else: nil),
         avg_response_ms:
-          if(response_times != [], do: div(Enum.sum(response_times), length(response_times)), else: nil)
+          if(response_times != [],
+            do: div(Enum.sum(response_times), length(response_times)),
+            else: nil
+          )
       }
     end
   end
@@ -392,7 +395,8 @@ defmodule Ravner.Uptime do
 
       %{
         status: :down,
-        text: "Down since #{Calendar.strftime(open.started_at, "%H:%M UTC")} (#{humanize_duration(duration)} ago)",
+        text:
+          "Down since #{Calendar.strftime(open.started_at, "%H:%M UTC")} (#{humanize_duration(duration)} ago)",
         since: open.started_at,
         last_incident: nil
       }
@@ -443,7 +447,8 @@ defmodule Ravner.Uptime do
         status: :up,
         text: text,
         since: up_since,
-        last_incident: last_window && %{ended_at: last_window.ended_at, duration: last_window.duration_seconds}
+        last_incident:
+          last_window && %{ended_at: last_window.ended_at, duration: last_window.duration_seconds}
       }
     end
   end

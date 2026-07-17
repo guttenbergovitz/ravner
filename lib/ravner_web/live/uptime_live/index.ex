@@ -39,7 +39,8 @@ defmodule RavnerWeb.UptimeLive.Index do
             true -> :up
           end
 
-        uptime_pct = if has_data, do: Uptime.uptime_percent(meta.domain_id, thirty_days_ago, now), else: nil
+        uptime_pct =
+          if has_data, do: Uptime.uptime_percent(meta.domain_id, thirty_days_ago, now), else: nil
 
         # Last real check time from heartbeat_checks (not domain_metadata)
         last_check = Uptime.last_check_time(meta.domain_id)
@@ -61,7 +62,9 @@ defmodule RavnerWeb.UptimeLive.Index do
 
     avg_uptime =
       case Enum.filter(enriched, & &1.uptime_percent) do
-        [] -> nil
+        [] ->
+          nil
+
         with_data ->
           with_data
           |> Enum.map(& &1.uptime_percent)

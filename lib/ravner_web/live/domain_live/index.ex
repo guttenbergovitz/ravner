@@ -166,7 +166,6 @@ defmodule RavnerWeb.DomainLive.Index do
   def handle_event("toggle_filter_subdomains", _params, socket) do
     params = build_params(socket, include_subdomains: !socket.assigns.include_subdomains, page: 1)
 
-
     {:noreply,
      socket
      |> assign(:include_subdomains, !socket.assigns.include_subdomains)

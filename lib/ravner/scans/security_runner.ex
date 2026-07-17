@@ -161,6 +161,7 @@ defmodule Ravner.Scans.SecurityRunner do
 
         # Phase 3: vulnerability scan
         active_scanner = config.security_scanner
+
         Ravner.ActivityLog.emit(
           :step,
           "Security — running #{active_scanner} vulnerability scan…"

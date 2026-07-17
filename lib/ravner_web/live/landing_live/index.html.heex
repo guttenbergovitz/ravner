@@ -14,17 +14,34 @@
 
       <%!-- Hero metrics --%>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
-        <.link navigate={~p"/domains"} class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300">
-          <div class="text-3xl font-light text-neutral-900 dark:text-neutral-100">{@pulse.total_domains}</div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">Domains</div>
+        <.link
+          navigate={~p"/domains"}
+          class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300"
+        >
+          <div class="text-3xl font-light text-neutral-900 dark:text-neutral-100">
+            {@pulse.total_domains}
+          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">
+            Domains
+          </div>
           <div class="text-[10px] text-neutral-300 mt-2">{@pulse.total_apex} apex</div>
         </.link>
 
-        <.link navigate={~p"/uptime"} class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300">
-          <div class={["text-3xl font-light", @pulse.avg_uptime && @pulse.avg_uptime >= 99 && "text-green-600", @pulse.avg_uptime && @pulse.avg_uptime < 99 && "text-amber-600", is_nil(@pulse.avg_uptime) && "text-neutral-300"]}>
-            <%= if @pulse.avg_uptime, do: "#{@pulse.avg_uptime}%", else: "—" %>
+        <.link
+          navigate={~p"/uptime"}
+          class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300"
+        >
+          <div class={[
+            "text-3xl font-light",
+            @pulse.avg_uptime && @pulse.avg_uptime >= 99 && "text-green-600",
+            @pulse.avg_uptime && @pulse.avg_uptime < 99 && "text-amber-600",
+            is_nil(@pulse.avg_uptime) && "text-neutral-300"
+          ]}>
+            {if @pulse.avg_uptime, do: "#{@pulse.avg_uptime}%", else: "—"}
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">Uptime (30d)</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">
+            Uptime (30d)
+          </div>
           <div class="text-[10px] mt-2">
             <span class="text-green-500">{@pulse.up_count} up</span>
             <%= if @pulse.down_count > 0 do %>
@@ -34,7 +51,11 @@
         </.link>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
-          <div class={["text-3xl font-light", @pulse.http_errors == 0 && "text-green-600", @pulse.http_errors > 0 && "text-red-600"]}>
+          <div class={[
+            "text-3xl font-light",
+            @pulse.http_errors == 0 && "text-green-600",
+            @pulse.http_errors > 0 && "text-red-600"
+          ]}>
             {@pulse.http_200}<span class="text-lg text-neutral-300">/{@pulse.http_total}</span>
           </div>
           <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">HTTP OK</div>
@@ -44,7 +65,11 @@
         </div>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
-          <div class={["text-3xl font-light", @pulse.ssl_expiring == 0 && "text-green-600", @pulse.ssl_expiring > 0 && "text-amber-600"]}>
+          <div class={[
+            "text-3xl font-light",
+            @pulse.ssl_expiring == 0 && "text-green-600",
+            @pulse.ssl_expiring > 0 && "text-amber-600"
+          ]}>
             {@pulse.ssl_healthy}<span class="text-lg text-neutral-300">/{@pulse.ssl_total}</span>
           </div>
           <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">SSL Valid</div>
@@ -54,12 +79,20 @@
         </div>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
-          <div class={["text-3xl font-light", @pulse.security_findings == 0 && "text-green-600", @pulse.security_findings > 0 && "text-amber-600"]}>
+          <div class={[
+            "text-3xl font-light",
+            @pulse.security_findings == 0 && "text-green-600",
+            @pulse.security_findings > 0 && "text-amber-600"
+          ]}>
             {@pulse.security_findings}
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">Security Findings</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">
+            Security Findings
+          </div>
           <div class="text-[10px] text-neutral-300 mt-2">
-            {if @pulse.a11y_scanned > 0, do: "#{@pulse.a11y_compliant}/#{@pulse.a11y_scanned} EAA", else: "no a11y scans"}
+            {if @pulse.a11y_scanned > 0,
+              do: "#{@pulse.a11y_compliant}/#{@pulse.a11y_scanned} EAA",
+              else: "no a11y scans"}
           </div>
         </div>
       </div>
@@ -70,16 +103,24 @@
         <div class="border border-neutral-200 p-6 dark:border-neutral-700">
           <div class="flex items-center justify-between mb-5">
             <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">Uptime</h2>
-            <.link navigate={~p"/uptime"} class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors">
+            <.link
+              navigate={~p"/uptime"}
+              class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors"
+            >
               View all &rarr;
             </.link>
           </div>
 
           <%= if @pulse.monitored_count == 0 do %>
             <div class="py-8 text-center">
-              <.icon name="hero-heart" class="w-8 h-8 text-neutral-200 mx-auto mb-2 dark:text-neutral-700" />
+              <.icon
+                name="hero-heart"
+                class="w-8 h-8 text-neutral-200 mx-auto mb-2 dark:text-neutral-700"
+              />
               <p class="text-sm text-neutral-400">No domains monitored yet.</p>
-              <p class="text-xs text-neutral-300 mt-1">Enable heartbeat on any domain to start.</p>
+              <p class="text-xs text-neutral-300 mt-1">
+                Enable heartbeat on any domain to start.
+              </p>
             </div>
           <% else %>
             <div class="flex items-center gap-4 mb-5">
@@ -87,7 +128,8 @@
                 <div
                   class="h-full bg-green-500 rounded-full transition-all"
                   style={"width: #{@pulse.up_count / max(@pulse.monitored_count, 1) * 100}%"}
-                ></div>
+                >
+                </div>
               </div>
               <span class="text-xs text-neutral-500 shrink-0">
                 {@pulse.up_count}/{@pulse.monitored_count}
@@ -98,10 +140,16 @@
               <p class="text-sm text-neutral-400 py-3">No incidents in the last 7 days.</p>
             <% else %>
               <div class="space-y-3">
-                <div :for={incident <- @pulse.recent_incidents} class="flex items-center justify-between">
+                <div
+                  :for={incident <- @pulse.recent_incidents}
+                  class="flex items-center justify-between"
+                >
                   <div class="flex items-center gap-2">
                     <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
-                    <.link navigate={~p"/uptime/#{incident.domain_id}"} class="text-sm hover:underline truncate max-w-[160px]">
+                    <.link
+                      navigate={~p"/uptime/#{incident.domain_id}"}
+                      class="text-sm hover:underline truncate max-w-[160px]"
+                    >
                       {incident.domain.name}
                     </.link>
                   </div>
@@ -117,8 +165,13 @@
         <%!-- Risk alerts --%>
         <div class="border border-neutral-200 p-6 dark:border-neutral-700">
           <div class="flex items-center justify-between mb-5">
-            <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">Attention Needed</h2>
-            <.link navigate={~p"/dashboard"} class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors">
+            <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+              Attention Needed
+            </h2>
+            <.link
+              navigate={~p"/dashboard"}
+              class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors"
+            >
               Full report &rarr;
             </.link>
           </div>
@@ -130,7 +183,9 @@
                   <.icon name="hero-shield-exclamation" class="w-3.5 h-3.5 text-amber-600" />
                 </span>
                 <div>
-                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.ssl_expiring} SSL certificates expiring</p>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.ssl_expiring} SSL certificates expiring
+                  </p>
                   <p class="text-[10px] text-neutral-400">Need renewal within 7 days</p>
                 </div>
               </div>
@@ -142,7 +197,9 @@
                   <.icon name="hero-exclamation-circle" class="w-3.5 h-3.5 text-red-600" />
                 </span>
                 <div>
-                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.http_errors} domains unreachable</p>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.http_errors} domains unreachable
+                  </p>
                   <p class="text-[10px] text-neutral-400">HTTP 4xx/5xx errors detected</p>
                 </div>
               </div>
@@ -154,7 +211,9 @@
                   <.icon name="hero-bug-ant" class="w-3.5 h-3.5 text-amber-600" />
                 </span>
                 <div>
-                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.security_findings} security vulnerabilities</p>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.security_findings} security vulnerabilities
+                  </p>
                   <p class="text-[10px] text-neutral-400">From automated scanning</p>
                 </div>
               </div>
@@ -166,7 +225,9 @@
                   <.icon name="hero-user-group" class="w-3.5 h-3.5 text-neutral-500" />
                 </span>
                 <div>
-                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.governance_gaps} governance gaps</p>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.governance_gaps} governance gaps
+                  </p>
                   <p class="text-[10px] text-neutral-400">Missing project or PM assignment</p>
                 </div>
               </div>
@@ -183,44 +244,68 @@
 
         <%!-- Quick navigation --%>
         <div class="border border-neutral-200 p-6 dark:border-neutral-700">
-          <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500 mb-5">Explore</h2>
+          <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500 mb-5">
+            Explore
+          </h2>
           <div class="space-y-2">
-            <.link navigate={~p"/domains"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+            <.link
+              navigate={~p"/domains"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
               <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
                 <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500" />
               </span>
               <div>
                 <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Domains</p>
-                <p class="text-[10px] text-neutral-400">{@pulse.total_domains} total, {@pulse.total_apex} apex</p>
+                <p class="text-[10px] text-neutral-400">
+                  {@pulse.total_domains} total, {@pulse.total_apex} apex
+                </p>
               </div>
             </.link>
 
-            <.link navigate={~p"/uptime"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+            <.link
+              navigate={~p"/uptime"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
               <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
                 <.icon name="hero-heart" class="w-4 h-4 text-neutral-500" />
               </span>
               <div>
-                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Uptime Monitor</p>
-                <p class="text-[10px] text-neutral-400">{@pulse.monitored_count} endpoints tracked</p>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Uptime Monitor
+                </p>
+                <p class="text-[10px] text-neutral-400">
+                  {@pulse.monitored_count} endpoints tracked
+                </p>
               </div>
             </.link>
 
-            <.link navigate={~p"/dashboard"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+            <.link
+              navigate={~p"/dashboard"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
               <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
                 <.icon name="hero-chart-bar" class="w-4 h-4 text-neutral-500" />
               </span>
               <div>
-                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Analytics Dashboard</p>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Analytics Dashboard
+                </p>
                 <p class="text-[10px] text-neutral-400">SSL, HTTP, scans, lifecycle</p>
               </div>
             </.link>
 
-            <.link navigate={~p"/ownership"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+            <.link
+              navigate={~p"/ownership"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
               <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
                 <.icon name="hero-building-office" class="w-4 h-4 text-neutral-500" />
               </span>
               <div>
-                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Ownership</p>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Ownership
+                </p>
                 <p class="text-[10px] text-neutral-400">Brands, orgs, projects, people</p>
               </div>
             </.link>

@@ -940,9 +940,14 @@
 
                     <%!-- Uptime heartbeat indicator --%>
                     <%= if domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes do %>
-                      <% stale = domain.domain_metadata.last_heartbeat_at &&
-                        DateTime.diff(DateTime.utc_now(), domain.domain_metadata.last_heartbeat_at, :minute) >
-                          domain.domain_metadata.heartbeat_interval_minutes * 3 %>
+                      <% stale =
+                        domain.domain_metadata.last_heartbeat_at &&
+                          DateTime.diff(
+                            DateTime.utc_now(),
+                            domain.domain_metadata.last_heartbeat_at,
+                            :minute
+                          ) >
+                            domain.domain_metadata.heartbeat_interval_minutes * 3 %>
                       <span
                         title={"Heartbeat: every #{domain.domain_metadata.heartbeat_interval_minutes}min — #{cond do
                           stale -> "STALE (no recent checks)"
@@ -957,7 +962,9 @@
                         ]}
                       >
                         <.icon name="hero-heart" class="w-3.5 h-3.5" />
-                        <span class="text-[9px] font-medium">{domain.domain_metadata.heartbeat_interval_minutes}m</span>
+                        <span class="text-[9px] font-medium">
+                          {domain.domain_metadata.heartbeat_interval_minutes}m
+                        </span>
                       </span>
                     <% end %>
 

@@ -106,12 +106,14 @@ defmodule RavnerWeb.UptimeLive.Show do
     daily = Uptime.daily_stats(socket.assigns.domain_id, days)
 
     csv =
-      ["Date,Uptime %,Incidents,Avg Response (ms)\n" |
-       Enum.map(daily, fn d ->
-         pct = if d.uptime_percent, do: "#{d.uptime_percent}", else: "N/A"
-         resp = if d.avg_response_ms, do: "#{d.avg_response_ms}", else: ""
-         "#{d.date},#{pct},#{d.incidents},#{resp}\n"
-       end)]
+      [
+        "Date,Uptime %,Incidents,Avg Response (ms)\n"
+        | Enum.map(daily, fn d ->
+            pct = if d.uptime_percent, do: "#{d.uptime_percent}", else: "N/A"
+            resp = if d.avg_response_ms, do: "#{d.avg_response_ms}", else: ""
+            "#{d.date},#{pct},#{d.incidents},#{resp}\n"
+          end)
+      ]
       |> IO.iodata_to_binary()
 
     filename = "uptime_#{domain.name}_#{days}d.csv"
@@ -190,7 +192,9 @@ defmodule RavnerWeb.UptimeLive.Show do
       case Ravner.Domains.upsert_domain_metadata(socket.assigns.domain_id, attrs) do
         {:ok, _} ->
           domain = Ravner.Domains.get_domain_with_preloads!(socket.assigns.domain_id)
-          monitoring_active = domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes != nil
+
+          monitoring_active =
+            domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes != nil
 
           {:noreply,
            socket
@@ -267,7 +271,8 @@ defmodule RavnerWeb.UptimeLive.Show do
     domain_checks = Uptime.list_domain_checks(domain_id)
 
     # Central chart data (year/month/day view with offset for prev/next)
-    {chart_data, chart_title} = build_chart_data(domain_id, socket.assigns.chart_view, socket.assigns.chart_offset)
+    {chart_data, chart_title} =
+      build_chart_data(domain_id, socket.assigns.chart_view, socket.assigns.chart_offset)
 
     socket
     |> assign(:summary, summary)
@@ -370,11 +375,13 @@ defmodule RavnerWeb.UptimeLive.Show do
 
   defp parse_interval(""), do: nil
   defp parse_interval(nil), do: nil
+
   defp parse_interval(val) when is_binary(val) do
     case Integer.parse(val) do
       {int, ""} -> int
       _ -> nil
     end
   end
+
   defp parse_interval(_), do: nil
 end

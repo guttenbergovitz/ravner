@@ -17,7 +17,8 @@ defmodule RavnerWeb.AdminLive.DeliverySettings do
 
   @impl true
   def handle_event("set_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, String.to_existing_atom(tab)) |> assign(:test_result, nil)}
+    {:noreply,
+     assign(socket, :active_tab, String.to_existing_atom(tab)) |> assign(:test_result, nil)}
   end
 
   @impl true
@@ -29,9 +30,14 @@ defmodule RavnerWeb.AdminLive.DeliverySettings do
 
     # Save provider-specific fields
     fields = get_in(DeliverySettings.email_providers(), [provider, :fields]) || []
+
     for field <- fields do
       value = params[field] || ""
-      secret? = String.contains?(field, "password") || String.contains?(field, "secret") || String.contains?(field, "api_key") || String.contains?(field, "token")
+
+      secret? =
+        String.contains?(field, "password") || String.contains?(field, "secret") ||
+          String.contains?(field, "api_key") || String.contains?(field, "token")
+
       if value != "", do: DeliverySettings.set("email_#{field}", value, secret: secret?)
     end
 
@@ -47,9 +53,14 @@ defmodule RavnerWeb.AdminLive.DeliverySettings do
     DeliverySettings.set("sms_provider", provider)
 
     fields = get_in(DeliverySettings.sms_providers(), [provider, :fields]) || []
+
     for field <- fields do
       value = params[field] || ""
-      secret? = String.contains?(field, "secret") || String.contains?(field, "api_key") || String.contains?(field, "token")
+
+      secret? =
+        String.contains?(field, "secret") || String.contains?(field, "api_key") ||
+          String.contains?(field, "token")
+
       if value != "", do: DeliverySettings.set("sms_#{field}", value, secret: secret?)
     end
 
@@ -91,7 +102,9 @@ defmodule RavnerWeb.AdminLive.DeliverySettings do
         |> to(to)
         |> from({from_name, from_addr})
         |> subject("[Ravner] Test email — delivery settings")
-        |> text_body("This is a test email from Ravner to verify your delivery configuration.\n\nIf you received this, email delivery is working correctly.\n\n— Ravner")
+        |> text_body(
+          "This is a test email from Ravner to verify your delivery configuration.\n\nIf you received this, email delivery is working correctly.\n\n— Ravner"
+        )
 
       case Ravner.Mailer.deliver(email) do
         {:ok, _} -> {:ok, "Test email sent to #{to}"}
@@ -104,7 +117,8 @@ defmodule RavnerWeb.AdminLive.DeliverySettings do
 
   defp send_test_sms(to) do
     try do
-      body = "[Ravner] Test SMS — delivery is working. #{DateTime.utc_now() |> Calendar.strftime("%H:%M UTC")}"
+      body =
+        "[Ravner] Test SMS — delivery is working. #{DateTime.utc_now() |> Calendar.strftime("%H:%M UTC")}"
 
       case Ravner.Uptime.SmsAdapter.send_sms(to, body) do
         {:ok, ref} -> {:ok, "Test SMS sent to #{to} (ref: #{ref})"}

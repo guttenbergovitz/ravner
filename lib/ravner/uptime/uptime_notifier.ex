@@ -46,7 +46,14 @@ defmodule Ravner.Uptime.UptimeNotifier do
     |> Mailer.deliver()
   end
 
-  def deliver_incident_resolved(to_email, domain_name, started_at, ended_at, duration_seconds, opts \\ []) do
+  def deliver_incident_resolved(
+        to_email,
+        domain_name,
+        started_at,
+        ended_at,
+        duration_seconds,
+        opts \\ []
+      ) do
     domain_id = Keyword.get(opts, :domain_id)
     link = if domain_id, do: "#{base_url()}/uptime/#{domain_id}", else: "#{base_url()}/uptime"
 

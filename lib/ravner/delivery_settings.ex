@@ -28,8 +28,14 @@ defmodule Ravner.DeliverySettings do
 
   # --- Email providers ---
   @email_providers %{
-    "smtp" => %{label: "SMTP", fields: ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_ssl"]},
-    "aws_ses" => %{label: "Amazon SES", fields: ["ses_region", "ses_access_key", "ses_secret_key"]},
+    "smtp" => %{
+      label: "SMTP",
+      fields: ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_ssl"]
+    },
+    "aws_ses" => %{
+      label: "Amazon SES",
+      fields: ["ses_region", "ses_access_key", "ses_secret_key"]
+    },
     "sendgrid" => %{label: "SendGrid", fields: ["sendgrid_api_key"]},
     "mailgun" => %{label: "Mailgun", fields: ["mailgun_api_key", "mailgun_domain"]},
     "postmark" => %{label: "Postmark", fields: ["postmark_api_key"]}
@@ -37,8 +43,14 @@ defmodule Ravner.DeliverySettings do
 
   # --- SMS providers ---
   @sms_providers %{
-    "aws_sns" => %{label: "Amazon SNS", fields: ["sns_region", "sns_access_key", "sns_secret_key", "sns_sender_id"]},
-    "twilio" => %{label: "Twilio", fields: ["twilio_account_sid", "twilio_auth_token", "twilio_from_number"]},
+    "aws_sns" => %{
+      label: "Amazon SNS",
+      fields: ["sns_region", "sns_access_key", "sns_secret_key", "sns_sender_id"]
+    },
+    "twilio" => %{
+      label: "Twilio",
+      fields: ["twilio_account_sid", "twilio_auth_token", "twilio_from_number"]
+    },
     "log" => %{label: "Log (dev/test)", fields: []}
   }
 
@@ -60,7 +72,11 @@ defmodule Ravner.DeliverySettings do
     Setting
     |> Repo.all()
     |> Map.new(fn s ->
-      val = if s.value_plain && s.value_plain != "", do: s.value_plain, else: decrypt(s.value_encrypted)
+      val =
+        if s.value_plain && s.value_plain != "",
+          do: s.value_plain,
+          else: decrypt(s.value_encrypted)
+
       {s.key, val}
     end)
   end

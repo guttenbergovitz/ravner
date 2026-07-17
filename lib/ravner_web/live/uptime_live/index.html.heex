@@ -48,7 +48,10 @@
     <%!-- Domain list --%>
     <%= if @monitors == [] do %>
       <div class="card-line !p-12 text-center">
-        <.icon name="hero-heart" class="w-10 h-10 text-neutral-200 mx-auto mb-3 dark:text-neutral-700" />
+        <.icon
+          name="hero-heart"
+          class="w-10 h-10 text-neutral-200 mx-auto mb-3 dark:text-neutral-700"
+        />
         <p class="text-neutral-500 text-sm">No domains are configured for uptime monitoring.</p>
         <p class="text-neutral-400 text-xs mt-1">
           Set a heartbeat interval on any domain to start monitoring.
@@ -64,19 +67,32 @@
           <div class="shrink-0">
             <%= cond do %>
               <% m.status == :up -> %>
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up"></span>
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up">
+                </span>
               <% m.status == :down -> %>
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="Down"></span>
+                <span
+                  class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"
+                  title="Down"
+                >
+                </span>
               <% m.status == :pending -> %>
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-700" title="Awaiting data"></span>
+                <span
+                  class="inline-block w-2.5 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-700"
+                  title="Awaiting data"
+                >
+                </span>
               <% true -> %>
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="Degraded"></span>
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="Degraded">
+                </span>
             <% end %>
           </div>
 
           <%!-- Domain name + status text --%>
           <div class="w-56 shrink-0">
-            <.link navigate={~p"/uptime/#{m.domain.id}"} class="text-sm font-medium hover:underline">
+            <.link
+              navigate={~p"/uptime/#{m.domain.id}"}
+              class="text-sm font-medium hover:underline"
+            >
               {m.domain.name}
             </.link>
             <p class="text-[11px] text-neutral-400 mt-0.5">
