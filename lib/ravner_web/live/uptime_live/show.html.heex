@@ -454,6 +454,72 @@
         </form>
       <% end %>
     </div>
+
+    <%!-- Domain Scan Configuration (editor/admin) --%>
+    <%= if @current_scope.user.role in [:admin, :editor] do %>
+      <div class="card-line !p-5 mb-6">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-4">Scan Configuration</p>
+        <form phx-submit="update_scheduling" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Uptime Heartbeat</label>
+            <select name="heartbeat_interval_minutes" class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes)}>Disabled</option>
+              <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 1}>Every minute</option>
+              <option value="3" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 3}>Every 3 min</option>
+              <option value="5" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 5}>Every 5 min</option>
+              <option value="15" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 15}>Every 15 min</option>
+              <option value="60" selected={@domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes == 60}>Hourly</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Security Scan</label>
+            <select name="scan_interval_days" class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.scan_interval_days)}>Manual only</option>
+              <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 1}>Daily</option>
+              <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 7}>Weekly</option>
+              <option value="30" selected={@domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 30}>Monthly</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">HTTP Scan</label>
+            <select name="http_scan_interval_days" class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days)}>Manual only</option>
+              <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days == 1}>Daily</option>
+              <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days == 7}>Weekly</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">DNS Scan</label>
+            <select name="dns_scan_interval_days" class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days)}>Manual only</option>
+              <option value="1" selected={@domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days == 1}>Daily</option>
+              <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days == 7}>Weekly</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Accessibility</label>
+            <select name="a11y_scan_interval_days" class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days)}>Manual only</option>
+              <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days == 7}>Weekly</option>
+              <option value="30" selected={@domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days == 30}>Monthly</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Lighthouse</label>
+            <select name="lighthouse_scan_interval_days" class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <option value="" selected={is_nil(@domain.domain_metadata && @domain.domain_metadata.lighthouse_scan_interval_days)}>Manual only</option>
+              <option value="7" selected={@domain.domain_metadata && @domain.domain_metadata.lighthouse_scan_interval_days == 7}>Weekly</option>
+              <option value="30" selected={@domain.domain_metadata && @domain.domain_metadata.lighthouse_scan_interval_days == 30}>Monthly</option>
+            </select>
+          </div>
+          <div class="col-span-2 md:col-span-3 pt-2">
+            <button type="submit" class="px-4 py-2 text-xs font-medium bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200 cursor-pointer">
+              Save Configuration
+            </button>
+          </div>
+        </form>
+      </div>
+    <% end %>
   </div>
 
   <script :type={Phoenix.LiveView.ColocatedHook} name=".CsvDownload">

@@ -176,6 +176,38 @@ defmodule RavnerWeb.UptimeLive.Show do
   end
 
   @impl true
+  def handle_event("update_scheduling", params, socket) do
+    if socket.assigns.current_scope.user.role in [:admin, :editor] do
+      attrs = %{
+        heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
+        scan_interval_days: parse_interval(params["scan_interval_days"]),
+        http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
+        dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"]),
+        a11y_scan_interval_days: parse_interval(params["a11y_scan_interval_days"]),
+        lighthouse_scan_interval_days: parse_interval(params["lighthouse_scan_interval_days"])
+      }
+
+      case Ravner.Domains.upsert_domain_metadata(socket.assigns.domain_id, attrs) do
+        {:ok, _} ->
+          domain = Ravner.Domains.get_domain_with_preloads!(socket.assigns.domain_id)
+          monitoring_active = domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes != nil
+
+          {:noreply,
+           socket
+           |> assign(:domain, domain)
+           |> assign(:monitoring_active, monitoring_active)
+           |> put_flash(:info, "Scan configuration updated.")
+           |> load_data()}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update configuration.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Permission denied.")}
+    end
+  end
+
+  @impl true
   def handle_event("update_check_interval", %{"id" => id, "interval" => interval}, socket) do
     if socket.assigns.current_scope.user.role in [:admin, :editor] do
       check = Uptime.get_domain_check!(id)
@@ -335,4 +367,14 @@ defmodule RavnerWeb.UptimeLive.Show do
   defp format_duration(s) when s < 60, do: "#{s}s"
   defp format_duration(s) when s < 3600, do: "#{div(s, 60)}m"
   defp format_duration(s), do: "#{div(s, 3600)}h #{div(rem(s, 3600), 60)}m"
+
+  defp parse_interval(""), do: nil
+  defp parse_interval(nil), do: nil
+  defp parse_interval(val) when is_binary(val) do
+    case Integer.parse(val) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+  defp parse_interval(_), do: nil
 end
