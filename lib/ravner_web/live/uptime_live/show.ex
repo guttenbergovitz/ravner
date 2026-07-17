@@ -59,6 +59,23 @@ defmodule RavnerWeb.UptimeLive.Show do
   end
 
   @impl true
+  def handle_event("purge_data", _params, socket) do
+    if socket.assigns.current_scope.user.role == :admin do
+      {checks, windows} = Uptime.purge_domain_data(socket.assigns.domain_id)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Purged #{checks} checks and #{windows} downtime windows.")
+       |> assign(:view_level, :month)
+       |> assign(:selected_date, nil)
+       |> assign(:hourly_data, nil)
+       |> load_data()}
+    else
+      {:noreply, put_flash(socket, :error, "Admin access required.")}
+    end
+  end
+
+  @impl true
   def handle_event("export_csv", _params, socket) do
     domain = socket.assigns.domain
     daily = socket.assigns.daily_stats

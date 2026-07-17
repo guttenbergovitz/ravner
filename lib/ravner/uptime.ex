@@ -428,6 +428,35 @@ defmodule Ravner.Uptime do
     if hours > 0, do: "#{days}d #{hours}h", else: "#{days}d"
   end
 
+  # --- Admin actions ---
+
+  @doc """
+  Purges all monitoring data for a domain: heartbeat checks, downtime windows, and notes.
+  Use to clear false positives from misconfigured checks.
+  Returns {checks_deleted, windows_deleted}.
+  """
+  def purge_domain_data(domain_id) do
+    # Delete notes first (FK constraint)
+    from(n in DowntimeNote,
+      join: w in DowntimeWindow,
+      on: n.downtime_window_id == w.id,
+      where: w.domain_id == ^domain_id
+    )
+    |> Repo.delete_all()
+
+    {windows, _} =
+      DowntimeWindow
+      |> where(domain_id: ^domain_id)
+      |> Repo.delete_all()
+
+    {checks, _} =
+      HeartbeatCheck
+      |> where(domain_id: ^domain_id)
+      |> Repo.delete_all()
+
+    {checks, windows}
+  end
+
   # --- Downtime Notes ---
 
   def list_notes(downtime_window_id) do
