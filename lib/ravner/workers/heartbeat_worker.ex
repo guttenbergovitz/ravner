@@ -28,10 +28,20 @@ defmodule Ravner.Workers.HeartbeatWorker do
     {is_up, error_reason} =
       case SystemCommand.run_with_timeout("httpx", args, 10_000) do
         {:ok, %{exit_code: 0, output: output}} ->
-          if String.match?(output, ~r/\[200\]|\[30[0-9]\]/) do
-            {true, nil}
-          else
-            {false, "unexpected_status"}
+          output = String.trim(output)
+
+          cond do
+            output == "" ->
+              {false, "no_response"}
+
+            String.match?(output, ~r/\[200\]|\[30[0-9]\]/) ->
+              {true, nil}
+
+            match = Regex.run(~r/\[(\d+)\]/, output) ->
+              {false, "http_#{Enum.at(match, 1)}"}
+
+            true ->
+              {false, "unexpected_output"}
           end
 
         {:ok, %{exit_code: code}} ->
