@@ -1,10 +1,10 @@
 defmodule Ravner.Workers.HeartbeatWorker do
   @moduledoc """
-  A fast HTTP GET/HEAD ping to determine if a domain or custom check URL is up.
-  Persists result to heartbeat_checks and evaluates downtime state.
+  HTTP HEAD/GET ping to determine if a domain or custom check URL is up.
+  Uses Req (pure Elixir) — no external binary dependency.
 
   Accepts two modes:
-  - Domain heartbeat: args = %{"domain_id" => id} — pings domain.name
+  - Domain heartbeat: args = %{"domain_id" => id} — pings https://domain.name
   - Custom check: args = %{"domain_id" => id, "domain_check_id" => id} — pings check.url
   """
   use Oban.Worker, queue: :heartbeats
@@ -12,8 +12,10 @@ defmodule Ravner.Workers.HeartbeatWorker do
   alias Ravner.Domains
   alias Ravner.Uptime
   alias Ravner.Repo
-  alias Ravner.SystemCommand
-  require Logger
+
+  # ponytail: 5s connect + 5s receive is generous for a heartbeat.
+  # Upgrade path: per-domain timeout config if needed.
+  @req_options [connect_options: [timeout: 5_000], receive_timeout: 5_000, max_redirects: 5]
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"domain_id" => domain_id} = args}) do
@@ -28,7 +30,6 @@ defmodule Ravner.Workers.HeartbeatWorker do
     response_time_ms = if is_up, do: elapsed, else: nil
     now = DateTime.utc_now(:second)
 
-    # Persist to heartbeat_checks + evaluate downtime
     Uptime.record_check(domain_id, %{
       is_up: is_up,
       checked_at: now,
@@ -37,7 +38,6 @@ defmodule Ravner.Workers.HeartbeatWorker do
       domain_check_id: domain_check_id
     })
 
-    # Update last state
     if domain_check_id do
       update_check_state(domain_check_id, is_up, now)
     else
@@ -52,51 +52,28 @@ defmodule Ravner.Workers.HeartbeatWorker do
 
   defp resolve_target(domain_id, nil) do
     domain = Domains.get_domain!(domain_id)
-    domain.name
+    # Domain names are stored without scheme — prepend https
+    url = domain.name
+    if String.starts_with?(url, "http"), do: url, else: "https://#{url}"
   end
 
   defp resolve_target(_domain_id, check_id) do
-    check = Repo.get!(Ravner.Uptime.DomainCheck, check_id)
-    check.url
+    Repo.get!(Ravner.Uptime.DomainCheck, check_id).url
   end
 
-  defp run_check(target) do
-    args = [
-      "-silent",
-      "-no-color",
-      "-status-code",
-      "-timeout",
-      "5",
-      "-u",
-      target
-    ]
+  defp run_check(url) do
+    case Req.head(url, @req_options) do
+      {:ok, %Req.Response{status: status}} when status < 400 ->
+        {true, nil}
 
-    case SystemCommand.run_with_timeout("httpx", args, 10_000) do
-      {output, 0} ->
-        output = String.trim(output)
+      {:ok, %Req.Response{status: status}} ->
+        {false, "http_#{status}"}
 
-        cond do
-          output == "" ->
-            {false, "no_response"}
+      {:error, %Mint.TransportError{reason: reason}} ->
+        {false, to_string(reason)}
 
-          String.match?(output, ~r/\[200\]|\[30[0-9]\]/) ->
-            {true, nil}
-
-          match = Regex.run(~r/\[(\d+)\]/, output) ->
-            {false, "http_#{Enum.at(match, 1)}"}
-
-          true ->
-            {false, "unexpected_output"}
-        end
-
-      {_output, code} ->
-        {false, "exit_code_#{code}"}
-
-      {:error, :timeout} ->
-        {false, "timeout"}
-
-      {:error, reason} ->
-        {false, "error_#{inspect(reason)}"}
+      {:error, exception} ->
+        {false, Exception.message(exception)}
     end
   end
 
