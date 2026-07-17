@@ -1,201 +1,230 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <%= if @current_scope && @current_scope.user do %>
-    <%!-- ═══ AUTHENTICATED: Pulse View ═══ --%>
-    <div class="max-w-5xl mx-auto px-6 py-10">
-      <div class="flex items-end justify-between mb-10">
-        <div>
-          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
-            Pulse
-          </h1>
-          <p class="text-xs font-light text-neutral-500 mt-1">
-            Portfolio health at a glance
-          </p>
-        </div>
-        <.link
-          navigate={~p"/dashboard"}
-          class="text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors flex items-center gap-1"
-        >
-          Full dashboard <.icon name="hero-arrow-right" class="w-3 h-3" />
-        </.link>
+    <%!-- ═══ AUTHENTICATED: Command Center ═══ --%>
+    <div class="max-w-[1400px] mx-auto px-6 py-10">
+      <%!-- Welcome header --%>
+      <div class="mb-10">
+        <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+          Welcome back, {@user_name}
+        </h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Here's what's happening across your portfolio.
+        </p>
       </div>
 
-      <%!-- Key metrics row --%>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <.link
-          navigate={~p"/domains"}
-          class="border border-neutral-200 p-5 hover:border-neutral-400 transition-colors dark:border-neutral-700"
-        >
-          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
-            {@pulse.total_domains}
+      <%!-- Hero metrics --%>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+        <.link navigate={~p"/domains"} class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300">
+          <div class="text-3xl font-light text-neutral-900 dark:text-neutral-100">{@pulse.total_domains}</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">Domains</div>
+          <div class="text-[10px] text-neutral-300 mt-2">{@pulse.total_apex} apex</div>
+        </.link>
+
+        <.link navigate={~p"/uptime"} class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300">
+          <div class={["text-3xl font-light", @pulse.avg_uptime && @pulse.avg_uptime >= 99 && "text-green-600", @pulse.avg_uptime && @pulse.avg_uptime < 99 && "text-amber-600", is_nil(@pulse.avg_uptime) && "text-neutral-300"]}>
+            <%= if @pulse.avg_uptime, do: "#{@pulse.avg_uptime}%", else: "—" %>
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">Domains</div>
-          <div class="text-[10px] font-light text-neutral-400 mt-2">{@pulse.total_apex} apex</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">Uptime (30d)</div>
+          <div class="text-[10px] mt-2">
+            <span class="text-green-500">{@pulse.up_count} up</span>
+            <%= if @pulse.down_count > 0 do %>
+              <span class="text-red-500 ml-2">{@pulse.down_count} down</span>
+            <% end %>
+          </div>
         </.link>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
-          <div class={[
-            "text-2xl font-light",
-            @pulse.http_errors == 0 && "text-green-600",
-            @pulse.http_errors > 0 && "text-red-600"
-          ]}>
-            {@pulse.http_200}
-            <span class="text-sm text-neutral-300">/ {@pulse.http_200 + @pulse.http_errors}</span>
+          <div class={["text-3xl font-light", @pulse.http_errors == 0 && "text-green-600", @pulse.http_errors > 0 && "text-red-600"]}>
+            {@pulse.http_200}<span class="text-lg text-neutral-300">/{@pulse.http_total}</span>
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">
-            HTTP Healthy
-          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">HTTP OK</div>
           <%= if @pulse.http_errors > 0 do %>
-            <div class="text-[10px] font-light text-red-500 mt-2">
-              {@pulse.http_errors} errors
-            </div>
+            <div class="text-[10px] text-red-500 mt-2">{@pulse.http_errors} errors</div>
           <% end %>
         </div>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
-          <div class={[
-            "text-2xl font-light",
-            @pulse.ssl_expiring == 0 && "text-green-600",
-            @pulse.ssl_expiring > 0 && "text-amber-600"
-          ]}>
-            {@pulse.ssl_total - @pulse.ssl_expiring}
-            <span class="text-sm text-neutral-300">/ {@pulse.ssl_total}</span>
+          <div class={["text-3xl font-light", @pulse.ssl_expiring == 0 && "text-green-600", @pulse.ssl_expiring > 0 && "text-amber-600"]}>
+            {@pulse.ssl_healthy}<span class="text-lg text-neutral-300">/{@pulse.ssl_total}</span>
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">SSL Healthy</div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">SSL Valid</div>
           <%= if @pulse.ssl_expiring > 0 do %>
-            <div class="text-[10px] font-light text-amber-600 mt-2">
-              {@pulse.ssl_expiring} expiring
-            </div>
+            <div class="text-[10px] text-amber-600 mt-2">{@pulse.ssl_expiring} expiring</div>
           <% end %>
         </div>
 
         <div class="border border-neutral-200 p-5 dark:border-neutral-700">
-          <div class={[
-            "text-2xl font-light",
-            @pulse.a11y_scanned > 0 && @pulse.a11y_compliant == @pulse.a11y_scanned &&
-              "text-green-600",
-            @pulse.a11y_scanned > 0 && @pulse.a11y_compliant < @pulse.a11y_scanned &&
-              "text-red-600",
-            @pulse.a11y_scanned == 0 && "text-neutral-300"
-          ]}>
-            {@pulse.a11y_compliant}
-            <span class="text-sm text-neutral-300">/ {@pulse.a11y_scanned}</span>
+          <div class={["text-3xl font-light", @pulse.security_findings == 0 && "text-green-600", @pulse.security_findings > 0 && "text-amber-600"]}>
+            {@pulse.security_findings}
           </div>
-          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">
-            EAA Compliant
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">Security Findings</div>
+          <div class="text-[10px] text-neutral-300 mt-2">
+            {if @pulse.a11y_scanned > 0, do: "#{@pulse.a11y_compliant}/#{@pulse.a11y_scanned} EAA", else: "no a11y scans"}
           </div>
-          <%= if @pulse.a11y_scanned == 0 do %>
-            <div class="text-[10px] font-light text-neutral-400 mt-2">no scans yet</div>
-          <% end %>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <%!-- Recent a11y scans --%>
-        <div class="lg:col-span-2 border border-neutral-200 p-6 dark:border-neutral-700">
-          <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500 mb-4">
-            Recent Accessibility Scans
-          </h2>
-          <%= if @pulse.recent_a11y == [] do %>
-            <p class="text-sm font-light text-neutral-400 py-4">
-              No accessibility scans completed yet.
-            </p>
-          <% else %>
-            <div class="space-y-3">
-              <%= for scan <- @pulse.recent_a11y do %>
-                <.link
-                  navigate={~p"/domains/#{scan.domain_id}/a11y"}
-                  class="flex items-center justify-between py-2 hover:bg-neutral-50 -mx-2 px-2 transition-colors dark:hover:bg-neutral-800"
-                >
-                  <div class="flex items-center gap-3">
-                    <span class={[
-                      "w-2 h-2 rounded-full shrink-0",
-                      scan.violations == 0 && "bg-green-500",
-                      scan.violations > 0 && "bg-red-400"
-                    ]}>
-                    </span>
-                    <span class="text-sm font-light text-neutral-900 dark:text-neutral-100">
-                      {scan.domain_name}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-4 text-xs text-neutral-400">
-                    <span class={[
-                      scan.violations == 0 && "text-green-600",
-                      scan.violations > 0 && "text-red-500"
-                    ]}>
-                      {scan.violations} violations
-                    </span>
-                    <span>{Calendar.strftime(scan.at, "%m-%d %H:%M")}</span>
-                  </div>
-                </.link>
-              <% end %>
-            </div>
-          <% end %>
-        </div>
-
-        <%!-- System status --%>
+      <%!-- Three column: Uptime | Alerts | Explore --%>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <%!-- Uptime / Incidents --%>
         <div class="border border-neutral-200 p-6 dark:border-neutral-700">
-          <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500 mb-4">
-            System Status
-          </h2>
-          <div class="space-y-3">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-light text-neutral-600 dark:text-neutral-400">pa11y (a11y)</span>
-              <span class={"flex items-center gap-1 " <> if(@pulse.pa11y_ok, do: "text-green-600", else: "text-red-500")}>
-                <%= if @pulse.pa11y_ok do %>
-                  <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> ready
-                <% else %>
-                  <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> offline
-                <% end %>
-              </span>
-            </div>
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-light text-neutral-600 dark:text-neutral-400">
-                nuclei (security)
-              </span>
-              <span class={"flex items-center gap-1 " <> if(@pulse.nuclei_ok, do: "text-green-600", else: "text-red-500")}>
-                <%= if @pulse.nuclei_ok do %>
-                  <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> ready
-                <% else %>
-                  <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> offline
-                <% end %>
-              </span>
-            </div>
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-light text-neutral-600 dark:text-neutral-400">
-                Security findings
-              </span>
-              <span class={[
-                @pulse.security_findings == 0 && "text-green-600",
-                @pulse.security_findings > 0 && "text-amber-600"
-              ]}>
-                {@pulse.security_findings}
-              </span>
-            </div>
-          </div>
-
-          <div class="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-700">
-            <.link
-              navigate={~p"/admin/settings"}
-              class="text-[10px] font-light text-neutral-400 hover:text-neutral-900 transition-colors flex items-center gap-1"
-            >
-              Settings <.icon name="hero-arrow-right" class="w-3 h-3" />
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">Uptime</h2>
+            <.link navigate={~p"/uptime"} class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors">
+              View all &rarr;
             </.link>
           </div>
-        </div>
-      </div>
 
-      <%!-- Quick nav --%>
-      <div class="mt-10 pt-8 border-t border-neutral-100 dark:border-neutral-700">
-        <div class="flex items-center gap-6">
-          <.link navigate={~p"/dashboard"} class="btn-line text-xs">
-            <.icon name="hero-chart-bar" class="w-4 h-4" /> Dashboard
-          </.link>
-          <.link navigate={~p"/domains"} class="btn-line text-xs">
-            <.icon name="hero-globe-alt" class="w-4 h-4" /> Domains
-          </.link>
-          <.link navigate={~p"/ownership"} class="btn-line text-xs">
-            <.icon name="hero-user-group" class="w-4 h-4" /> Ownership
-          </.link>
+          <%= if @pulse.monitored_count == 0 do %>
+            <div class="py-8 text-center">
+              <.icon name="hero-heart" class="w-8 h-8 text-neutral-200 mx-auto mb-2 dark:text-neutral-700" />
+              <p class="text-sm text-neutral-400">No domains monitored yet.</p>
+              <p class="text-xs text-neutral-300 mt-1">Enable heartbeat on any domain to start.</p>
+            </div>
+          <% else %>
+            <div class="flex items-center gap-4 mb-5">
+              <div class="flex-1 h-2 bg-neutral-100 rounded-full dark:bg-neutral-800 overflow-hidden">
+                <div
+                  class="h-full bg-green-500 rounded-full transition-all"
+                  style={"width: #{@pulse.up_count / max(@pulse.monitored_count, 1) * 100}%"}
+                ></div>
+              </div>
+              <span class="text-xs text-neutral-500 shrink-0">
+                {@pulse.up_count}/{@pulse.monitored_count}
+              </span>
+            </div>
+
+            <%= if @pulse.recent_incidents == [] do %>
+              <p class="text-sm text-neutral-400 py-3">No incidents in the last 7 days.</p>
+            <% else %>
+              <div class="space-y-3">
+                <div :for={incident <- @pulse.recent_incidents} class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
+                    <.link navigate={~p"/uptime/#{incident.domain_id}"} class="text-sm hover:underline truncate max-w-[160px]">
+                      {incident.domain.name}
+                    </.link>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 shrink-0">
+                    {Calendar.strftime(incident.started_at, "%b %d %H:%M")}
+                  </span>
+                </div>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+
+        <%!-- Risk alerts --%>
+        <div class="border border-neutral-200 p-6 dark:border-neutral-700">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">Attention Needed</h2>
+            <.link navigate={~p"/dashboard"} class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors">
+              Full report &rarr;
+            </.link>
+          </div>
+
+          <div class="space-y-4">
+            <%= if @pulse.ssl_expiring > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/20">
+                  <.icon name="hero-shield-exclamation" class="w-3.5 h-3.5 text-amber-600" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.ssl_expiring} SSL certificates expiring</p>
+                  <p class="text-[10px] text-neutral-400">Need renewal within 7 days</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.http_errors > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20">
+                  <.icon name="hero-exclamation-circle" class="w-3.5 h-3.5 text-red-600" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.http_errors} domains unreachable</p>
+                  <p class="text-[10px] text-neutral-400">HTTP 4xx/5xx errors detected</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.security_findings > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/20">
+                  <.icon name="hero-bug-ant" class="w-3.5 h-3.5 text-amber-600" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.security_findings} security vulnerabilities</p>
+                  <p class="text-[10px] text-neutral-400">From automated scanning</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.governance_gaps > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <.icon name="hero-user-group" class="w-3.5 h-3.5 text-neutral-500" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">{@pulse.governance_gaps} governance gaps</p>
+                  <p class="text-[10px] text-neutral-400">Missing project or PM assignment</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.ssl_expiring == 0 && @pulse.http_errors == 0 && @pulse.security_findings == 0 && @pulse.governance_gaps == 0 do %>
+              <div class="py-6 text-center">
+                <.icon name="hero-check-circle" class="w-8 h-8 text-green-400 mx-auto mb-2" />
+                <p class="text-sm text-neutral-500">All clear. No immediate actions needed.</p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Quick navigation --%>
+        <div class="border border-neutral-200 p-6 dark:border-neutral-700">
+          <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500 mb-5">Explore</h2>
+          <div class="space-y-2">
+            <.link navigate={~p"/domains"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Domains</p>
+                <p class="text-[10px] text-neutral-400">{@pulse.total_domains} total, {@pulse.total_apex} apex</p>
+              </div>
+            </.link>
+
+            <.link navigate={~p"/uptime"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-heart" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Uptime Monitor</p>
+                <p class="text-[10px] text-neutral-400">{@pulse.monitored_count} endpoints tracked</p>
+              </div>
+            </.link>
+
+            <.link navigate={~p"/dashboard"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-chart-bar" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Analytics Dashboard</p>
+                <p class="text-[10px] text-neutral-400">SSL, HTTP, scans, lifecycle</p>
+              </div>
+            </.link>
+
+            <.link navigate={~p"/ownership"} class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800">
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-building-office" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Ownership</p>
+                <p class="text-[10px] text-neutral-400">Brands, orgs, projects, people</p>
+              </div>
+            </.link>
+          </div>
         </div>
       </div>
     </div>

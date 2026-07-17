@@ -1,7 +1,6 @@
 defmodule RavnerWeb.LandingLive.Index do
   use RavnerWeb, :live_view
 
-  alias Ravner.A11y
   alias Ravner.Domains
   alias Ravner.Repo
 
@@ -39,6 +38,7 @@ defmodule RavnerWeb.LandingLive.Index do
     import Ecto.Query
 
     stats = Domains.dashboard_stats()
+    user = socket.assigns.current_scope.user
 
     # A11y compliance numbers
     a11y_scanned =
@@ -57,23 +57,6 @@ defmodule RavnerWeb.LandingLive.Index do
         )
       ) || 0
 
-    # Recent scans (last 5 a11y)
-    recent_a11y =
-      Repo.all(
-        from(s in A11y.A11yScan,
-          join: d in assoc(s, :domain),
-          where: s.status == "completed",
-          order_by: [desc: s.completed_at],
-          limit: 5,
-          select: %{
-            domain_name: d.name,
-            domain_id: d.id,
-            violations: s.violations_count,
-            at: s.completed_at
-          }
-        )
-      )
-
     # Security scan count
     security_findings =
       Repo.one(
@@ -85,25 +68,57 @@ defmodule RavnerWeb.LandingLive.Index do
         )
       ) || 0
 
-    # System health
-    pa11y_ok = System.find_executable("pa11y") != nil
-    nuclei_ok = System.find_executable("nuclei") != nil
+    # Uptime summary
+    monitors = Ravner.Uptime.list_monitored_domains()
+    now = DateTime.utc_now()
+    thirty_days_ago = DateTime.add(now, -30, :day)
+    week_ago = DateTime.add(now, -7, :day)
+
+    monitored_count = length(monitors)
+    up_count = Enum.count(monitors, fn m -> m.is_up == true end)
+    down_count = Enum.count(monitors, fn m -> m.is_up == false end)
+
+    avg_uptime =
+      if monitored_count > 0 do
+        monitors
+        |> Enum.map(fn m -> Ravner.Uptime.uptime_percent(m.domain_id, thirty_days_ago, now) end)
+        |> Enum.sum()
+        |> Kernel./(monitored_count)
+        |> Float.round(1)
+      else
+        nil
+      end
+
+    recent_incidents =
+      monitors
+      |> Enum.flat_map(fn m ->
+        Ravner.Uptime.downtime_windows(m.domain_id, week_ago, now)
+        |> Enum.map(fn w -> Map.put(w, :domain, m.domain) end)
+      end)
+      |> Enum.sort_by(& &1.started_at, {:desc, DateTime})
+      |> Enum.take(3)
 
     socket
     |> assign(:page_title, "Ravner")
+    |> assign(:user_name, user.name || user.email)
     |> assign(:pulse, %{
       total_domains: stats.total,
       total_apex: stats.total_apex,
       http_200: stats.http.http_200,
       http_errors: stats.http.http_4xx_5xx,
+      http_total: stats.http.http_200 + stats.http.http_3xx + stats.http.http_4xx_5xx,
       ssl_expiring: stats.ssl.expired + stats.ssl.soon_7d,
+      ssl_healthy: max(0, stats.ssl.total - stats.ssl.expired - stats.ssl.soon_7d),
       ssl_total: stats.ssl.total,
       a11y_scanned: a11y_scanned,
       a11y_compliant: a11y_compliant,
       security_findings: security_findings,
-      recent_a11y: recent_a11y,
-      pa11y_ok: pa11y_ok,
-      nuclei_ok: nuclei_ok
+      governance_gaps: stats.governance.missing_project + stats.governance.missing_pm,
+      monitored_count: monitored_count,
+      up_count: up_count,
+      down_count: down_count,
+      avg_uptime: avg_uptime,
+      recent_incidents: recent_incidents
     })
   end
 end
