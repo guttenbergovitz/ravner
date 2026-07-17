@@ -22,6 +22,7 @@ defmodule Ravner.Uptime do
 
     check = %HeartbeatCheck{
       domain_id: domain_id,
+      domain_check_id: attrs[:domain_check_id],
       checked_at: checked_at,
       is_up: attrs[:is_up],
       response_time_ms: attrs[:response_time_ms],
@@ -426,6 +427,39 @@ defmodule Ravner.Uptime do
     days = div(seconds, 86400)
     hours = div(rem(seconds, 86400), 3600)
     if hours > 0, do: "#{days}d #{hours}h", else: "#{days}d"
+  end
+
+  # --- Domain Checks (custom URL endpoints) ---
+
+  alias Ravner.Uptime.DomainCheck
+
+  def list_domain_checks(domain_id) do
+    DomainCheck
+    |> where(domain_id: ^domain_id)
+    |> order_by(asc: :inserted_at)
+    |> Repo.all()
+  end
+
+  def create_domain_check(attrs) do
+    %DomainCheck{}
+    |> DomainCheck.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_domain_check(%DomainCheck{} = check, attrs) do
+    check
+    |> DomainCheck.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_domain_check(%DomainCheck{} = check), do: Repo.delete(check)
+
+  def get_domain_check!(id), do: Repo.get!(DomainCheck, id)
+
+  def toggle_domain_check(%DomainCheck{} = check) do
+    check
+    |> Ecto.Changeset.change(%{enabled: !check.enabled})
+    |> Repo.update()
   end
 
   # --- Admin actions ---

@@ -112,6 +112,49 @@ defmodule RavnerWeb.UptimeLive.Show do
     end
   end
 
+  @impl true
+  def handle_event("add_check", %{"check" => check_params}, socket) do
+    if socket.assigns.current_scope.user.role in [:admin, :editor] do
+      attrs =
+        check_params
+        |> Map.put("domain_id", socket.assigns.domain_id)
+
+      case Uptime.create_domain_check(attrs) do
+        {:ok, _} -> {:noreply, load_data(socket) |> put_flash(:info, "Check added.")}
+        {:error, cs} -> {:noreply, put_flash(socket, :error, "Invalid: #{inspect_errors(cs)}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Permission denied.")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_check", %{"id" => id}, socket) do
+    if socket.assigns.current_scope.user.role in [:admin, :editor] do
+      check = Uptime.get_domain_check!(id)
+      Uptime.delete_domain_check(check)
+      {:noreply, load_data(socket) |> put_flash(:info, "Check removed.")}
+    else
+      {:noreply, put_flash(socket, :error, "Permission denied.")}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_check", %{"id" => id}, socket) do
+    if socket.assigns.current_scope.user.role in [:admin, :editor] do
+      check = Uptime.get_domain_check!(id)
+      Uptime.toggle_domain_check(check)
+      {:noreply, load_data(socket)}
+    else
+      {:noreply, put_flash(socket, :error, "Permission denied.")}
+    end
+  end
+
+  defp inspect_errors(%Ecto.Changeset{} = cs) do
+    Ecto.Changeset.traverse_errors(cs, fn {msg, _} -> msg end)
+    |> Enum.map_join(", ", fn {k, v} -> "#{k}: #{Enum.join(v, ", ")}" end)
+  end
+
   defp load_data(socket) do
     domain_id = socket.assigns.domain_id
 
@@ -152,6 +195,9 @@ defmodule RavnerWeb.UptimeLive.Show do
     # Has any real data?
     has_data = Enum.any?(daily, fn d -> d.uptime_percent != nil end)
 
+    # Domain checks (custom endpoints)
+    domain_checks = Uptime.list_domain_checks(domain_id)
+
     socket
     |> assign(:summary, summary)
     |> assign(:uptime_percent, uptime_pct)
@@ -164,6 +210,7 @@ defmodule RavnerWeb.UptimeLive.Show do
     |> assign(:incident_count, length(windows))
     |> assign(:has_data, has_data)
     |> assign(:recipients, recipients)
+    |> assign(:domain_checks, domain_checks)
   end
 
   defp format_duration(nil), do: "\u2014"

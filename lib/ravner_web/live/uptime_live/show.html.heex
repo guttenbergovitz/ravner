@@ -283,6 +283,103 @@
         </div>
       </div>
     </div>
+
+    <%!-- Custom Endpoint Checks --%>
+    <div class="card-line !p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500">Monitored Endpoints</p>
+      </div>
+
+      <%!-- Existing checks --%>
+      <%= if @domain_checks != [] do %>
+        <div class="space-y-2 mb-4">
+          <div :for={check <- @domain_checks} class="flex items-center justify-between py-2 border-b border-neutral-50 dark:border-neutral-800 last:border-0">
+            <div class="flex items-center gap-3">
+              <span class={[
+                "w-2 h-2 rounded-full shrink-0",
+                check.is_up == true && "bg-green-500",
+                check.is_up == false && "bg-red-500",
+                is_nil(check.is_up) && "bg-neutral-300"
+              ]}></span>
+              <div>
+                <p class="text-sm font-medium truncate max-w-md">{check.url}</p>
+                <p class="text-[10px] text-neutral-400">
+                  {check.label || "Unnamed"} · every {check.check_interval_minutes}min
+                  <%= if !check.enabled do %>
+                    · <span class="text-amber-500">paused</span>
+                  <% end %>
+                </p>
+              </div>
+            </div>
+            <%= if @current_scope.user.role in [:admin, :editor] do %>
+              <div class="flex items-center gap-2">
+                <button
+                  phx-click="toggle_check"
+                  phx-value-id={check.id}
+                  class="text-[10px] text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                  title={if check.enabled, do: "Pause", else: "Resume"}
+                >
+                  <%= if check.enabled do %>
+                    <.icon name="hero-pause" class="w-3.5 h-3.5" />
+                  <% else %>
+                    <.icon name="hero-play" class="w-3.5 h-3.5" />
+                  <% end %>
+                </button>
+                <button
+                  phx-click="delete_check"
+                  phx-value-id={check.id}
+                  data-confirm="Delete this check?"
+                  class="text-neutral-300 hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Add check form (editor/admin) --%>
+      <%= if @current_scope.user.role in [:admin, :editor] do %>
+        <form phx-submit="add_check" class="flex flex-wrap gap-2 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">URL</label>
+            <input
+              type="url"
+              name="check[url]"
+              placeholder="https://shop.josera.com/hu-hu"
+              required
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
+            />
+          </div>
+          <div class="w-28">
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Label</label>
+            <input
+              type="text"
+              name="check[label]"
+              placeholder="Shop HU"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
+            />
+          </div>
+          <div class="w-20">
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Interval</label>
+            <select
+              name="check[check_interval_minutes]"
+              class="block w-full text-xs border border-neutral-200 rounded px-2 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option value="1">1 min</option>
+              <option value="3">3 min</option>
+              <option value="5" selected>5 min</option>
+              <option value="15">15 min</option>
+              <option value="60">1 hour</option>
+            </select>
+          </div>
+          <button type="submit" class="px-3 py-1.5 text-xs border border-neutral-200 rounded hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer">
+            Add Check
+          </button>
+        </form>
+      <% end %>
+    </div>
   </div>
 
   <script :type={Phoenix.LiveView.ColocatedHook} name=".CsvDownload">

@@ -8,6 +8,7 @@ defmodule Ravner.Uptime.DowntimeWindow do
     field :failure_threshold_used, :integer, default: 2
 
     belongs_to :domain, Ravner.Domains.Domain
+    belongs_to :domain_check, Ravner.Uptime.DomainCheck
 
     has_many :notes, Ravner.Uptime.DowntimeNote
 
