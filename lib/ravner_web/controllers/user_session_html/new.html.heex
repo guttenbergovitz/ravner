@@ -15,7 +15,7 @@
     </div>
 
     <div class="border border-neutral-200 divide-y divide-neutral-200">
-      <div class="px-8 py-6">
+      <div :if={mailer_configured?()} class="px-8 py-6">
         <.form
           :let={f}
           for={@form}

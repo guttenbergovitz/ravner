@@ -8,7 +8,8 @@ defmodule RavnerWeb.Endpoint do
     store: :cookie,
     key: "_ravner_key",
     signing_salt: "j5r47Zkr",
-    same_site: "Lax"
+    same_site: "Lax",
+    max_age: 3 * 24 * 60 * 60
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
