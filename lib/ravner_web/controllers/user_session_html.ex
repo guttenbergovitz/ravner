@@ -12,12 +12,7 @@ defmodule RavnerWeb.UserSessionHTML do
 
     provider = DeliverySettings.current_email_provider()
 
-    # Check if provider is configured with required fields
     case provider do
-      "aws_ses" ->
-        DeliverySettings.get("email_ses_access_key") != nil &&
-          DeliverySettings.get("email_ses_secret_key") != nil
-
       "sendgrid" ->
         DeliverySettings.get("email_sendgrid_api_key") != nil
 

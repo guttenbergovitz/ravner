@@ -32,10 +32,6 @@ defmodule Ravner.DeliverySettings do
       label: "SMTP",
       fields: ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_ssl"]
     },
-    "aws_ses" => %{
-      label: "Amazon SES",
-      fields: ["ses_region", "ses_access_key", "ses_secret_key"]
-    },
     "sendgrid" => %{label: "SendGrid", fields: ["sendgrid_api_key"]},
     "mailgun" => %{label: "Mailgun", fields: ["mailgun_api_key", "mailgun_domain"]},
     "postmark" => %{label: "Postmark", fields: ["postmark_api_key"]}
@@ -43,10 +39,6 @@ defmodule Ravner.DeliverySettings do
 
   # --- SMS providers ---
   @sms_providers %{
-    "aws_sns" => %{
-      label: "Amazon SNS",
-      fields: ["sns_region", "sns_access_key", "sns_secret_key", "sns_sender_id"]
-    },
     "twilio" => %{
       label: "Twilio",
       fields: ["twilio_account_sid", "twilio_auth_token", "twilio_from_number"]

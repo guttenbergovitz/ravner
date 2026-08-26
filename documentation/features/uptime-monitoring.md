@@ -119,8 +119,7 @@ Each recipient has configured channels: email only, SMS only, or both.
 ```
 
 **Built-in adapters:**
-- `AwsSns` — AWS SNS (expected production choice)
-- `Twilio` — alternative
+- `Twilio`
 - `Log` — dev/test adapter (logs to console)
 
 **Admin configuration:**
@@ -175,7 +174,7 @@ Each recipient has configured channels: email only, SMS only, or both.
 ### Phase 3 — Notification System
 
 - [ ] Schema: `notification_policies`, `notification_groups`, `notification_recipients`
-- [ ] `SmsAdapter` behaviour + adapters (AwsSns, Twilio, Log)
+- [ ] `SmsAdapter` behaviour + adapters (Twilio, Log)
 - [ ] Configurable mailer identity for uptime emails (from/display name/reply-to)
 - [ ] Notification dispatcher (Oban worker triggered on state flip)
 - [ ] Idempotency tracking (`notification_deliveries`)
@@ -197,7 +196,7 @@ Each recipient has configured channels: email only, SMS only, or both.
 4. A dedicated uptime tab exists in admin — StatusCake-like real-time status view.
 5. Uptime report can be generated for any time range showing uptime %, incident count, and downtime list per domain.
 6. Email notifications fire on incident open/resolved using a branded template with configurable sender identity.
-7. SMS notifications fire on incident open/resolved via a configurable provider (AWS SNS / Twilio / Log) selectable in admin.
+7. SMS notifications fire on incident open/resolved via a configurable provider (Twilio / Log) selectable in admin.
 8. Recipients can be system users or manually entered contacts (email and/or phone number).
 9. Notification policy resolution: per-domain > group > global.
 10. Notifications are idempotent — no duplicates per incident per recipient.

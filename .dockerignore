@@ -37,10 +37,6 @@ documentation
 CHANGELOG.md
 README.md
 
-# CI/CD
-bitbucket-pipelines.yml
-ecs-task-definition.json.dist
-
 # Container metadata (not needed inside the build context once the build runs)
 Dockerfile
 .dockerignore

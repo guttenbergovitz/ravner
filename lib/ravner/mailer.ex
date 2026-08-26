@@ -11,14 +11,6 @@ defmodule Ravner.Mailer do
 
   defp build_adapter_config do
     case DeliverySettings.current_email_provider() do
-      "aws_ses" ->
-        [
-          adapter: Swoosh.Adapters.AmazonSES,
-          region: DeliverySettings.get("email_ses_region") || "us-east-1",
-          access_key: DeliverySettings.get("email_ses_access_key"),
-          secret: DeliverySettings.get("email_ses_secret_key")
-        ]
-
       "sendgrid" ->
         [
           adapter: Swoosh.Adapters.Sendgrid,

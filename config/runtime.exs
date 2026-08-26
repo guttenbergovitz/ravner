@@ -124,7 +124,6 @@ if config_env() == :prod do
   # Uptime SMS adapter
   sms_adapter =
     case System.get_env("UPTIME_SMS_ADAPTER", "log") do
-      "aws_sns" -> Ravner.Uptime.SmsAdapters.AwsSns
       "twilio" -> Ravner.Uptime.SmsAdapters.Twilio
       _ -> Ravner.Uptime.SmsAdapters.Log
     end
