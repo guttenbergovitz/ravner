@@ -9,8 +9,10 @@ defmodule RavnerWeb.DomainLive.Show do
 
   import RavnerWeb.DomainComponents
 
+  alias Ravner.A11y
   alias Ravner.Domains
   alias Ravner.Inventory
+  alias Ravner.Lighthouse
   alias Ravner.Scans
   alias Ravner.SecurityScans
 
@@ -32,7 +34,12 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:latest_security_scan, nil)
      |> assign(:running_security_scan, nil)
      |> assign(:latest_failed_security_scan, nil)
-     |> assign(:severity_counts, %{critical: 0, high: 0, medium: 0, low: 0})}
+     |> assign(:severity_counts, %{critical: 0, high: 0, medium: 0, low: 0})
+     |> assign(:a11y_scan, nil)
+     |> assign(:a11y_running?, false)
+     |> assign(:a11y_scannable?, false)
+     |> assign(:lighthouse_scan, nil)
+     |> assign(:lighthouse_running?, false)}
   end
 
   @impl true
@@ -41,6 +48,11 @@ defmodule RavnerWeb.DomainLive.Show do
     SecurityScans.cleanup_stale_scans()
 
     domain = Domains.get_domain_with_preloads!(id)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Ravner.PubSub, "a11y_scan:domain:#{domain.id}")
+      Phoenix.PubSub.subscribe(Ravner.PubSub, "lighthouse_scan:domain:#{domain.id}")
+    end
 
     {:noreply,
      socket
@@ -51,6 +63,11 @@ defmodule RavnerWeb.DomainLive.Show do
      |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:domain_class, compute_domain_class(domain))
+     |> assign(:a11y_scannable?, A11y.scannable?(domain))
+     |> assign(:a11y_scan, A11y.latest_scan(domain.id))
+     |> assign(:a11y_running?, A11y.running_scan(domain.id) != nil)
+     |> assign(:lighthouse_scan, Lighthouse.latest_scan(domain.id))
+     |> assign(:lighthouse_running?, Lighthouse.running_scan(domain.id) != nil)
      |> refresh_security_scan_assigns()}
   end
 
@@ -67,6 +84,7 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_all", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
@@ -74,7 +92,7 @@ defmodule RavnerWeb.DomainLive.Show do
       |> assign(:active_scan_kind, :all)
       |> assign(:pending_scans, 4)
 
-    start_scan_tasks(liveview_pid, domain_id)
+    start_scan_tasks(liveview_pid, domain_id, user_id)
 
     {:noreply, socket}
   end
@@ -87,6 +105,7 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_all_subdomains", _, socket) do
     domain = socket.assigns.domain
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     case domain.subdomains do
       [] ->
@@ -101,7 +120,7 @@ defmodule RavnerWeb.DomainLive.Show do
           |> assign(:active_scan_kind, :all_subdomains)
           |> assign(:pending_scans, subdomain_count * 4)
 
-        Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id))
+        Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id, user_id))
 
         {:noreply, socket}
     end
@@ -115,13 +134,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_subdomains", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :subdomains)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.run_subdomain_scan(domain_id)
       send(liveview_pid, {:scan_done, :subdomains, result})
     end)
@@ -137,13 +157,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_httpx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :httpx)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Http.run_httpx_scan(domain_id)
       send(liveview_pid, {:scan_done, :httpx, result})
     end)
@@ -159,13 +180,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_deep_tech", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :deep_tech)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Http.run_deep_tech_scan(domain_id)
       send(liveview_pid, {:scan_done, :deep_tech, result})
     end)
@@ -181,13 +203,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_dnsx", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :dnsx)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Dns.run(domain_id)
       send(liveview_pid, {:scan_done, :dnsx, result})
     end)
@@ -203,13 +226,14 @@ defmodule RavnerWeb.DomainLive.Show do
   def handle_event("scan_rdap", _, socket) do
     domain_id = socket.assigns.domain.id
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     socket =
       socket
       |> assign(:scanning, true)
       |> assign(:active_scan_kind, :rdap)
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       result = Scans.Whois.run_rdap_scan(domain_id)
       send(liveview_pid, {:scan_done, :rdap, result})
     end)
@@ -231,7 +255,9 @@ defmodule RavnerWeb.DomainLive.Show do
       scan_interval_days: parse_interval(params["scan_interval_days"]),
       heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
       http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
-      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"])
+      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"]),
+      a11y_scan_interval_days: parse_interval(params["a11y_scan_interval_days"]),
+      lighthouse_scan_interval_days: parse_interval(params["lighthouse_scan_interval_days"])
     }
 
     case Domains.upsert_domain_metadata(domain.id, attrs) do
@@ -336,6 +362,50 @@ defmodule RavnerWeb.DomainLive.Show do
     {:noreply, assign(socket, :lifecycle_menu_open, false)}
   end
 
+  def handle_event("scan_a11y", _params, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_a11y", _params, socket) do
+    domain = socket.assigns.domain
+
+    if A11y.scannable?(domain) do
+      %{domain_id: domain.id}
+      |> Ravner.Workers.A11yScanWorker.new()
+      |> Oban.insert()
+
+      {:noreply,
+       socket
+       |> assign(:a11y_running?, true)
+       |> put_flash(:info, "Accessibility scan queued.")}
+    else
+      {:noreply, put_flash(socket, :error, "Domain is not eligible for accessibility scan.")}
+    end
+  end
+
+  def handle_event("scan_lighthouse", _params, %{assigns: %{current_scope: scope}} = socket)
+      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
+    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
+  end
+
+  def handle_event("scan_lighthouse", _params, socket) do
+    domain = socket.assigns.domain
+
+    if Lighthouse.scannable?(domain) do
+      %{domain_id: domain.id}
+      |> Ravner.Workers.LighthouseScanWorker.new()
+      |> Oban.insert()
+
+      {:noreply,
+       socket
+       |> assign(:lighthouse_running?, true)
+       |> put_flash(:info, "Lighthouse scan queued.")}
+    else
+      {:noreply, put_flash(socket, :error, "Domain is not eligible for Lighthouse scan.")}
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Info handlers (handle_info/2)
   # ---------------------------------------------------------------------------
@@ -351,20 +421,15 @@ defmodule RavnerWeb.DomainLive.Show do
 
   @impl true
   def handle_info({:scan_done, :subdomains, {:ok, results}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
      |> assign(:scan_results, results)
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
   end
 
   def handle_info({:scan_done, :httpx, {:ok, %{error: kind}}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     label =
       case kind do
         :nxdomain -> "DNS resolution failed (NXDOMAIN)"
@@ -377,26 +442,20 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:error, "HTTP scan error: #{label}")}
   end
 
   def handle_info({:scan_done, :httpx, {:ok, _}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "HTTP scan completed")}
   end
 
   def handle_info({:scan_done, :deep_tech, {:ok, results}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     suffix =
       if results.errors == [] do
         ""
@@ -406,9 +465,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(
        :info,
        "Deep tech scan completed: #{results.evidence} findings, #{results.urls} URLs#{suffix}"
@@ -416,19 +474,14 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "DNS scan completed")}
   end
 
   def handle_info({:scan_done, :rdap, {:ok, %{source: source}}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     source_label =
       %{
         "rdap" => "RDAP",
@@ -439,9 +492,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
     {:noreply,
      socket
+     |> reload_domain([])
      |> finish_scan()
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
      |> put_flash(:info, "Registration scan completed via #{source_label}")}
   end
 
@@ -463,12 +515,9 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   def handle_info({:scan_done, :security_scan, {:ok, scan}}, socket) do
-    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
-
     {:noreply,
      socket
-     |> assign(:domain, domain)
-     |> assign(:domain_class, compute_domain_class(domain))
+     |> reload_domain([])
      |> refresh_security_scan_assigns()
      |> put_flash(:info, "Security scan completed — #{scan.summary}")}
   end
@@ -496,6 +545,22 @@ defmodule RavnerWeb.DomainLive.Show do
      |> put_flash(:error, "Scan #{kind} failed or returned unexpected data.")}
   end
 
+  @impl true
+  def handle_info({:a11y_scan_completed, scan}, socket) do
+    {:noreply,
+     socket
+     |> assign(:a11y_scan, scan)
+     |> assign(:a11y_running?, false)}
+  end
+
+  @impl true
+  def handle_info({:lighthouse_scan_completed, scan}, socket) do
+    {:noreply,
+     socket
+     |> assign(:lighthouse_scan, scan)
+     |> assign(:lighthouse_running?, false)}
+  end
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -514,8 +579,8 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp populated?(value), do: is_list(value) && value != []
 
-  defp start_scan_tasks(pid, id) do
-    start_background_scan(fn ->
+  defp start_scan_tasks(pid, id, user_id) do
+    start_background_scan(user_id, fn ->
       results = Scans.run_quick_scan(id)
 
       send(pid, {:scan_done, :dnsx, Map.fetch!(results, :dnsx)})
@@ -525,8 +590,11 @@ defmodule RavnerWeb.DomainLive.Show do
     end)
   end
 
-  defp start_background_scan(fun) when is_function(fun, 0) do
-    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fun)
+  defp start_background_scan(user_id, fun) when is_function(fun, 0) do
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+      if user_id, do: Ravner.ActivityLog.set_user(user_id)
+      fun.()
+    end)
   end
 
   # Decrements the pending scan counter; sets scanning: false when all done
@@ -541,6 +609,31 @@ defmodule RavnerWeb.DomainLive.Show do
     else
       socket
     end
+  end
+
+  # Reloads domain with template-required associations
+  defp reload_domain(socket, extra_preloads) do
+    preloads =
+      [
+        :parent_domain,
+        :domain_metadata,
+        :domain_tags,
+        :project,
+        :brand,
+        :organization,
+        :dns_records,
+        :tech_evidence,
+        :discovered_urls,
+        subdomains: [:domain_metadata]
+      ] ++ extra_preloads
+
+    domain =
+      Domains.get_domain!(socket.assigns.domain.id)
+      |> Ash.load!(preloads)
+
+    socket
+    |> assign(:domain, domain)
+    |> assign(:domain_class, compute_domain_class(domain))
   end
 
   defp parse_interval(""), do: nil

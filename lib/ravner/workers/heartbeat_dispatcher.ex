@@ -6,15 +6,16 @@ defmodule Ravner.Workers.HeartbeatDispatcher do
 
   import Ecto.Query
   alias Ravner.Repo
+  alias Ravner.Domains.Domain
   alias Ravner.Domains.DomainMetadata
 
   @impl Oban.Worker
   def perform(_job) do
-    # Find domains where heartbeat_interval_minutes is not null AND
-    # (last_heartbeat_at is null OR last_heartbeat_at + interval < NOW())
-
     query =
       from(m in DomainMetadata,
+        join: d in Domain,
+        on: d.id == m.domain_id,
+        where: d.technical_status != :redirect,
         where: not is_nil(m.heartbeat_interval_minutes),
         where:
           is_nil(m.last_heartbeat_at) or

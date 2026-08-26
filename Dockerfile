@@ -18,6 +18,8 @@
 #   • katana                — Ravner.Scans (deep URL crawling)
 #   • webanalyze            — Ravner.Scans (deep tech fingerprinting)
 #   • whois                 — Ravner.Scans (WHOIS lookup)
+#   • pa11y + chromium      — Ravner.A11y (WCAG accessibility scanning)
+#   • lighthouse + chromium — Ravner.Lighthouse (PageSpeed performance audit)
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG ELIXIR_VERSION=1.18.4
@@ -31,6 +33,7 @@ ARG NUCLEI_TEMPLATES_VERSION=10.4.3
 ARG HTTPX_VERSION=1.9.0
 ARG KATANA_VERSION=1.6.1
 ARG WEBANALYZE_VERSION=0.4.3
+ARG LONKERO_VERSION=3.7.3
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -72,7 +75,7 @@ RUN mix assets.deploy
 COPY config/runtime.exs config/
 
 # 4. Release overlays (bin/server, bin/migrate) and assemble the OTP release.
-COPY rel rel
+#COPY rel rel
 RUN mix release
 
 # ─── Fetch dnsx (ProjectDiscovery) — kept tiny and parallelisable ────────────
@@ -117,6 +120,23 @@ RUN curl -fsSL -o /tmp/nuclei-templates.tar.gz \
  && tar -xzf /tmp/nuclei-templates.tar.gz -C /root/ \
  && mv /root/nuclei-templates-${NUCLEI_TEMPLATES_VERSION} /root/.nuclei-templates \
  && rm /tmp/nuclei-templates.tar.gz
+
+# ─── Fetch lonkero (Bountyy Oy) ──────────────────────────────────────────────
+FROM debian:${DEBIAN_VERSION} AS lonkero
+ARG LONKERO_VERSION
+ARG TARGETARCH
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends curl ca-certificates tar \
+ && case "${TARGETARCH}" in \
+      amd64) lonkero_arch=x64 ;; \
+      arm64) lonkero_arch=arm64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/lonkero.tar.gz \
+      "https://github.com/bountyyfi/lonkero/releases/download/v${LONKERO_VERSION}/lonkero-linux-${lonkero_arch}.tar.gz" \
+ && tar -xzf /tmp/lonkero.tar.gz -C /tmp \
+ && install -m 0755 /tmp/lonkero /usr/local/bin/lonkero \
+ && rm -rf /var/lib/apt/lists/* /tmp/lonkero /tmp/lonkero.tar.gz
 
 # ─── Fetch httpx (ProjectDiscovery) ──────────────────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS httpx
@@ -203,6 +223,30 @@ ENV LANG=en_US.UTF-8 \
 RUN groupadd --system --gid 1000 ravner \
  && useradd  --system --uid 1000 --gid ravner --create-home --home-dir /app ravner
 
+# ─── Node.js + Chromium + pa11y for accessibility scanning ───────────────────
+# pa11y uses puppeteer which needs a headless Chromium instance.
+# PUPPETEER_EXECUTABLE_PATH tells puppeteer to use system Chromium.
+RUN set -eux; \
+    apt-get update -y; \
+    apt-get install -y --no-install-recommends \
+      curl ca-certificates gnupg \
+      chromium \
+      fonts-liberation fonts-noto-color-emoji \
+      libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+      libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
+      libasound2 libpango-1.0-0 libpangocairo-1.0-0; \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; \
+    apt-get install -y --no-install-recommends nodejs; \
+    npm install -g pa11y lighthouse --unsafe-perm; \
+    apt-get purge -y --auto-remove curl gnupg; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# ponytail: --no-sandbox needed because Chromium runs as non-root in container.
+# Upgrade path: run container with --cap-add=SYS_ADMIN and drop this flag.
+ENV PUPPETEER_LAUNCH_ARGS="--no-sandbox --disable-setuid-sandbox"
+
 WORKDIR /app
 USER ravner:ravner
 
@@ -210,7 +254,8 @@ USER ravner:ravner
 COPY --from=dnsx    /usr/local/bin/dnsx              /usr/local/bin/dnsx
 COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
 COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
-COPY --from=nuclei  /root/.nuclei-templates          /home/ravner/.nuclei-templates
+COPY --from=nuclei  --chown=ravner:ravner /root/.nuclei-templates /app/.nuclei-templates
+COPY --from=lonkero /usr/local/bin/lonkero           /usr/local/bin/lonkero
 COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=katana  /usr/local/bin/katana            /usr/local/bin/katana
 COPY --from=webanalyze /usr/local/bin/webanalyze     /usr/local/bin/webanalyze
@@ -221,4 +266,5 @@ EXPOSE 4000
 
 # tini = proper PID 1 so signals reach the BEAM cleanly.
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/app/bin/server"]
+# CMD ["/app/bin/server"]
+CMD ["/app/bin/ravner", "start"]

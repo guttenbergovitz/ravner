@@ -6,6 +6,17 @@ Domain and infrastructure inventory management system. Built for speed, precisio
 
 Ravner is an automated discovery and security auditing engine designed to map infrastructure and surface risks without the bloat. It handles everything from DNS/RDAP lookups to deep technology stack detection and port-level vulnerability scanning.
 
+## Ownership Hierarchy
+
+Ravner tracks domain ownership through a four-tier hierarchy:
+
+- **Brand** — Top-level corporate identity (e.g., company umbrella)
+- **Organization** — Business unit or subsidiary within a brand
+- **Project** — Product or initiative within an organization
+- **People** — Team members with roles assigned to projects
+
+The `/ownership` section provides read-only drill-down views with aggregated statistics (domain counts, team sizes, repository links). Admin CRUD operations remain in `/admin/*` routes.
+
 ## Core Discovery Pipeline
 
 The system operates on a multi-stage discovery model, which can be triggered manually or automated via schedules:
@@ -35,6 +46,40 @@ The project follows idiomatic Elixir/Phoenix patterns with a hybrid architecture
 - **Clean Execution**: External tools are wrapped by `Ravner.SystemCommand` to ensure proper process group cleanup and timeout management.
 - **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for both developers and LLM-based agents.
 
+## UI & Theming
+
+- **Dark mode** — Full dark theme with class-based toggle (`.dark` on `<html>`). All pages, components, and admin views support both light and dark modes.
+- **Accessibility** — WCAG AA contrast ratios, keyboard-navigable dropdowns (WAI-ARIA Menu Button), global focus-visible indicators.
+- **Design system** — Custom Tailwind CSS component classes (`.btn-line`, `.input-line`, `.card-line`, `.table-line`) with automatic dark mode support via `app.css` layer.
+
+## Access Control & Authentication
+
+Ravner implements role-based access control with three user roles:
+
+| Role | Capabilities |
+|------|-------------|
+| **Admin** | Full system access — user management, password resets, user deletion, all CRUD operations, scan triggers, settings |
+| **Editor** | Create/edit governance entities (organizations, projects, people, brands), trigger scans, manage domains |
+| **Viewer** | Read-only access to all views — scan buttons disabled, edit links hidden, bulk tools unavailable |
+
+### Authentication paths
+
+All authentication paths enforce an `active` flag check:
+
+- **Password login** — rejected if `user.active == false`
+- **Session token** — invalidated for inactive users (pattern match on `active: true`)
+- **Magic link** — returns `{:error, :inactive}` with a user-facing message
+
+### Admin user management
+
+Admins can manage users through `/admin/users`:
+
+- **Create users** with email, role, name, and temporary password
+- **Edit** role, name, and active status
+- **Reset passwords** via three methods: token link (email), random password (email), or manual entry
+- **Delete users** with safeguards (cannot delete self, cannot delete last admin)
+- **Invite flow** with time-limited tokens for onboarding new team members
+
 ## Development
 
 ### Prerequisites
@@ -62,9 +107,15 @@ mix phx.server
 
 Detailed specifications and architectural notes are kept in the `/documentation` directory:
 
-- `/documentation/features` — Specific feature designs (Bulk ops, Security scans).
+- `/documentation/features` — Specific feature designs (Bulk ops, Security scans, Access control).
 - `/documentation/architecture` — System design, command execution, and scheduling.
 - `/documentation/architecture/roadmap.md` — Identified bottlenecks and future scaling plans.
 - `/documentation/architecture/ash-migration-plan.md` — Ash Framework adoption strategy.
 - `/documentation/architecture/ash-migration-checklist.md` — Completed migration steps and regression checks.
 - `/documentation/heuristics` — Rules for classification and discovery logic.
+
+### HUMAN GENERATED CONTENT - DO NOT MODIFY
+
+In dir `priv/repo/manual` there are .sql files with commands that I had to run to fix the issue with non-existing column `inserted_at` in table `schema_migrations`
+
+### END OF HUMAN GENERATED CONTENT - DO NOT MODIFY

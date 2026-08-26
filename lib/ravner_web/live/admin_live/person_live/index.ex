@@ -3,6 +3,7 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
 
   alias Ravner.Inventory
   alias Ravner.Inventory.Person
+  alias Ravner.Inventory.OwnershipStats
 
   @impl true
   def mount(_params, _session, socket) do
@@ -17,19 +18,12 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "People")
-    |> assign(:people, Inventory.list_people())
-    |> assign(:person, nil)
-    |> assign(:form, nil)
-  end
-
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Person")
-    |> assign(:people, Inventory.list_people())
     |> assign(:person, %Person{})
+    |> assign(:stats, nil)
+    |> assign(:form, nil)
     |> assign(
       :form,
       AshPhoenix.Form.for_create(Person, :create,
@@ -45,8 +39,9 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
 
     socket
     |> assign(:page_title, "Edit Person")
-    |> assign(:people, Inventory.list_people())
     |> assign(:person, person)
+    |> assign(:stats, OwnershipStats.person_stats(id))
+    |> assign(:form, nil)
     |> assign(
       :form,
       AshPhoenix.Form.for_update(person, :update,
@@ -66,11 +61,11 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
   @impl true
   def handle_event("save", %{"person" => params}, socket) do
     case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
-      {:ok, _person} ->
+      {:ok, person} ->
         {:noreply,
          socket
          |> put_flash(:info, "Person saved")
-         |> push_patch(to: ~p"/admin/people")}
+         |> push_navigate(to: ~p"/ownership/people/#{person.id}")}
 
       {:error, form} ->
         {:noreply, assign(socket, :form, form)}
@@ -78,15 +73,16 @@ defmodule RavnerWeb.AdminLive.PersonLive.Index do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
+  def handle_event("delete", _, socket) do
+    person = socket.assigns.person
     actor = socket.assigns.current_scope.user
 
-    case Inventory.delete_person(Inventory.get_person!(id), actor: actor) do
+    case Inventory.delete_person(person, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Person deleted")
-         |> assign(:people, Inventory.list_people())}
+         |> push_navigate(to: ~p"/ownership")}
 
       {:error, :forbidden} ->
         {:noreply,

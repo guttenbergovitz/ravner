@@ -1,0 +1,382 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <%!-- Header --%>
+    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8 dark:border-neutral-800">
+      <div>
+        <div class="flex items-center gap-3">
+          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            Ownership Overview
+          </h1>
+          <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
+            <.link
+              href={~p"/admin/brands/new"}
+              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:hover:text-neutral-300"
+            >
+              + New Brand
+            </.link>
+          <% end %>
+        </div>
+        <p class="text-xs font-light text-neutral-500 mt-2 uppercase tracking-widest">
+          Brand &rarr; Organization &rarr; Project &rarr; People
+        </p>
+      </div>
+      <div class="flex gap-8">
+        <div class="text-right">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Brands
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.brands_count}
+          </div>
+        </div>
+        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Organizations
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.organizations_count}
+          </div>
+        </div>
+        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Projects
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.projects_count}
+          </div>
+        </div>
+        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            People
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {@stats.people_count}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- How it works --%>
+    <div class="mb-10 border border-neutral-200 bg-neutral-50/50 p-6 dark:border-neutral-700 dark:bg-neutral-800/50">
+      <div class="flex items-start gap-4">
+        <div class="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center flex-shrink-0 mt-0.5 dark:bg-neutral-700">
+          <.icon name="hero-information-circle" class="w-4 h-4 text-neutral-500" />
+        </div>
+        <div>
+          <h2 class="text-sm font-normal text-neutral-800 dark:text-neutral-200 mb-2">
+            How ownership works
+          </h2>
+          <p class="text-xs font-light text-neutral-500 leading-relaxed max-w-3xl">
+            Every technical asset in your organization belongs to someone. We track this through a simple four-level structure:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Brand / Company Group
+              </div>
+              <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
+                The top-level entity — typically a corporate brand, holding company, or product family (e.g. <em>Acme Corp</em>).
+              </p>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Organization / Department
+              </div>
+              <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
+                A legal entity, regional office, client, or internal department under a brand (e.g. <em>Acme Germany GmbH</em>).
+              </p>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Project / Initiative
+              </div>
+              <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
+                A specific work effort with a defined team and deliverables (e.g. <em>Website Relaunch 2025</em>).
+              </p>
+            </div>
+            <div class="space-y-1">
+              <div class="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                Person / Team Member
+              </div>
+              <p class="text-[11px] font-light text-neutral-400 leading-relaxed">
+                An individual assigned to one or more projects, with a specific role like Owner, Manager, or Developer.
+              </p>
+            </div>
+          </div>
+          <p class="text-[11px] font-light text-neutral-400 leading-relaxed mt-4 max-w-2xl">
+            <span class="text-neutral-600">Tip:</span>
+            Start by creating a Brand, then add Organizations under it.
+            Assign Projects to Organizations, and add People to those Projects with specific roles.
+            Every domain name you register should ultimately be linked to a Project or Organization — this ensures nothing falls through the cracks.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Two-column layout: main + sidebar --%>
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-10 items-start">
+      <%!-- Main Content --%>
+      <div class="min-w-0">
+        <%!-- Search & Filter --%>
+        <div class="flex items-center gap-4 mb-6">
+          <div class="relative flex-1 max-w-sm">
+            <.icon
+              name="hero-magnifying-glass"
+              class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            />
+            <input
+              type="text"
+              name="query"
+              value={@search_query}
+              placeholder="Search brands..."
+              phx-change="search"
+              class="w-full pl-10 pr-4 py-2.5 border border-neutral-200 bg-white text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300"
+            />
+          </div>
+          <%= if @search_query != "" do %>
+            <span class="text-xs font-light text-neutral-400">
+              {length(@brands)} of {length(@all_brands)} results
+            </span>
+            <button
+              phx-click="search"
+              phx-value-query=""
+              class="text-xs font-normal text-neutral-500 hover:text-neutral-900 transition-colors"
+            >
+              Clear
+            </button>
+          <% end %>
+        </div>
+
+        <%!-- Brands Grid --%>
+        <div class="space-y-6">
+          <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3 dark:text-neutral-200">
+            Brands <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
+          </h2>
+
+          <%= if @brands == [] do %>
+            <%= if @search_query != "" do %>
+              <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <div class="text-sm font-light text-neutral-400 mb-4">
+                  No brands matching "{@search_query}".
+                </div>
+                <button
+                  phx-click="search"
+                  phx-value-query=""
+                  class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+                >
+                  Clear search
+                </button>
+              </div>
+            <% else %>
+              <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <.icon
+                  name="hero-building-office"
+                  class="w-10 h-10 text-neutral-200 mx-auto mb-4"
+                />
+                <h3 class="text-sm font-light text-neutral-500 mb-2">No brands yet</h3>
+                <p class="text-xs font-light text-neutral-400 max-w-md mx-auto mb-4 leading-relaxed">
+                  A Brand is the starting point — it represents a company, product family, or corporate group
+                  that owns your digital assets. Create one to begin organizing your infrastructure.
+                </p>
+                <.link
+                  href={~p"/admin/brands/new"}
+                  class="text-xs font-normal text-neutral-600 hover:text-neutral-900 underline"
+                >
+                  Create your first brand
+                </.link>
+              </div>
+            <% end %>
+          <% else %>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+              <%= for brand <- @brands do %>
+                <.link
+                  navigate={~p"/ownership/brands/#{brand.id}"}
+                  class={[
+                    "block border bg-white p-6 hover:border-neutral-400 transition-colors group dark:bg-neutral-800 dark:hover:border-neutral-500",
+                    if(brand.orgs_count == 0,
+                      do: "border-amber-200/50 bg-amber-50/20",
+                      else: "border-neutral-200 dark:border-neutral-700"
+                    )
+                  ]}
+                >
+                  <div class="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 class="text-lg font-light text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:text-neutral-100 dark:group-hover:text-neutral-300">
+                        {brand.display_name || brand.name}
+                      </h3>
+                      <%= if brand.display_name && brand.display_name != brand.name do %>
+                        <div class="text-[10px] text-neutral-400 mt-0.5">{brand.name}</div>
+                      <% end %>
+                    </div>
+                    <.icon
+                      name="hero-chevron-right"
+                      class="w-5 h-5 text-neutral-300 group-hover:text-neutral-500 transition-colors"
+                    />
+                  </div>
+
+                  <div class="grid grid-cols-4 gap-4 text-center border-t border-neutral-100 pt-4">
+                    <div>
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.orgs_count}
+                      </div>
+                      <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                        Orgs
+                      </div>
+                    </div>
+                    <div class="border-l border-neutral-100 dark:border-neutral-700">
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.projects_count}
+                      </div>
+                      <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                        Projects
+                      </div>
+                    </div>
+                    <div class="border-l border-neutral-100 dark:border-neutral-700">
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.people_count}
+                      </div>
+                      <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                        People
+                      </div>
+                    </div>
+                    <div class="border-l border-neutral-100 dark:border-neutral-700">
+                      <div class="text-lg font-light text-neutral-900 dark:text-neutral-100">
+                        {brand.domains_count}
+                      </div>
+                      <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+                        Domains
+                      </div>
+                    </div>
+                  </div>
+                </.link>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Sidebar: Needs Attention --%>
+      <aside class="space-y-6 sticky top-8">
+        <div class="border border-neutral-200 bg-white p-6">
+          <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-5">
+            Needs Attention
+          </h3>
+
+          <div class="space-y-4">
+            <%= if @orphaned.domains_without_project > 0 do %>
+              <.link
+                navigate={~p"/domains"}
+                class="flex items-center justify-between py-2 group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                    Domains without project
+                  </span>
+                </div>
+                <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                  {@orphaned.domains_without_project}
+                </span>
+              </.link>
+            <% end %>
+
+            <%= if @orphaned.domains_without_brand > 0 do %>
+              <.link
+                navigate={~p"/domains"}
+                class="flex items-center justify-between py-2 group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                    Domains without brand
+                  </span>
+                </div>
+                <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                  {@orphaned.domains_without_brand}
+                </span>
+              </.link>
+            <% end %>
+
+            <%= if @orphaned.empty_organizations > 0 do %>
+              <.link
+                navigate={~p"/ownership"}
+                class="flex items-center justify-between py-2 group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                    Empty organizations
+                  </span>
+                </div>
+                <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                  {@orphaned.empty_organizations}
+                </span>
+              </.link>
+            <% end %>
+
+            <%= if @orphaned.projects_without_team > 0 do %>
+              <.link
+                navigate={~p"/ownership"}
+                class="flex items-center justify-between py-2 group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                    Projects without team
+                  </span>
+                </div>
+                <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                  {@orphaned.projects_without_team}
+                </span>
+              </.link>
+            <% end %>
+
+            <%= if @orphaned.domains_without_project == 0 &&
+                   @orphaned.domains_without_brand == 0 &&
+                   @orphaned.empty_organizations == 0 &&
+                   @orphaned.projects_without_team == 0 do %>
+              <div class="py-4 text-center">
+                <span class="text-xs font-light text-neutral-400">All clear</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="border border-neutral-200 bg-white p-6">
+          <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-5">
+            Quick Links
+          </h3>
+          <div class="space-y-3">
+            <.link
+              navigate={~p"/domains"}
+              class="block text-sm font-light text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              <.icon name="hero-globe-alt" class="w-4 h-4 inline mr-2 text-neutral-400" />
+              All Domains
+            </.link>
+            <.link
+              href={~p"/admin/organizations/new"}
+              class="block text-sm font-light text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              <.icon name="hero-building-office" class="w-4 h-4 inline mr-2 text-neutral-400" />
+              Add Organization
+            </.link>
+            <.link
+              href={~p"/admin/projects/new"}
+              class="block text-sm font-light text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              <.icon name="hero-folder" class="w-4 h-4 inline mr-2 text-neutral-400" />
+              Add Project
+            </.link>
+            <.link
+              href={~p"/admin/people/new"}
+              class="block text-sm font-light text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              <.icon name="hero-users" class="w-4 h-4 inline mr-2 text-neutral-400" /> Add Person
+            </.link>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Layouts.app>

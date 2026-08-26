@@ -1,28 +1,322 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="max-w-6xl mx-auto px-6 py-24">
-    <div class="max-w-2xl">
-      <%= if @current_scope && @current_scope.user do %>
-        <h1 class="text-5xl font-thin tracking-tight leading-tight text-neutral-900">
-          Welcome back
+  <%= if @current_scope && @current_scope.user do %>
+    <%!-- ═══ AUTHENTICATED: Command Center ═══ --%>
+    <div class="max-w-[1400px] mx-auto px-6 py-10">
+      <%!-- Welcome header --%>
+      <div class="mb-10">
+        <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+          Welcome back, {@user_name}
         </h1>
-
-        <p class="mt-8 text-lg font-light text-neutral-500 leading-relaxed max-w-lg">
-          Your domain landscape is waiting. Jump back into the portfolio, review
-          recent scans, or manage inventory.
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Here's what's happening across your portfolio.
         </p>
+      </div>
 
-        <div class="mt-12 flex items-center gap-6">
-          <.link href={~p"/dashboard"} class="btn-line-filled">
-            Dashboard <.icon name="hero-arrow-right" class="w-4 h-4" />
-          </.link>
-          <.link
-            href={~p"/domains"}
-            class="text-sm font-light tracking-wide text-neutral-500 hover:text-neutral-900 transition-colors"
-          >
-            Browse domains
-          </.link>
+      <%!-- Hero metrics --%>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+        <.link
+          navigate={~p"/domains"}
+          class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300"
+        >
+          <div class="text-3xl font-light text-neutral-900 dark:text-neutral-100">
+            {@pulse.total_domains}
+          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">
+            Domains
+          </div>
+          <div class="text-[10px] text-neutral-300 mt-2">{@pulse.total_apex} apex</div>
+        </.link>
+
+        <.link
+          navigate={~p"/uptime"}
+          class="border border-neutral-200 p-5 hover:border-neutral-900 transition-colors group dark:border-neutral-700 dark:hover:border-neutral-300"
+        >
+          <div class={[
+            "text-3xl font-light",
+            @pulse.avg_uptime && @pulse.avg_uptime >= 99 && "text-green-600",
+            @pulse.avg_uptime && @pulse.avg_uptime < 99 && "text-amber-600",
+            is_nil(@pulse.avg_uptime) && "text-neutral-300"
+          ]}>
+            {if @pulse.avg_uptime, do: "#{@pulse.avg_uptime}%", else: "—"}
+          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1 group-hover:text-neutral-600 transition-colors">
+            Uptime (30d)
+          </div>
+          <div class="text-[10px] mt-2">
+            <span class="text-green-500">{@pulse.up_count} up</span>
+            <%= if @pulse.down_count > 0 do %>
+              <span class="text-red-500 ml-2">{@pulse.down_count} down</span>
+            <% end %>
+          </div>
+        </.link>
+
+        <div class="border border-neutral-200 p-5 dark:border-neutral-700">
+          <div class={[
+            "text-3xl font-light",
+            @pulse.http_errors == 0 && "text-green-600",
+            @pulse.http_errors > 0 && "text-red-600"
+          ]}>
+            {@pulse.http_200}<span class="text-lg text-neutral-300">/{@pulse.http_total}</span>
+          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">HTTP OK</div>
+          <%= if @pulse.http_errors > 0 do %>
+            <div class="text-[10px] text-red-500 mt-2">{@pulse.http_errors} errors</div>
+          <% end %>
         </div>
-      <% else %>
+
+        <div class="border border-neutral-200 p-5 dark:border-neutral-700">
+          <div class={[
+            "text-3xl font-light",
+            @pulse.ssl_expiring == 0 && "text-green-600",
+            @pulse.ssl_expiring > 0 && "text-amber-600"
+          ]}>
+            {@pulse.ssl_healthy}<span class="text-lg text-neutral-300">/{@pulse.ssl_total}</span>
+          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">SSL Valid</div>
+          <%= if @pulse.ssl_expiring > 0 do %>
+            <div class="text-[10px] text-amber-600 mt-2">{@pulse.ssl_expiring} expiring</div>
+          <% end %>
+        </div>
+
+        <div class="border border-neutral-200 p-5 dark:border-neutral-700">
+          <div class={[
+            "text-3xl font-light",
+            @pulse.security_findings == 0 && "text-green-600",
+            @pulse.security_findings > 0 && "text-amber-600"
+          ]}>
+            {@pulse.security_findings}
+          </div>
+          <div class="text-[10px] uppercase tracking-wide text-neutral-400 mt-1">
+            Security Findings
+          </div>
+          <div class="text-[10px] text-neutral-300 mt-2">
+            {if @pulse.a11y_scanned > 0,
+              do: "#{@pulse.a11y_compliant}/#{@pulse.a11y_scanned} EAA",
+              else: "no a11y scans"}
+          </div>
+        </div>
+      </div>
+
+      <%!-- Three column: Uptime | Alerts | Explore --%>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <%!-- Uptime / Incidents --%>
+        <div class="border border-neutral-200 p-6 dark:border-neutral-700">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">Uptime</h2>
+            <.link
+              navigate={~p"/uptime"}
+              class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors"
+            >
+              View all &rarr;
+            </.link>
+          </div>
+
+          <%= if @pulse.monitored_count == 0 do %>
+            <div class="py-8 text-center">
+              <.icon
+                name="hero-heart"
+                class="w-8 h-8 text-neutral-200 mx-auto mb-2 dark:text-neutral-700"
+              />
+              <p class="text-sm text-neutral-400">No domains monitored yet.</p>
+              <p class="text-xs text-neutral-300 mt-1">
+                Enable heartbeat on any domain to start.
+              </p>
+            </div>
+          <% else %>
+            <div class="flex items-center gap-4 mb-5">
+              <div class="flex-1 h-2 bg-neutral-100 rounded-full dark:bg-neutral-800 overflow-hidden">
+                <div
+                  class="h-full bg-green-500 rounded-full transition-all"
+                  style={"width: #{@pulse.up_count / max(@pulse.monitored_count, 1) * 100}%"}
+                >
+                </div>
+              </div>
+              <span class="text-xs text-neutral-500 shrink-0">
+                {@pulse.up_count}/{@pulse.monitored_count}
+              </span>
+            </div>
+
+            <%= if @pulse.recent_incidents == [] do %>
+              <p class="text-sm text-neutral-400 py-3">No incidents in the last 7 days.</p>
+            <% else %>
+              <div class="space-y-3">
+                <div
+                  :for={incident <- @pulse.recent_incidents}
+                  class="flex items-center justify-between"
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
+                    <.link
+                      navigate={~p"/uptime/#{incident.domain_id}"}
+                      class="text-sm hover:underline truncate max-w-[160px]"
+                    >
+                      {incident.domain.name}
+                    </.link>
+                  </div>
+                  <span class="text-[10px] text-neutral-400 shrink-0">
+                    {Calendar.strftime(incident.started_at, "%b %d %H:%M")}
+                  </span>
+                </div>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+
+        <%!-- Risk alerts --%>
+        <div class="border border-neutral-200 p-6 dark:border-neutral-700">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+              Attention Needed
+            </h2>
+            <.link
+              navigate={~p"/dashboard"}
+              class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors"
+            >
+              Full report &rarr;
+            </.link>
+          </div>
+
+          <div class="space-y-4">
+            <%= if @pulse.ssl_expiring > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/20">
+                  <.icon name="hero-shield-exclamation" class="w-3.5 h-3.5 text-amber-600" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.ssl_expiring} SSL certificates expiring
+                  </p>
+                  <p class="text-[10px] text-neutral-400">Need renewal within 7 days</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.http_errors > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20">
+                  <.icon name="hero-exclamation-circle" class="w-3.5 h-3.5 text-red-600" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.http_errors} domains unreachable
+                  </p>
+                  <p class="text-[10px] text-neutral-400">HTTP 4xx/5xx errors detected</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.security_findings > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/20">
+                  <.icon name="hero-bug-ant" class="w-3.5 h-3.5 text-amber-600" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.security_findings} security vulnerabilities
+                  </p>
+                  <p class="text-[10px] text-neutral-400">From automated scanning</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.governance_gaps > 0 do %>
+              <div class="flex items-center gap-3">
+                <span class="w-6 h-6 flex items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <.icon name="hero-user-group" class="w-3.5 h-3.5 text-neutral-500" />
+                </span>
+                <div>
+                  <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {@pulse.governance_gaps} governance gaps
+                  </p>
+                  <p class="text-[10px] text-neutral-400">Missing project or PM assignment</p>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @pulse.ssl_expiring == 0 && @pulse.http_errors == 0 && @pulse.security_findings == 0 && @pulse.governance_gaps == 0 do %>
+              <div class="py-6 text-center">
+                <.icon name="hero-check-circle" class="w-8 h-8 text-green-400 mx-auto mb-2" />
+                <p class="text-sm text-neutral-500">All clear. No immediate actions needed.</p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Quick navigation --%>
+        <div class="border border-neutral-200 p-6 dark:border-neutral-700">
+          <h2 class="text-xs font-normal uppercase tracking-wide text-neutral-500 mb-5">
+            Explore
+          </h2>
+          <div class="space-y-2">
+            <.link
+              navigate={~p"/domains"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">Domains</p>
+                <p class="text-[10px] text-neutral-400">
+                  {@pulse.total_domains} total, {@pulse.total_apex} apex
+                </p>
+              </div>
+            </.link>
+
+            <.link
+              navigate={~p"/uptime"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-heart" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Uptime Monitor
+                </p>
+                <p class="text-[10px] text-neutral-400">
+                  {@pulse.monitored_count} endpoints tracked
+                </p>
+              </div>
+            </.link>
+
+            <.link
+              navigate={~p"/dashboard"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-chart-bar" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Analytics Dashboard
+                </p>
+                <p class="text-[10px] text-neutral-400">SSL, HTTP, scans, lifecycle</p>
+              </div>
+            </.link>
+
+            <.link
+              navigate={~p"/ownership"}
+              class="flex items-center gap-3 p-3 -mx-3 rounded-lg hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-800"
+            >
+              <span class="w-8 h-8 flex items-center justify-center rounded-lg bg-neutral-100 group-hover:bg-neutral-200 transition-colors dark:bg-neutral-800 dark:group-hover:bg-neutral-700">
+                <.icon name="hero-building-office" class="w-4 h-4 text-neutral-500" />
+              </span>
+              <div>
+                <p class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  Ownership
+                </p>
+                <p class="text-[10px] text-neutral-400">Brands, orgs, projects, people</p>
+              </div>
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% else %>
+    <%!-- ═══ UNAUTHENTICATED: Marketing landing ═══ --%>
+    <div class="max-w-6xl mx-auto px-6 py-24">
+      <div class="max-w-2xl">
         <h1 class="text-5xl font-thin tracking-tight leading-tight text-neutral-900">
           Ecosystem <br />
           <span class="font-normal">visibility</span>
@@ -33,290 +327,294 @@
           from a single, minimal dashboard.
         </p>
 
-        <div class="mt-12 flex items-center gap-6">
-          <.link href={~p"/users/register"} class="btn-line-filled">
-            Get started <.icon name="hero-arrow-right" class="w-4 h-4" />
+        <div class="mt-12">
+          <.link href={~p"/users/log-in"} class="btn-line-filled">
+            Log in to get started <.icon name="hero-arrow-right" class="w-4 h-4" />
           </.link>
-          <.link
-            href={~p"/users/log-in"}
-            class="text-sm font-light tracking-wide text-neutral-500 hover:text-neutral-900 transition-colors"
-          >
-            Already have an account?
-          </.link>
-        </div>
-      <% end %>
-    </div>
-  </div>
-
-  <div class="border-t border-neutral-200">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-        <div
-          phx-click="show_detail"
-          phx-value-section="domains"
-          class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
-        >
-          <.icon name="hero-globe-alt" class="w-6 h-6 text-neutral-400 mb-6" />
-          <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Domains</h3>
-          <p class="text-sm font-light text-neutral-500 leading-relaxed">
-            You have domains scattered across registrars and teams. No single view of what exists, what's active, and what should be decommissioned.
-          </p>
-        </div>
-
-        <div
-          phx-click="show_detail"
-          phx-value-section="metadata"
-          class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
-        >
-          <.icon name="hero-signal" class="w-6 h-6 text-neutral-400 mb-6" />
-          <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Metadata</h3>
-          <p class="text-sm font-light text-neutral-500 leading-relaxed">
-            You need HTTP status, DNS records, SSL expiry, and WHOIS data — but collecting it across hundreds of domains is manual and never up to date.
-          </p>
-        </div>
-
-        <div
-          phx-click="show_detail"
-          phx-value-section="ownership"
-          class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
-        >
-          <.icon name="hero-user-group" class="w-6 h-6 text-neutral-400 mb-6" />
-          <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Ownership</h3>
-          <p class="text-sm font-light text-neutral-500 leading-relaxed">
-            When something breaks, you don't know who's responsible. Domains, projects, and people are disconnected — and orphaned assets pile up.
-          </p>
         </div>
       </div>
+    </div>
 
-      <%= if @detail_popup do %>
-        <div class="fixed inset-0 z-50 flex items-center justify-center" phx-click="close_detail">
-          <div class="absolute inset-0 bg-black/10"></div>
+    <div class="border-t border-neutral-200">
+      <div class="max-w-6xl mx-auto px-6 py-20">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
           <div
-            class="relative bg-white border border-neutral-200 max-w-lg w-full mx-4 p-8"
-            phx-click="__stop__"
+            phx-click="show_detail"
+            phx-value-section="domains"
+            class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
           >
-            <button
-              phx-click="close_detail"
-              class="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 transition-colors"
-            >
-              <.icon name="hero-x-mark" class="w-5 h-5" />
-            </button>
+            <.icon name="hero-globe-alt" class="w-6 h-6 text-neutral-400 mb-6" />
+            <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Domains</h3>
+            <p class="text-sm font-light text-neutral-500 leading-relaxed">
+              You have domains scattered across registrars and teams. No single view of what exists, what's active, and what should be decommissioned.
+            </p>
+          </div>
 
-            <%= if @detail_popup == "domains" do %>
-              <div class="mb-6">
-                <.icon name="hero-globe-alt" class="w-8 h-8 text-neutral-400 mb-4" />
-                <h3 class="text-lg font-light tracking-tight mb-4">Domains</h3>
-                <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
-                  You manage domains across multiple registrars, teams, and environments.
-                </p>
-                <ul class="space-y-3">
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Auto-discover apex domains and their subdomains through scanning
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Tag and classify by lifecycle: priority, active, placeholder, deprecated, decommissioned
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Bulk import from CSV, export anytime — no vendor lock-in
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Track redirect chains and detect orphaned or parked domains
-                  </li>
-                </ul>
-              </div>
-            <% end %>
+          <div
+            phx-click="show_detail"
+            phx-value-section="metadata"
+            class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
+          >
+            <.icon name="hero-signal" class="w-6 h-6 text-neutral-400 mb-6" />
+            <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Metadata</h3>
+            <p class="text-sm font-light text-neutral-500 leading-relaxed">
+              You need HTTP status, DNS records, SSL expiry, and WHOIS data — but collecting it across hundreds of domains is manual and never up to date.
+            </p>
+          </div>
 
-            <%= if @detail_popup == "metadata" do %>
-              <div class="mb-6">
-                <.icon name="hero-signal" class="w-8 h-8 text-neutral-400 mb-4" />
-                <h3 class="text-lg font-light tracking-tight mb-4">Metadata</h3>
-                <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
-                  You need to know the technical state of your domains — HTTP status, DNS configuration, SSL health, WHOIS data.
-                </p>
-                <ul class="space-y-3">
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Automated HTTP scans with status, redirects, and response tracking
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    SSL certificate expiry monitoring — know before certificates expire
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Registrar and hosting provider identification via WHOIS and DNS heuristics
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Detect technology stacks: web servers, frameworks, and platforms
-                  </li>
-                </ul>
-              </div>
-            <% end %>
-
-            <%= if @detail_popup == "ownership" do %>
-              <div class="mb-6">
-                <.icon name="hero-user-group" class="w-8 h-8 text-neutral-400 mb-4" />
-                <h3 class="text-lg font-light tracking-tight mb-4">Ownership</h3>
-                <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
-                  When a domain breaks or a project ends, you need to know who's responsible.
-                </p>
-                <ul class="space-y-3">
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Brand → Organization → Project → Person with clear role assignments
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Assign PM (product manager) and PO (project owner) per project
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Link repositories to projects — know what code maps to what domain
-                  </li>
-                  <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
-                    <span class="text-neutral-300 shrink-0">—</span>
-                    Filter domains by brand, org, or project — no more orphaned assets
-                  </li>
-                </ul>
-              </div>
-            <% end %>
+          <div
+            phx-click="show_detail"
+            phx-value-section="ownership"
+            class="card-line cursor-pointer hover:border-neutral-400 transition-colors"
+          >
+            <.icon name="hero-user-group" class="w-6 h-6 text-neutral-400 mb-6" />
+            <h3 class="text-sm font-normal tracking-wide uppercase mb-3">Ownership</h3>
+            <p class="text-sm font-light text-neutral-500 leading-relaxed">
+              When something breaks, you don't know who's responsible. Domains, projects, and people are disconnected — and orphaned assets pile up.
+            </p>
           </div>
         </div>
-      <% end %>
-    </div>
-  </div>
 
-  <div class="bg-neutral-900 text-white">
-    <div class="max-w-6xl mx-auto px-6 py-20">
-      <div class="max-w-2xl mb-16">
-        <p class="text-[11px] font-normal tracking-[0.25em] uppercase text-neutral-500 mb-6">
-          About the name
-        </p>
-        <h2 class="text-6xl font-thin tracking-tight leading-none mb-4">ravner</h2>
-        <p class="text-2xl font-thin text-neutral-400 tracking-wide mb-8">
-          [ˈɾɑ̂vnər] <span class="text-neutral-600 mx-2">/</span> [ˈɾɑvnɛɾ]
-        </p>
-        <p class="text-base font-light text-neutral-300 leading-relaxed max-w-lg">
-          From Old Norse <span class="text-white/70 italic">hrafn</span>
-          — raven. A bird known for memory, observation, and carrying information across vast territories. That's the job: see everything, forget nothing.
-        </p>
-      </div>
+        <%= if @detail_popup do %>
+          <div
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            phx-click="close_detail"
+          >
+            <div class="absolute inset-0 bg-black/10"></div>
+            <div
+              class="relative bg-white border border-neutral-200 max-w-lg w-full mx-4 p-8 dark:bg-neutral-800 dark:border-neutral-700"
+              phx-click="__stop__"
+            >
+              <button
+                phx-click="close_detail"
+                class="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 transition-colors"
+              >
+                <.icon name="hero-x-mark" class="w-5 h-5" />
+              </button>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-16 border-t border-neutral-800 pt-16">
-        <div>
-          <p class="text-[11px] font-normal tracking-[0.25em] uppercase text-neutral-500 mb-3">
-            ˈhuːɣɪn
-          </p>
-          <h3 class="text-3xl font-thin tracking-tight text-white mb-4">Huginn</h3>
-          <p class="text-sm font-light text-neutral-400 leading-relaxed mb-5">
-            <span class="text-neutral-300">Thought</span>
-            — the raven that flies across Midgard every morning and returns to whisper what it saw. In Ravner, Huginn is your scan engine.
-          </p>
-          <p class="text-sm font-light text-neutral-500">
-            You don't chase metadata. Huginn does the rounds. You just check the perches.
-          </p>
-        </div>
-        <div>
-          <p class="text-[11px] font-normal tracking-[0.25em] uppercase text-neutral-500 mb-3">
-            ˈmʊnɪn
-          </p>
-          <h3 class="text-3xl font-thin tracking-tight text-white mb-4">Muninn</h3>
-          <p class="text-sm font-light text-neutral-400 leading-relaxed mb-5">
-            <span class="text-neutral-300">Memory</span>
-            — the raven that remembers. Everything Huginn collects, Muninn holds onto: scan history, lifecycle changes, ownership.
-          </p>
-          <p class="text-sm font-light text-neutral-500">
-            When you need to know what changed, who was responsible — that's Muninn's territory.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+              <%= if @detail_popup == "domains" do %>
+                <div class="mb-6">
+                  <.icon name="hero-globe-alt" class="w-8 h-8 text-neutral-400 mb-4" />
+                  <h3 class="text-lg font-light tracking-tight mb-4">Domains</h3>
+                  <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
+                    You manage domains across multiple registrars, teams, and environments.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Auto-discover apex domains and their subdomains through scanning
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Tag and classify by lifecycle: priority, active, placeholder, deprecated, decommissioned
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Bulk import from CSV, export anytime — no vendor lock-in
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Track redirect chains and detect orphaned or parked domains
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
 
-  <div class="border-t border-neutral-200">
-    <div class="max-w-6xl mx-auto px-6 py-28">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-24">
-        <div>
-          <h2 class="text-2xl font-thin tracking-tight text-neutral-900 mb-12">Who is it for</h2>
-          <ul class="space-y-8">
-            <li class="flex items-start gap-5">
-              <.icon name="hero-code-bracket" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
-              <div>
-                <span class="text-base font-normal text-neutral-900">Engineering leads</span>
-                <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
-                  Know what runs where. No more spreadsheets or tribal knowledge.
-                </p>
-              </div>
-            </li>
-            <li class="flex items-start gap-5">
-              <.icon
-                name="hero-shield-exclamation"
-                class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
-              />
-              <div>
-                <span class="text-base font-normal text-neutral-900">Security teams</span>
-                <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
-                  Detect orphaned subdomains, expired certs, and misconfigured DNS.
-                </p>
-              </div>
-            </li>
-            <li class="flex items-start gap-5">
-              <.icon
-                name="hero-clipboard-document-list"
-                class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
-              />
-              <div>
-                <span class="text-base font-normal text-neutral-900">Product managers</span>
-                <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
-                  See who owns what. Clear PM/PO assignments per project and domain.
-                </p>
-              </div>
-            </li>
-          </ul>
-        </div>
-        <div>
-          <h2 class="text-2xl font-thin tracking-tight text-neutral-900 mb-12">
-            Typical workflow
-          </h2>
-          <ul class="space-y-8">
-            <li class="flex items-start gap-5">
-              <.icon name="hero-arrow-down-tray" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
-              <div>
-                <span class="text-base font-normal text-neutral-900">Import or add domains</span>
-                <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
-                  Bulk import from CSV or add one by one. Auto-scan on arrival.
-                </p>
-              </div>
-            </li>
-            <li class="flex items-start gap-5">
-              <.icon
-                name="hero-magnifying-glass"
-                class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
-              />
-              <div>
-                <span class="text-base font-normal text-neutral-900">Enrich with metadata</span>
-                <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
-                  HTTP status, DNS records, SSL expiry, WHOIS data — all auto-collected.
-                </p>
-              </div>
-            </li>
-            <li class="flex items-start gap-5">
-              <.icon name="hero-user-group" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
-              <div>
-                <span class="text-base font-normal text-neutral-900">Assign ownership</span>
-                <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
-                  Map domains to brands, organisations, projects, and people.
-                </p>
-              </div>
-            </li>
-          </ul>
-        </div>
+              <%= if @detail_popup == "metadata" do %>
+                <div class="mb-6">
+                  <.icon name="hero-signal" class="w-8 h-8 text-neutral-400 mb-4" />
+                  <h3 class="text-lg font-light tracking-tight mb-4">Metadata</h3>
+                  <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
+                    You need to know the technical state of your domains — HTTP status, DNS configuration, SSL health, WHOIS data.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Automated HTTP scans with status, redirects, and response tracking
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      SSL certificate expiry monitoring — know before certificates expire
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Registrar and hosting provider identification via WHOIS and DNS heuristics
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Detect technology stacks: web servers, frameworks, and platforms
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
+
+              <%= if @detail_popup == "ownership" do %>
+                <div class="mb-6">
+                  <.icon name="hero-user-group" class="w-8 h-8 text-neutral-400 mb-4" />
+                  <h3 class="text-lg font-light tracking-tight mb-4">Ownership</h3>
+                  <p class="text-sm font-light text-neutral-500 leading-relaxed mb-6">
+                    When a domain breaks or a project ends, you need to know who's responsible.
+                  </p>
+                  <ul class="space-y-3">
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Brand → Organization → Project → Person with clear role assignments
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Assign PM (product manager) and PO (project owner) per project
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Link repositories to projects — know what code maps to what domain
+                    </li>
+                    <li class="flex items-start gap-3 text-sm font-light text-neutral-600">
+                      <span class="text-neutral-300 shrink-0">—</span>
+                      Filter domains by brand, org, or project — no more orphaned assets
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
       </div>
     </div>
-  </div>
+
+    <div class="bg-neutral-900 text-white dark:bg-neutral-950">
+      <div class="max-w-6xl mx-auto px-6 py-20">
+        <div class="max-w-2xl mb-16">
+          <p class="text-[11px] font-normal tracking-[0.25em] uppercase text-neutral-500 mb-6">
+            About the name
+          </p>
+          <h2 class="text-6xl font-thin tracking-tight leading-none mb-4">ravner</h2>
+          <p class="text-2xl font-thin text-neutral-400 tracking-wide mb-8">
+            [ˈɾɑ̂vnər] <span class="text-neutral-600 mx-2">/</span> [ˈɾɑvnɛɾ]
+          </p>
+          <p class="text-base font-light text-neutral-300 leading-relaxed max-w-lg">
+            From Old Norse <span class="text-white/70 italic">hrafn</span>
+            — raven. A bird known for memory, observation, and carrying information across vast territories. That's the job: see everything, forget nothing.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-16 border-t border-neutral-800 pt-16">
+          <div>
+            <p class="text-[11px] font-normal tracking-[0.25em] uppercase text-neutral-500 mb-3">
+              ˈhuːɣɪn
+            </p>
+            <h3 class="text-3xl font-thin tracking-tight text-white mb-4">Huginn</h3>
+            <p class="text-sm font-light text-neutral-400 leading-relaxed mb-5">
+              <span class="text-neutral-300">Thought</span>
+              — the raven that flies across Midgard every morning and returns to whisper what it saw. In Ravner, Huginn is your scan engine.
+            </p>
+            <p class="text-sm font-light text-neutral-500">
+              You don't chase metadata. Huginn does the rounds. You just check the perches.
+            </p>
+          </div>
+          <div>
+            <p class="text-[11px] font-normal tracking-[0.25em] uppercase text-neutral-500 mb-3">
+              ˈmʊnɪn
+            </p>
+            <h3 class="text-3xl font-thin tracking-tight text-white mb-4">Muninn</h3>
+            <p class="text-sm font-light text-neutral-400 leading-relaxed mb-5">
+              <span class="text-neutral-300">Memory</span>
+              — the raven that remembers. Everything Huginn collects, Muninn holds onto: scan history, lifecycle changes, ownership.
+            </p>
+            <p class="text-sm font-light text-neutral-500">
+              When you need to know what changed, who was responsible — that's Muninn's territory.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-neutral-200">
+      <div class="max-w-6xl mx-auto px-6 py-28">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-24">
+          <div>
+            <h2 class="text-2xl font-thin tracking-tight text-neutral-900 mb-12">
+              Who is it for
+            </h2>
+            <ul class="space-y-8">
+              <li class="flex items-start gap-5">
+                <.icon name="hero-code-bracket" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
+                <div>
+                  <span class="text-base font-normal text-neutral-900">Engineering leads</span>
+                  <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
+                    Know what runs where. No more spreadsheets or tribal knowledge.
+                  </p>
+                </div>
+              </li>
+              <li class="flex items-start gap-5">
+                <.icon
+                  name="hero-shield-exclamation"
+                  class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
+                />
+                <div>
+                  <span class="text-base font-normal text-neutral-900">Security teams</span>
+                  <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
+                    Detect orphaned subdomains, expired certs, and misconfigured DNS.
+                  </p>
+                </div>
+              </li>
+              <li class="flex items-start gap-5">
+                <.icon
+                  name="hero-clipboard-document-list"
+                  class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
+                />
+                <div>
+                  <span class="text-base font-normal text-neutral-900">Product managers</span>
+                  <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
+                    See who owns what. Clear PM/PO assignments per project and domain.
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h2 class="text-2xl font-thin tracking-tight text-neutral-900 mb-12">
+              Typical workflow
+            </h2>
+            <ul class="space-y-8">
+              <li class="flex items-start gap-5">
+                <.icon
+                  name="hero-arrow-down-tray"
+                  class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
+                />
+                <div>
+                  <span class="text-base font-normal text-neutral-900">
+                    Import or add domains
+                  </span>
+                  <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
+                    Bulk import from CSV or add one by one. Auto-scan on arrival.
+                  </p>
+                </div>
+              </li>
+              <li class="flex items-start gap-5">
+                <.icon
+                  name="hero-magnifying-glass"
+                  class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0"
+                />
+                <div>
+                  <span class="text-base font-normal text-neutral-900">Enrich with metadata</span>
+                  <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
+                    HTTP status, DNS records, SSL expiry, WHOIS data — all auto-collected.
+                  </p>
+                </div>
+              </li>
+              <li class="flex items-start gap-5">
+                <.icon name="hero-user-group" class="w-5 h-5 text-neutral-300 mt-0.5 shrink-0" />
+                <div>
+                  <span class="text-base font-normal text-neutral-900">Assign ownership</span>
+                  <p class="text-sm font-light text-neutral-500 mt-1.5 leading-relaxed">
+                    Map domains to brands, organisations, projects, and people.
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </Layouts.app>

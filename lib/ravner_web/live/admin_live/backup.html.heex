@@ -22,7 +22,7 @@
     <div class="border border-neutral-200 p-6">
       <h2 class="text-lg font-light tracking-tight mb-2">Restore from backup</h2>
       <p class="text-sm font-light text-neutral-500 mb-6">
-        Upload a <code class="text-xs bg-neutral-100 px-1">.dump</code>
+        Upload a <code class="text-xs bg-neutral-100 px-1 dark:bg-neutral-700">.dump</code>
         file to restore business data. Existing data will be overwritten.
       </p>
 
@@ -31,7 +31,7 @@
           <div class="flex items-center gap-3">
             <.live_file_input
               upload={@uploads.backup_file}
-              class="text-sm font-light file:mr-3 file:py-1.5 file:px-3 file:border file:border-neutral-200 file:bg-transparent file:text-xs file:font-light hover:file:bg-neutral-50"
+              class="text-sm font-light file:mr-3 file:py-1.5 file:px-3 file:border file:border-neutral-200 file:bg-transparent file:text-xs file:font-light hover:file:bg-neutral-50 dark:file:border-neutral-700 dark:hover:file:bg-neutral-800"
             />
             <button type="submit" class="btn-line-filled text-xs">
               Upload & Preview
@@ -40,7 +40,7 @@
         </form>
       <% else %>
         <div class="border border-neutral-200 mb-4">
-          <div class="px-4 py-3 border-b border-neutral-100 bg-neutral-50">
+          <div class="px-4 py-3 border-b border-neutral-100 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800">
             <span class="text-xs font-normal uppercase tracking-wider text-neutral-500">
               Backup contents ({length(@restore_preview)} objects)
             </span>

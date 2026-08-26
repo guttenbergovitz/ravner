@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-06-26
+
+### Added
+
+- **Full dark theme** — All 15 LiveView page templates now have `dark:` Tailwind variants. Surfaces, borders, text, hovers, active toggles, modals, filter chips, and pagination all adapt to dark mode. Toggle via the header moon/sun icon.
+- **Keyboard-accessible admin dropdown** — Implemented WAI-ARIA Menu Button pattern: `tabindex="-1"` on menu items (arrow-key nav only), `aria-controls`, `focusout` handler for Tab, Home/End key support, fixed ArrowUp bug.
+- **Focus-visible indicators** — Global `:focus-visible` outline rule for all interactive elements with dark mode variant.
+- **Nav link contrast** — Inactive nav links upgraded from `neutral-500` to `neutral-600` for WCAG AA compliance.
+
+## [0.6.2] - 2026-06-25
+
+### Fixed
+
+- **Typography accessibility** — Bumped body/data text from `font-light` (300) to `font-normal` (400) for WCAG-compliant readability. Thin weight preserved only on decorative uppercase labels, H1 headings, and buttons where large size or letter-spacing compensate.
+
+## [0.6.1] - 2026-06-25
+
+### Fixed
+
+- **Account settings discoverability** — Added visible "Account" link in the navigation for all authenticated users. Previously, non-admin users had no UI path to change their password or email (the route existed but was undiscoverable).
+
+## [0.6.0] - 2026-06-14
+
+### Added
+
+- **Ownership Hierarchy Section** — New `/ownership` read-only views for navigating Brand → Organization → Project → People relationships with drill-down navigation, aggregated stats, and breadcrumbs. Separate from admin CRUD pages.
+- **Admin Password Reset** — Three options for resetting user passwords from the admin panel: send a token-based reset link via email, generate and email a random password, or manually set a password.
+- **User Deletion (Admin)** — Admins can delete users with built-in safeguards: cannot delete yourself, cannot delete the last admin.
+- **Password Reset Flow** — New `UserResetPasswordController` with a public token-based reset form at `/users/reset-password/:token`.
+- **Inactive User Lockout** — Users with `active=false` are now rejected across all authentication paths: password login, session token validation, and magic link login.
+- **Role-Based UI Visibility** — Edit buttons in ownership views (Brand, Organization, Project, Person) are now conditionally rendered only for admin/editor roles.
+- **Scan Button Access Control** — Domain scan action buttons are disabled for viewer-role users via the `scan_action_panel` component.
+- **Bulk Discovery Tool Restriction** — "Add domain", "Import CSV", and "Scan visible" controls are hidden for viewers in the domain index view.
+
+### Changed
+
+- **Reset Password Token Validity** — Introduced a dedicated `@reset_password_validity_in_days` constant (1 day) instead of reusing the change-email token expiry.
+- **`admin_delete_user/2` Actor Requirement** — The `:actor` option is now mandatory (raises on missing) to prevent silent use of a synthetic actor.
+- **Scan Button CSS Consistency** — All scan buttons now include the viewer-disabled state in their visual class conditions (opacity, cursor), not just the `disabled` attribute.
+
+### Fixed
+
+- **Inactive User Session Hijack** — `get_user_by_session_token/1` now pattern-matches on `active: true`, preventing inactive users from maintaining valid sessions.
+- **Magic Link for Deactivated Accounts** — Returns `{:error, :inactive}` with a user-facing message instead of silently failing.
+
 ## [0.5.0] - 2026-05-09
 
 ### Added
@@ -59,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-[Unreleased]: https://github.com/guttenbergovitz/balebos/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/guttenbergovitz/balebos/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/guttenbergovitz/balebos/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/guttenbergovitz/balebos/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/guttenbergovitz/balebos/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/guttenbergovitz/balebos/compare/v0.2.0...v0.3.0

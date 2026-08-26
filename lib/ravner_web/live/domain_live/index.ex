@@ -13,9 +13,11 @@ defmodule RavnerWeb.DomainLive.Index do
       technical_status_options: 0
     ]
 
+  alias Ravner.A11y
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Inventory
+  alias Ravner.Lighthouse
   alias Ravner.Scans
 
   @bulk_actions %{"delete" => :delete, "scan" => :scan}
@@ -167,6 +169,15 @@ defmodule RavnerWeb.DomainLive.Index do
     {:noreply,
      socket
      |> assign(:include_subdomains, !socket.assigns.include_subdomains)
+     |> push_patch(to: ~p"/domains?#{params}")}
+  end
+
+  def handle_event("toggle_monitored_only", _params, socket) do
+    params = build_params(socket, monitored_only: !socket.assigns.monitored_only, page: 1)
+
+    {:noreply,
+     socket
+     |> assign(:monitored_only, !socket.assigns.monitored_only)
      |> push_patch(to: ~p"/domains?#{params}")}
   end
 
@@ -366,8 +377,9 @@ defmodule RavnerWeb.DomainLive.Index do
   def handle_event("quick_scan", %{"id" => id}, socket) do
     domain_id = String.to_integer(id)
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       Scans.run_quick_scan(domain_id)
       send(liveview_pid, {:quick_scan_done, domain_id})
     end)
@@ -439,6 +451,8 @@ defmodule RavnerWeb.DomainLive.Index do
   defp assign_initial_state(socket) do
     socket
     |> assign(:domains, [])
+    |> assign(:a11y_violations, %{})
+    |> assign(:lighthouse_scores, %{})
     |> assign(:total, 0)
     |> assign(:page, 1)
     |> assign(:total_pages, 1)
@@ -450,6 +464,7 @@ defmodule RavnerWeb.DomainLive.Index do
     |> assign(:selection_mode, false)
     |> assign(:selected_ids, MapSet.new())
     |> assign(:include_subdomains, false)
+    |> assign(:monitored_only, false)
     |> assign(:bulk_include_subdomains, false)
     |> assign(:bulk_action, nil)
     |> assign(:bulk_actions_menu_open, false)
@@ -508,16 +523,23 @@ defmodule RavnerWeb.DomainLive.Index do
   end
 
   defp assign_index_state(socket, result, domains, filters, facets) do
+    domain_ids = Enum.map(domains, & &1.id)
+    a11y_violations = A11y.violations_by_domain_ids(domain_ids)
+    lighthouse_scores = Lighthouse.scores_by_domain_ids(domain_ids)
+
     socket
     |> assign(:page_title, "Domains")
     |> assign(:domain, nil)
     |> assign(:domains, domains)
+    |> assign(:a11y_violations, a11y_violations)
+    |> assign(:lighthouse_scores, lighthouse_scores)
     |> assign(:total, result.total)
     |> assign(:page, result.page)
     |> assign(:total_pages, result.total_pages)
     |> assign(:search, filters.search)
     |> assign(:ip_filter, filters.ip)
     |> assign(:include_subdomains, filters.include_subdomains)
+    |> assign(:monitored_only, filters.monitored_only)
     |> assign(:technical_status_filter, filters.technical_status)
     |> assign(:lifecycle_filter, filters.lifecycle)
     |> assign(:project_filter, filters.project_id)
@@ -567,6 +589,7 @@ defmodule RavnerWeb.DomainLive.Index do
       search: Map.get(params, "search", ""),
       ip: Map.get(params, "ip", ""),
       include_subdomains: Map.get(params, "include_subdomains", "false") == "true",
+      monitored_only: Map.get(params, "monitored_only", "false") == "true",
       technical_status:
         params |> Map.get("technical_status", "") |> parse_technical_status_list(),
       lifecycle: params |> Map.get("lifecycle", "") |> parse_lifecycle_list(),
@@ -688,15 +711,17 @@ defmodule RavnerWeb.DomainLive.Index do
   defp execute_scan_on_ids(socket, ids, include_subdomains) do
     scan_targets = get_scan_targets(ids, include_subdomains)
     liveview_pid = self()
+    user_id = socket.assigns.current_scope.user.id
 
     # IDs to show as "scanning" in UI
     target_ids = Enum.map(scan_targets, &to_string(&1.id))
     new_scanning = MapSet.union(socket.assigns.scanning_ids, MapSet.new(target_ids))
 
-    start_background_scan(fn ->
+    start_background_scan(user_id, fn ->
       Task.async_stream(
         scan_targets,
         fn domain ->
+          Ravner.ActivityLog.set_user(user_id)
           Scans.run_quick_scan(domain.id)
           send(liveview_pid, {:quick_scan_done, domain.id})
         end,
@@ -787,10 +812,18 @@ defmodule RavnerWeb.DomainLive.Index do
         Map.get(socket.assigns, :include_subdomains, false)
       )
 
+    monitored =
+      Keyword.get(
+        overrides,
+        :monitored_only,
+        Map.get(socket.assigns, :monitored_only, false)
+      )
+
     [
       search: search,
       ip: ip,
       include_subdomains: if(subdomains, do: "true", else: ""),
+      monitored_only: if(monitored, do: "true", else: ""),
       lifecycle: Enum.map_join(extract_param.(:lifecycle, :lifecycle_filter), ",", &to_string/1),
       technical_status:
         Enum.map_join(
@@ -856,20 +889,9 @@ defmodule RavnerWeb.DomainLive.Index do
     ]
   end
 
-  # Returns true if final_url points to a different host than the domain name.
-  def external_redirect?(domain_name, final_url) when is_binary(final_url) do
-    final_host =
-      final_url
-      |> URI.parse()
-      |> Map.get(:host)
-      |> Kernel.||("")
-      |> String.replace_leading("www.", "")
-
-    own_host = String.replace_leading(domain_name, "www.", "")
-    final_host != "" && final_host != own_host
-  end
-
-  def external_redirect?(_domain_name, _final_url), do: false
+  # Returns true if final_url points to a different apex domain than the domain name.
+  def external_redirect?(domain_name, final_url),
+    do: Ravner.Scans.external_redirect?(domain_name, final_url)
 
   defp open_url(domain, nil), do: preferred_domain_url(domain, nil)
   defp open_url(domain, metadata), do: preferred_domain_url(domain, metadata.final_url)
@@ -919,7 +941,10 @@ defmodule RavnerWeb.DomainLive.Index do
     if MapSet.member?(set, member), do: MapSet.delete(set, member), else: MapSet.put(set, member)
   end
 
-  defp start_background_scan(fun) when is_function(fun, 0) do
-    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fun)
+  defp start_background_scan(user_id, fun) when is_function(fun, 0) do
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+      if user_id, do: Ravner.ActivityLog.set_user(user_id)
+      fun.()
+    end)
   end
 end

@@ -1,0 +1,97 @@
+defmodule RavnerWeb.UptimeLive.Index do
+  use RavnerWeb, :live_view
+
+  alias Ravner.Uptime
+
+  @tick_interval 15_000
+
+  @impl true
+  def mount(_params, _session, socket) do
+    if connected?(socket), do: Process.send_after(self(), :tick, @tick_interval)
+
+    {:ok, socket |> assign(:page_title, "Uptime Monitor") |> load_data()}
+  end
+
+  @impl true
+  def handle_info(:tick, socket) do
+    Process.send_after(self(), :tick, @tick_interval)
+    {:noreply, load_data(socket)}
+  end
+
+  defp load_data(socket) do
+    monitors = Uptime.list_monitored_domains()
+    now = DateTime.utc_now()
+    thirty_days_ago = DateTime.add(now, -30, :day)
+
+    enriched =
+      Enum.map(monitors, fn meta ->
+        open_window = Uptime.open_downtime(meta.domain_id)
+
+        bar_data = Uptime.uptime_bar_data(meta.domain_id, 30)
+        has_data = Enum.any?(bar_data, fn d -> d.percent != nil end)
+
+        # Status based on ACTUAL heartbeat_checks data, not stale domain_metadata
+        status =
+          cond do
+            !has_data -> :pending
+            open_window -> :down
+            meta.is_up == false -> :degraded
+            true -> :up
+          end
+
+        uptime_pct =
+          if has_data, do: Uptime.uptime_percent(meta.domain_id, thirty_days_ago, now), else: nil
+
+        # Last real check time from heartbeat_checks (not domain_metadata)
+        last_check = Uptime.last_check_time(meta.domain_id)
+
+        %{
+          domain: meta.domain,
+          meta: meta,
+          status: status,
+          bar_data: bar_data,
+          has_data: has_data,
+          uptime_percent: uptime_pct,
+          last_check: last_check,
+          active_scans: active_scans(meta)
+        }
+      end)
+
+    up_count = Enum.count(enriched, &(&1.status == :up))
+    down_count = Enum.count(enriched, &(&1.status == :down))
+
+    avg_uptime =
+      case Enum.filter(enriched, & &1.uptime_percent) do
+        [] ->
+          nil
+
+        with_data ->
+          with_data
+          |> Enum.map(& &1.uptime_percent)
+          |> Enum.sum()
+          |> Kernel./(length(with_data))
+          |> Float.round(2)
+      end
+
+    socket
+    |> assign(:monitors, enriched)
+    |> assign(:up_count, up_count)
+    |> assign(:down_count, down_count)
+    |> assign(:avg_uptime, avg_uptime)
+  end
+
+  defp active_scans(meta) do
+    scans = []
+    scans = if meta.scan_interval_days, do: ["Security" | scans], else: scans
+    scans = if meta.http_scan_interval_days, do: ["HTTP" | scans], else: scans
+    scans = if meta.dns_scan_interval_days, do: ["DNS" | scans], else: scans
+
+    a11y = Map.get(meta, :a11y_scan_interval_days)
+    scans = if a11y, do: ["A11y" | scans], else: scans
+
+    lighthouse = Map.get(meta, :lighthouse_scan_interval_days)
+    scans = if lighthouse, do: ["Lighthouse" | scans], else: scans
+
+    Enum.reverse(scans)
+  end
+end

@@ -199,6 +199,39 @@ defmodule Ravner.SecurityScansTest do
     end
   end
 
+  describe "parse_lonkero_output/1" do
+    test "parses lonkero JSON output" do
+      output = """
+      [
+        {
+          "type": "Invisible Prompt Injection in README",
+          "severity": "High",
+          "confidence": "High",
+          "category": "Supply Chain",
+          "cwe": "CWE-1059",
+          "evidence": "Fake evidence",
+          "url": "https://example.com/readme",
+          "timestamp": "2026-07-17T12:38:00Z"
+        }
+      ]
+      """
+
+      findings = SecurityScans.parse_lonkero_output(output)
+      assert length(findings) == 1
+      finding = hd(findings)
+      assert finding.severity == "high"
+      assert finding.title == "Invisible Prompt Injection in README"
+      assert finding.target == "https://example.com/readme"
+      assert finding.detail["confidence"] == "High"
+      assert finding.detail["cwe"] == "CWE-1059"
+    end
+
+    test "returns empty list for empty or invalid output" do
+      assert SecurityScans.parse_lonkero_output("") == []
+      assert SecurityScans.parse_lonkero_output("{}") == []
+    end
+  end
+
   describe "parse_httpx_output/1" do
     test "parses httpx JSON output" do
       output =

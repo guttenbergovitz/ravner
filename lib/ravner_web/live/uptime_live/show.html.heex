@@ -1,0 +1,820 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <%!-- Header --%>
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={~p"/uptime"}
+          class="text-neutral-400 hover:text-neutral-600 transition-colors dark:hover:text-neutral-300"
+        >
+          <.icon name="hero-arrow-left" class="w-5 h-5" />
+        </.link>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-light tracking-tight">{@domain.name}</h1>
+            <%= cond do %>
+              <% !@monitoring_active -> %>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-neutral-400"></span> Disabled
+                </span>
+              <% @summary.status == :up -> %>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Operational
+                </span>
+              <% true -> %>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Down
+                </span>
+            <% end %>
+          </div>
+          <%!-- Human-readable status --%>
+          <p class="text-sm text-neutral-500 mt-0.5">{@summary.text}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <%!-- Purge data (admin only) --%>
+        <%= if @current_scope.user.role == :admin do %>
+          <button
+            phx-click="purge_data"
+            data-confirm="Delete ALL monitoring data (checks + downtime windows) for this domain? This cannot be undone."
+            class="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors dark:border-red-800 dark:hover:bg-red-900/20 cursor-pointer flex items-center gap-1.5"
+          >
+            <.icon name="hero-trash" class="w-3.5 h-3.5" /> Purge
+          </button>
+        <% end %>
+        <%!-- CSV Export with range selector --%>
+        <div class="flex items-center gap-1">
+          <select
+            phx-change="set_csv_range"
+            name="range"
+            class="text-[10px] border border-neutral-200 rounded px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+          >
+            <option value="7" selected={@csv_range == "7"}>7d</option>
+            <option value="30" selected={@csv_range == "30"}>30d</option>
+            <option value="90" selected={@csv_range == "90"}>90d</option>
+            <option value="365" selected={@csv_range == "365"}>1y</option>
+          </select>
+          <button
+            phx-click="export_csv"
+            id="export-csv-btn"
+            phx-hook=".CsvDownload"
+            class="px-3 py-1.5 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer flex items-center gap-1.5"
+          >
+            <.icon name="hero-arrow-down-tray" class="w-3.5 h-3.5" /> CSV
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Key metrics --%>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Uptime (30d)</p>
+        <p class={[
+          "text-2xl font-light",
+          @uptime_percent && @uptime_percent >= 99.9 && "text-green-600",
+          @uptime_percent && @uptime_percent >= 99.0 && @uptime_percent < 99.9 &&
+            "text-yellow-600",
+          @uptime_percent && @uptime_percent < 99.0 && "text-red-600",
+          is_nil(@uptime_percent) && "text-neutral-400"
+        ]}>
+          <%= if @uptime_percent do %>
+            {@uptime_percent}%
+          <% else %>
+            &mdash;
+          <% end %>
+        </p>
+      </div>
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Incidents (30d)</p>
+        <p class="text-2xl font-light">{@incident_count}</p>
+      </div>
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Avg Response</p>
+        <p class="text-2xl font-light">
+          <%= if @response_points != [] do %>
+            {div(Enum.sum(Enum.map(@response_points, & &1.ms)), length(@response_points))}ms
+          <% else %>
+            <span class="text-neutral-300">&mdash;</span>
+          <% end %>
+        </p>
+      </div>
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Interval</p>
+        <p class="text-2xl font-light">
+          <%= if @monitoring_active do %>
+            {@domain.domain_metadata.heartbeat_interval_minutes}m
+          <% else %>
+            <span class="text-neutral-300">Off</span>
+          <% end %>
+        </p>
+      </div>
+    </div>
+
+    <%!-- CENTRAL CHART: Year / Month / Day with prev/next --%>
+    <div class="card-line !p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <%!-- View switcher --%>
+        <div class="flex bg-neutral-100 p-0.5 rounded-md dark:bg-neutral-800">
+          <button
+            :for={v <- ["year", "month", "day"]}
+            phx-click="set_chart_view"
+            phx-value-view={v}
+            class={[
+              "px-3 py-1 text-[10px] font-medium rounded-sm transition-colors cursor-pointer uppercase tracking-wide",
+              @chart_view == v &&
+                "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-neutral-100",
+              @chart_view != v &&
+                "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+            ]}
+          >
+            {v}
+          </button>
+        </div>
+        <%!-- Title + prev/next --%>
+        <div class="flex items-center gap-3">
+          <button
+            phx-click="chart_prev"
+            class="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer dark:hover:text-neutral-300"
+          >
+            <.icon name="hero-chevron-left" class="w-4 h-4" />
+          </button>
+          <span class="text-sm font-medium text-neutral-700 dark:text-neutral-300 min-w-[140px] text-center">
+            {@chart_title}
+          </span>
+          <button
+            phx-click="chart_next"
+            class={[
+              "transition-colors cursor-pointer",
+              @chart_offset == 0 && "text-neutral-200 dark:text-neutral-700",
+              @chart_offset < 0 &&
+                "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+            ]}
+            disabled={@chart_offset == 0}
+          >
+            <.icon name="hero-chevron-right" class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      <%!-- Chart --%>
+      <%= if @chart_data != [] do %>
+        <RavnerWeb.UptimeComponents.uptime_chart data={@chart_data} />
+      <% else %>
+        <p class="text-sm text-neutral-400 py-8 text-center">No data for this period.</p>
+      <% end %>
+      <p class="text-[10px] text-neutral-400 mt-2 text-center">
+        Bars show uptime %. Taller bar = better availability. Grey dots = no monitoring data.
+      </p>
+    </div>
+
+    <%!-- 30-day uptime bar (compact) --%>
+    <div class="card-line !p-5 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs uppercase tracking-wide text-neutral-500">30-Day Availability</p>
+        <p class="text-[10px] text-neutral-400">
+          <span class="inline-block w-2 h-2 rounded-sm bg-green-400 mr-1"></span>Up <span class="inline-block w-2 h-2 rounded-sm bg-yellow-400 mx-1 ml-3"></span>Degraded <span class="inline-block w-2 h-2 rounded-sm bg-red-400 mx-1 ml-3"></span>Down <span class="inline-block w-2 h-2 rounded-sm bg-neutral-300 mx-1 ml-3"></span>No data
+        </p>
+      </div>
+      <RavnerWeb.UptimeComponents.uptime_bar days={@bar_data} class="!max-w-none h-9" />
+    </div>
+
+    <%= if @response_points != [] do %>
+      <div class="card-line !p-5 mb-6">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Response Time (24h)</p>
+        <RavnerWeb.UptimeComponents.response_chart points={@response_points} height={160} />
+      </div>
+    <% end %>
+
+    <%!-- DRILL-DOWN: Calendar (month) or Day detail --%>
+    <div class="grid grid-cols-3 gap-6 mb-6">
+      <div class="card-line !p-5">
+        <%= if @view_level == :month do %>
+          <%!-- Month view: calendar --%>
+          <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">
+            Click a day to drill down
+          </p>
+          <RavnerWeb.UptimeComponents.availability_calendar
+            days={@calendar_days}
+            month={@calendar_month}
+            on_click="select_day"
+          />
+        <% else %>
+          <%!-- Day view: hourly breakdown --%>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs uppercase tracking-wide text-neutral-500">
+              {Calendar.strftime(@selected_date, "%B %d, %Y")}
+            </p>
+            <button
+              phx-click="back_to_month"
+              class="text-xs text-neutral-400 hover:text-neutral-600 cursor-pointer flex items-center gap-1"
+            >
+              <.icon name="hero-arrow-left" class="w-3 h-3" /> Month
+            </button>
+          </div>
+
+          <%!-- Day summary --%>
+          <%= if @selected_day_stat do %>
+            <div class="mb-3 p-2 rounded bg-neutral-50 dark:bg-neutral-800/50 text-xs space-y-1">
+              <div class="flex justify-between">
+                <span class="text-neutral-500">Uptime:</span>
+                <span class="font-medium">
+                  {if @selected_day_stat.uptime_percent,
+                    do: "#{@selected_day_stat.uptime_percent}%",
+                    else: "N/A"}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-neutral-500">Incidents:</span>
+                <span class="font-medium">{@selected_day_stat.incidents}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-neutral-500">Avg response:</span>
+                <span class="font-medium">
+                  {if @selected_day_stat.avg_response_ms,
+                    do: "#{@selected_day_stat.avg_response_ms}ms",
+                    else: "N/A"}
+                </span>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Hourly timeline --%>
+          <div class="space-y-0.5 max-h-64 overflow-y-auto">
+            <div
+              :for={h <- @hourly_data}
+              class="flex items-center gap-2 text-[11px] py-0.5"
+            >
+              <span class="w-10 text-neutral-400 tabular-nums">
+                {String.pad_leading("#{h.hour}", 2, "0")}:00
+              </span>
+              <div class="flex-1 h-4 bg-neutral-100 dark:bg-neutral-800 rounded-sm overflow-hidden">
+                <%= cond do %>
+                  <% h.checks == 0 -> %>
+                    <%!-- no data --%>
+                  <% h.uptime_percent == 100.0 -> %>
+                    <div class="h-full w-full bg-green-400/70"></div>
+                  <% h.uptime_percent >= 50 -> %>
+                    <div class="h-full bg-yellow-400/70" style={"width: #{h.uptime_percent}%"}>
+                    </div>
+                  <% true -> %>
+                    <div
+                      class="h-full bg-red-400/70"
+                      style={"width: #{max(h.uptime_percent || 0, 5)}%"}
+                    >
+                    </div>
+                <% end %>
+              </div>
+              <span class="w-12 text-right tabular-nums text-neutral-500">
+                <%= cond do %>
+                  <% h.checks == 0 -> %>
+                    <span class="text-neutral-300">&mdash;</span>
+                  <% true -> %>
+                    {h.up}/{h.checks}
+                <% end %>
+              </span>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Incidents + Notifications --%>
+      <div class="col-span-2 space-y-6">
+        <%!-- Incidents --%>
+        <div class="card-line !p-5">
+          <p class="text-xs uppercase tracking-wide text-neutral-500 mb-3">Recent Incidents</p>
+          <%= if @windows == [] do %>
+            <p class="text-sm text-neutral-400 py-3">No incidents in the last 30 days.</p>
+          <% else %>
+            <div class="space-y-3 max-h-64 overflow-y-auto">
+              <div
+                :for={w <- @windows}
+                class="border-b border-neutral-100 dark:border-neutral-800 pb-3 last:border-0"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                    <span class="font-medium">
+                      {Calendar.strftime(w.started_at, "%b %d, %H:%M")}
+                    </span>
+                    <span class="text-neutral-300">&rarr;</span>
+                    <%= if w.ended_at do %>
+                      <span>{Calendar.strftime(w.ended_at, "%H:%M")}</span>
+                    <% else %>
+                      <span class="text-red-500 text-xs font-medium">ongoing</span>
+                    <% end %>
+                  </div>
+                  <span class="text-xs text-neutral-500">
+                    {format_duration(
+                      w.duration_seconds ||
+                        DateTime.diff(DateTime.utc_now(), w.started_at, :second)
+                    )}
+                  </span>
+                </div>
+
+                <%= if Map.get(w, :notes, []) != [] do %>
+                  <div class="mt-1.5 ml-4 pl-3 border-l-2 border-neutral-100 dark:border-neutral-700 space-y-1">
+                    <div :for={note <- w.notes}>
+                      <p class="text-[10px] text-neutral-400">
+                        {(note.author && note.author.name) || "System"} &middot; {Calendar.strftime(
+                          note.inserted_at,
+                          "%b %d %H:%M"
+                        )}
+                      </p>
+                      <p class="text-xs text-neutral-600 dark:text-neutral-300">{note.content}</p>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if @current_scope.user.role in [:admin, :editor] do %>
+                  <form
+                    phx-submit="add_note"
+                    phx-value-window_id={w.id}
+                    class="mt-1.5 ml-4 flex gap-2"
+                  >
+                    <input
+                      type="text"
+                      name="note[content]"
+                      value=""
+                      placeholder="Add note..."
+                      required
+                      class="flex-1 text-[11px] border border-neutral-200 rounded px-2 py-0.5 dark:border-neutral-700 dark:bg-neutral-800"
+                    />
+                    <button
+                      type="submit"
+                      class="px-2 py-0.5 text-[11px] border border-neutral-200 rounded hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </form>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Who gets notified --%>
+        <div class="card-line !p-5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs uppercase tracking-wide text-neutral-500">Alert Recipients</p>
+            <%= if @current_scope.user.role in [:admin, :editor] do %>
+              <.link
+                navigate={~p"/admin/uptime/notifications"}
+                class="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                Manage &rarr;
+              </.link>
+            <% end %>
+          </div>
+          <%= if @recipients == [] do %>
+            <p class="text-sm text-neutral-400">
+              No notification recipients configured.
+              <%= if @current_scope.user.role in [:admin, :editor] do %>
+                <.link navigate={~p"/admin/uptime/notifications"} class="underline">
+                  Set up alerts
+                </.link>
+              <% end %>
+            </p>
+          <% else %>
+            <div class="space-y-1.5">
+              <div :for={r <- @recipients} class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-bell" class="w-3 h-3 text-neutral-400" />
+                  <span class="text-neutral-700 dark:text-neutral-300">
+                    <%= cond do %>
+                      <% r.user && r.user.name -> %>
+                        {r.user.name}
+                      <% r.user -> %>
+                        {r.user.email}
+                      <% r.email -> %>
+                        {r.email}
+                      <% r.phone -> %>
+                        {r.phone}
+                      <% true -> %>
+                        (unknown)
+                    <% end %>
+                  </span>
+                </div>
+                <span class="text-[10px] text-neutral-400 uppercase">{r.channels}</span>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Custom Endpoint Checks --%>
+    <div class="card-line !p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-xs uppercase tracking-wide text-neutral-500">Monitored Endpoints</p>
+      </div>
+
+      <%!-- Existing checks --%>
+      <%= if @domain_checks != [] do %>
+        <div class="space-y-2 mb-4">
+          <div
+            :for={check <- @domain_checks}
+            class="flex items-center justify-between py-2 border-b border-neutral-50 dark:border-neutral-800 last:border-0"
+          >
+            <div class="flex items-center gap-3">
+              <span class={[
+                "w-2 h-2 rounded-full shrink-0",
+                check.is_up == true && "bg-green-500",
+                check.is_up == false && "bg-red-500",
+                is_nil(check.is_up) && "bg-neutral-300"
+              ]}>
+              </span>
+              <div>
+                <a
+                  href={check.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm font-medium truncate max-w-md hover:underline text-neutral-900 dark:text-neutral-100"
+                >
+                  {check.url}
+                  <.icon
+                    name="hero-arrow-top-right-on-square"
+                    class="w-3 h-3 inline -mt-0.5 ml-0.5 text-neutral-400"
+                  />
+                </a>
+                <p class="text-[10px] text-neutral-400">
+                  {check.label || "Unnamed"}
+                  <%= if !check.enabled do %>
+                    · <span class="text-amber-500">paused</span>
+                  <% end %>
+                </p>
+              </div>
+            </div>
+            <%= if @current_scope.user.role in [:admin, :editor] do %>
+              <div class="flex items-center gap-3">
+                <%!-- Inline interval selector --%>
+                <form
+                  phx-change="update_check_interval"
+                  phx-value-id={check.id}
+                  class="flex items-center"
+                >
+                  <select
+                    name="interval"
+                    class="text-[10px] border border-neutral-200 rounded px-1.5 py-0.5 dark:border-neutral-700 dark:bg-neutral-800"
+                  >
+                    <option value="1" selected={check.check_interval_minutes == 1}>1m</option>
+                    <option value="3" selected={check.check_interval_minutes == 3}>3m</option>
+                    <option value="5" selected={check.check_interval_minutes == 5}>5m</option>
+                    <option value="15" selected={check.check_interval_minutes == 15}>15m</option>
+                    <option value="60" selected={check.check_interval_minutes == 60}>1h</option>
+                  </select>
+                </form>
+                <button
+                  phx-click="toggle_check"
+                  phx-value-id={check.id}
+                  class="text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                  title={if check.enabled, do: "Pause", else: "Resume"}
+                >
+                  <%= if check.enabled do %>
+                    <.icon name="hero-pause" class="w-3.5 h-3.5" />
+                  <% else %>
+                    <.icon name="hero-play" class="w-3.5 h-3.5" />
+                  <% end %>
+                </button>
+                <button
+                  phx-click="delete_check"
+                  phx-value-id={check.id}
+                  data-confirm="Delete this check?"
+                  class="text-neutral-300 hover:text-red-500 transition-colors cursor-pointer"
+                >
+                  <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Add check form (editor/admin) --%>
+      <%= if @current_scope.user.role in [:admin, :editor] do %>
+        <form phx-submit="add_check" class="flex flex-wrap gap-2 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">URL</label>
+            <input
+              type="url"
+              name="check[url]"
+              placeholder="https://shop.josera.com/hu-hu"
+              required
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
+            />
+          </div>
+          <div class="w-28">
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Label</label>
+            <input
+              type="text"
+              name="check[label]"
+              placeholder="Shop HU"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
+            />
+          </div>
+          <div class="w-20">
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Interval</label>
+            <select
+              name="check[check_interval_minutes]"
+              class="block w-full text-xs border border-neutral-200 rounded px-2 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option value="1">1 min</option>
+              <option value="3">3 min</option>
+              <option value="5" selected>5 min</option>
+              <option value="15">15 min</option>
+              <option value="60">1 hour</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            class="px-3 py-1.5 text-xs border border-neutral-200 rounded hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer"
+          >
+            Add Check
+          </button>
+        </form>
+      <% end %>
+    </div>
+
+    <%!-- Domain Scan Configuration (editor/admin) --%>
+    <%= if @current_scope.user.role in [:admin, :editor] do %>
+      <div class="card-line !p-5 mb-6">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 mb-4">Scan Configuration</p>
+        <form phx-submit="update_scheduling" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+              Uptime Heartbeat
+            </label>
+            <select
+              name="heartbeat_interval_minutes"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option
+                value=""
+                selected={
+                  is_nil(
+                    @domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes
+                  )
+                }
+              >
+                Disabled
+              </option>
+              <option
+                value="1"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.heartbeat_interval_minutes == 1
+                }
+              >
+                Every minute
+              </option>
+              <option
+                value="3"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.heartbeat_interval_minutes == 3
+                }
+              >
+                Every 3 min
+              </option>
+              <option
+                value="5"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.heartbeat_interval_minutes == 5
+                }
+              >
+                Every 5 min
+              </option>
+              <option
+                value="15"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.heartbeat_interval_minutes == 15
+                }
+              >
+                Every 15 min
+              </option>
+              <option
+                value="60"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.heartbeat_interval_minutes == 60
+                }
+              >
+                Hourly
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+              Security Scan
+            </label>
+            <select
+              name="scan_interval_days"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option
+                value=""
+                selected={
+                  is_nil(@domain.domain_metadata && @domain.domain_metadata.scan_interval_days)
+                }
+              >
+                Manual only
+              </option>
+              <option
+                value="1"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 1
+                }
+              >
+                Daily
+              </option>
+              <option
+                value="7"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 7
+                }
+              >
+                Weekly
+              </option>
+              <option
+                value="30"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 30
+                }
+              >
+                Monthly
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">HTTP Scan</label>
+            <select
+              name="http_scan_interval_days"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option
+                value=""
+                selected={
+                  is_nil(
+                    @domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days
+                  )
+                }
+              >
+                Manual only
+              </option>
+              <option
+                value="1"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days == 1
+                }
+              >
+                Daily
+              </option>
+              <option
+                value="7"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days == 7
+                }
+              >
+                Weekly
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">DNS Scan</label>
+            <select
+              name="dns_scan_interval_days"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option
+                value=""
+                selected={
+                  is_nil(
+                    @domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days
+                  )
+                }
+              >
+                Manual only
+              </option>
+              <option
+                value="1"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days == 1
+                }
+              >
+                Daily
+              </option>
+              <option
+                value="7"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days == 7
+                }
+              >
+                Weekly
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+              Accessibility
+            </label>
+            <select
+              name="a11y_scan_interval_days"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option
+                value=""
+                selected={
+                  is_nil(
+                    @domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days
+                  )
+                }
+              >
+                Manual only
+              </option>
+              <option
+                value="7"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days == 7
+                }
+              >
+                Weekly
+              </option>
+              <option
+                value="30"
+                selected={
+                  @domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days == 30
+                }
+              >
+                Monthly
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wide text-neutral-500">Lighthouse</label>
+            <select
+              name="lighthouse_scan_interval_days"
+              class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option
+                value=""
+                selected={
+                  is_nil(
+                    @domain.domain_metadata &&
+                      @domain.domain_metadata.lighthouse_scan_interval_days
+                  )
+                }
+              >
+                Manual only
+              </option>
+              <option
+                value="7"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.lighthouse_scan_interval_days == 7
+                }
+              >
+                Weekly
+              </option>
+              <option
+                value="30"
+                selected={
+                  @domain.domain_metadata &&
+                    @domain.domain_metadata.lighthouse_scan_interval_days == 30
+                }
+              >
+                Monthly
+              </option>
+            </select>
+          </div>
+          <div class="col-span-2 md:col-span-3 pt-2">
+            <button
+              type="submit"
+              class="px-4 py-2 text-xs font-medium bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200 cursor-pointer"
+            >
+              Save Configuration
+            </button>
+          </div>
+        </form>
+      </div>
+    <% end %>
+  </div>
+
+  <script :type={Phoenix.LiveView.ColocatedHook} name=".CsvDownload">
+    export default {
+      mounted() {
+        this.handleEvent("download_csv", ({content, filename}) => {
+          const blob = new Blob([content], {type: "text/csv"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+  </script>
+</Layouts.app>

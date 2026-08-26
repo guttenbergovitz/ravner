@@ -1,0 +1,159 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-light tracking-tight">Uptime Monitor</h1>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Availability overview for monitored domains and endpoints.
+        </p>
+      </div>
+      <%= if @current_scope.user.role in [:admin, :editor] do %>
+        <.link
+          navigate={~p"/admin/uptime/notifications"}
+          class="px-4 py-2 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800"
+        >
+          Manage Alerts
+        </.link>
+      <% end %>
+    </div>
+
+    <%!-- Summary stats --%>
+    <div class="grid grid-cols-4 gap-4 mb-8">
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Monitored</p>
+        <p class="text-2xl font-light">{length(@monitors)}</p>
+      </div>
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Up</p>
+        <p class="text-2xl font-light text-green-600">{@up_count}</p>
+      </div>
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Down</p>
+        <p class="text-2xl font-light text-red-600">{@down_count}</p>
+      </div>
+      <div class="card-line !p-4">
+        <p class="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Avg Uptime (30d)</p>
+        <p class={[
+          "text-2xl font-light",
+          @avg_uptime && @avg_uptime >= 99.9 && "text-green-600",
+          @avg_uptime && @avg_uptime >= 99.0 && @avg_uptime < 99.9 && "text-yellow-600",
+          @avg_uptime && @avg_uptime < 99.0 && "text-red-600",
+          is_nil(@avg_uptime) && "text-neutral-300"
+        ]}>
+          {if @avg_uptime, do: "#{@avg_uptime}%", else: "—"}
+        </p>
+      </div>
+    </div>
+
+    <%!-- Domain list --%>
+    <%= if @monitors == [] do %>
+      <div class="card-line !p-12 text-center">
+        <.icon
+          name="hero-heart"
+          class="w-10 h-10 text-neutral-200 mx-auto mb-3 dark:text-neutral-700"
+        />
+        <p class="text-neutral-500 text-sm">No domains are configured for uptime monitoring.</p>
+        <p class="text-neutral-400 text-xs mt-1">
+          Set a heartbeat interval on any domain to start monitoring.
+        </p>
+      </div>
+    <% else %>
+      <div class="border border-neutral-200 divide-y divide-neutral-100 dark:border-neutral-700 dark:divide-neutral-700">
+        <div
+          :for={m <- @monitors}
+          class="flex items-center gap-4 px-5 py-4 hover:bg-neutral-50/50 transition-colors dark:hover:bg-neutral-800/30"
+        >
+          <%!-- Status indicator --%>
+          <div class="shrink-0">
+            <%= cond do %>
+              <% m.status == :up -> %>
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500" title="Up">
+                </span>
+              <% m.status == :down -> %>
+                <span
+                  class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"
+                  title="Down"
+                >
+                </span>
+              <% m.status == :pending -> %>
+                <span
+                  class="inline-block w-2.5 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-700"
+                  title="Awaiting data"
+                >
+                </span>
+              <% true -> %>
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-500" title="Degraded">
+                </span>
+            <% end %>
+          </div>
+
+          <%!-- Domain name + status text --%>
+          <div class="w-56 shrink-0">
+            <.link
+              navigate={~p"/uptime/#{m.domain.id}"}
+              class="text-sm font-medium hover:underline"
+            >
+              {m.domain.name}
+            </.link>
+            <p class="text-[11px] text-neutral-400 mt-0.5">
+              <%= cond do %>
+                <% m.status == :pending -> %>
+                  <span class="text-neutral-300">Awaiting first check</span>
+                <% is_nil(m.last_check) -> %>
+                  <span class="text-neutral-300">No checks recorded</span>
+                <% true -> %>
+                  <% ago = DateTime.diff(DateTime.utc_now(), m.last_check, :second) %>
+                  <%= cond do %>
+                    <% ago < 120 -> %>
+                      <span class="text-green-500">Checked just now</span>
+                    <% ago < 3600 -> %>
+                      Checked {div(ago, 60)}m ago
+                    <% ago < 86400 -> %>
+                      Checked {div(ago, 3600)}h ago
+                    <% true -> %>
+                      Checked {div(ago, 86400)}d ago
+                  <% end %>
+              <% end %>
+            </p>
+          </div>
+
+          <%!-- Uptime bar OR "no data" indicator --%>
+          <div class="flex-1 min-w-0">
+            <%= if m.has_data do %>
+              <RavnerWeb.UptimeComponents.uptime_bar days={m.bar_data} />
+            <% else %>
+              <div class="h-7 flex items-center">
+                <div class="w-full h-1 bg-neutral-100 dark:bg-neutral-800 rounded-full">
+                  <div class="h-full w-0 rounded-full"></div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Uptime % --%>
+          <div class="w-16 text-right shrink-0">
+            <%= if m.uptime_percent do %>
+              <span class={[
+                "text-sm font-medium",
+                m.uptime_percent >= 99.9 && "text-green-600",
+                m.uptime_percent >= 99.0 && m.uptime_percent < 99.9 && "text-yellow-600",
+                m.uptime_percent < 99.0 && "text-red-600"
+              ]}>
+                {m.uptime_percent}%
+              </span>
+            <% else %>
+              <span class="text-sm text-neutral-300">N/A</span>
+            <% end %>
+          </div>
+
+          <%!-- Interval --%>
+          <div class="w-10 text-right shrink-0">
+            <span class="text-[10px] text-neutral-400 font-medium">
+              {m.meta.heartbeat_interval_minutes}m
+            </span>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</Layouts.app>

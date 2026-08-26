@@ -338,6 +338,44 @@ defmodule Ravner.SecurityScans do
   def parse_nuclei_output(_), do: []
 
   @doc """
+  Parses Lonkero JSON array output into a list of finding attributes.
+  """
+  @spec parse_lonkero_output(String.t()) :: [map()]
+  def parse_lonkero_output(raw_output) when is_binary(raw_output) do
+    case Jason.decode(raw_output) do
+      {:ok, items} when is_list(items) ->
+        Enum.flat_map(items, fn item ->
+          severity = String.downcase(item["severity"] || "info")
+
+          severity =
+            if severity in ["critical", "high", "medium", "low", "info"],
+              do: severity,
+              else: "info"
+
+          [
+            %{
+              severity: severity,
+              title: item["type"] || "Unknown finding",
+              target: item["url"] || "unknown",
+              detail: %{
+                "confidence" => item["confidence"],
+                "category" => item["category"],
+                "cwe" => item["cwe"],
+                "evidence" => item["evidence"],
+                "timestamp" => item["timestamp"]
+              }
+            }
+          ]
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  def parse_lonkero_output(_), do: []
+
+  @doc """
   Parses httpx JSON output into a list of finding attributes.
   """
   @spec parse_httpx_output(String.t()) :: [map()]

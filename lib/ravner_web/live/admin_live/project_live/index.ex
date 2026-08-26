@@ -3,6 +3,7 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   alias Ravner.Inventory
   alias Ravner.Inventory.Project
+  alias Ravner.Inventory.OwnershipStats
 
   @impl true
   def mount(_params, _session, socket) do
@@ -18,21 +19,14 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  defp apply_action(socket, :index, _params) do
-    socket
-    |> assign(:page_title, "Projects")
-    |> assign(:projects, Inventory.list_projects())
-    |> assign(:project, nil)
-    |> assign(:roles, [])
-    |> assign(:form, nil)
-  end
-
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Project")
-    |> assign(:projects, Inventory.list_projects())
     |> assign(:project, %Project{})
     |> assign(:roles, [])
+    |> assign(:repos, [])
+    |> assign(:stats, nil)
+    |> assign(:form, nil)
     |> assign(
       :form,
       AshPhoenix.Form.for_create(Project, :create,
@@ -48,10 +42,11 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
     socket
     |> assign(:page_title, "Edit Project")
-    |> assign(:projects, Inventory.list_projects())
     |> assign(:project, project)
     |> assign(:roles, Inventory.list_project_roles(project.id))
     |> assign(:repos, Inventory.list_project_repositories(project.id))
+    |> assign(:stats, OwnershipStats.project_stats(id))
+    |> assign(:form, nil)
     |> assign(
       :form,
       AshPhoenix.Form.for_update(project, :update,
@@ -71,11 +66,11 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
   @impl true
   def handle_event("save", %{"project" => params}, socket) do
     case AshPhoenix.Form.submit(socket.assigns.form, params: params) do
-      {:ok, _project} ->
+      {:ok, project} ->
         {:noreply,
          socket
          |> put_flash(:info, "Project saved")
-         |> push_patch(to: ~p"/admin/projects")}
+         |> push_navigate(to: ~p"/ownership/projects/#{project.id}")}
 
       {:error, form} ->
         {:noreply, assign(socket, :form, form)}
@@ -83,15 +78,16 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
   end
 
   @impl true
-  def handle_event("delete", %{"id" => id}, socket) do
+  def handle_event("delete", _, socket) do
+    project = socket.assigns.project
     actor = socket.assigns.current_scope.user
 
-    case Inventory.delete_project(Inventory.get_project!(id), actor: actor) do
+    case Inventory.delete_project(project, actor: actor) do
       {:ok, _} ->
         {:noreply,
          socket
          |> put_flash(:info, "Project deleted")
-         |> assign(:projects, Inventory.list_projects())}
+         |> push_navigate(to: ~p"/ownership")}
 
       {:error, :forbidden} ->
         {:noreply,

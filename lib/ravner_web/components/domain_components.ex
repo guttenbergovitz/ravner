@@ -126,8 +126,12 @@ defmodule RavnerWeb.DomainComponents do
   attr :active_scan_kind, :atom, required: true
   attr :running_security_scan, :any, required: true
   attr :scan_results, :map, default: nil
+  attr :current_scope, :any, default: nil
 
   def scan_action_panel(assigns) do
+    viewer? = is_nil(assigns.current_scope) || assigns.current_scope.user.role == :viewer
+    assigns = assign(assigns, :viewer?, viewer?)
+
     ~H"""
     <div class="card-line">
       <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Discovery</h2>
@@ -136,12 +140,12 @@ defmodule RavnerWeb.DomainComponents do
         <div class="space-y-2">
           <button
             phx-click="scan_all"
-            disabled={@scanning || !is_nil(@running_security_scan)}
+            disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
             class={[
               "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-              (@scanning || !is_nil(@running_security_scan)) &&
+              (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
                 "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-              !(@scanning || !is_nil(@running_security_scan)) &&
+              !(@scanning || !is_nil(@running_security_scan) || @viewer?) &&
                 "border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
             ]}
           >
@@ -154,44 +158,50 @@ defmodule RavnerWeb.DomainComponents do
             <% end %>
           </button>
 
-          <button
-            id="scan-deep-tech"
-            phx-click="scan_deep_tech"
-            disabled={@scanning || !is_nil(@running_security_scan)}
-            class={[
-              "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-              (@scanning || !is_nil(@running_security_scan)) &&
-                "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-              !(@scanning || !is_nil(@running_security_scan)) &&
-                "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
-            ]}
-          >
-            <%= if @scanning && @active_scan_kind == :deep_tech do %>
-              <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
-              </span>
-              Scanning<span class="animate-pulse">…</span>
-            <% else %>
-              <.icon name="hero-cpu-chip" class="w-3.5 h-3.5" /> Deep tech scan
-            <% end %>
-          </button>
-          <%= if @domain.domain_metadata && @domain.domain_metadata.deep_tech_scanned_at do %>
-            <p class="text-[10px] text-neutral-400 text-center -mt-1">
-              Last deep tech: {Calendar.strftime(
-                @domain.domain_metadata.deep_tech_scanned_at,
-                "%Y-%m-%d %H:%M"
-              )}
+          <%= if @domain.technical_status == :redirect do %>
+            <p class="text-[10px] text-neutral-400 italic text-center py-2">
+              Deep scans unavailable — domain redirects externally
             </p>
+          <% else %>
+            <button
+              id="scan-deep-tech"
+              phx-click="scan_deep_tech"
+              disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
+              class={[
+                "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
+                !(@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
+              ]}
+            >
+              <%= if @scanning && @active_scan_kind == :deep_tech do %>
+                <span class="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin shrink-0">
+                </span>
+                Scanning<span class="animate-pulse">…</span>
+              <% else %>
+                <.icon name="hero-cpu-chip" class="w-3.5 h-3.5" /> Deep tech scan
+              <% end %>
+            </button>
+            <%= if @domain.domain_metadata && @domain.domain_metadata.deep_tech_scanned_at do %>
+              <p class="text-[10px] text-neutral-400 text-center -mt-1">
+                Last deep tech: {Calendar.strftime(
+                  @domain.domain_metadata.deep_tech_scanned_at,
+                  "%Y-%m-%d %H:%M"
+                )}
+              </p>
+            <% end %>
           <% end %>
 
           <%= if @domain.subdomains != [] do %>
             <button
               phx-click="scan_all_subdomains"
-              disabled={@scanning || !is_nil(@running_security_scan)}
+              disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-normal tracking-wide uppercase border transition-colors",
-                (@scanning || !is_nil(@running_security_scan)) &&
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
                   "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                !(@scanning || !is_nil(@running_security_scan)) &&
+                !(@scanning || !is_nil(@running_security_scan) || @viewer?) &&
                   "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
               ]}
             >
@@ -219,10 +229,11 @@ defmodule RavnerWeb.DomainComponents do
           <div class="mt-4 space-y-3">
             <button
               phx-click="scan_subdomains"
-              disabled={@scanning || !is_nil(@running_security_scan)}
+              disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :subdomains do %>
@@ -244,10 +255,11 @@ defmodule RavnerWeb.DomainComponents do
 
             <button
               phx-click="scan_httpx"
-              disabled={@scanning || !is_nil(@running_security_scan)}
+              disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :httpx do %>
@@ -269,10 +281,11 @@ defmodule RavnerWeb.DomainComponents do
 
             <button
               phx-click="scan_dnsx"
-              disabled={@scanning || !is_nil(@running_security_scan)}
+              disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :dnsx do %>
@@ -294,10 +307,11 @@ defmodule RavnerWeb.DomainComponents do
 
             <button
               phx-click="scan_rdap"
-              disabled={@scanning || !is_nil(@running_security_scan)}
+              disabled={@scanning || !is_nil(@running_security_scan) || @viewer?}
               class={[
                 "btn-line w-full justify-center text-xs",
-                (@scanning || !is_nil(@running_security_scan)) && "opacity-50 cursor-not-allowed"
+                (@scanning || !is_nil(@running_security_scan) || @viewer?) &&
+                  "opacity-50 cursor-not-allowed"
               ]}
             >
               <%= if @scanning && @active_scan_kind == :rdap do %>

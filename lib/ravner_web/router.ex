@@ -27,6 +27,10 @@ defmodule RavnerWeb.Router do
   end
 
   scope "/", RavnerWeb do
+    get("/health", HealthController, :index)
+  end
+
+  scope "/", RavnerWeb do
     pipe_through(:browser)
 
     get("/setup", SetupController, :new)
@@ -58,13 +62,6 @@ defmodule RavnerWeb.Router do
   ## Authentication routes
 
   scope "/", RavnerWeb do
-    pipe_through([:browser, :redirect_if_user_is_authenticated])
-
-    get("/users/register", UserRegistrationController, :new)
-    post("/users/register", UserRegistrationController, :create)
-  end
-
-  scope "/", RavnerWeb do
     pipe_through([:browser, :require_authenticated_user])
 
     get("/users/settings", UserSettingsController, :edit)
@@ -92,6 +89,19 @@ defmodule RavnerWeb.Router do
       live("/domains/import", DomainLive.Index, :import)
       live("/domains/:id", DomainLive.Show, :show)
       live("/domains/:id/edit", DomainLive.Show, :edit)
+      live("/domains/:id/a11y", DomainLive.A11yReport, :index)
+      live("/domains/:id/lighthouse", DomainLive.LighthouseReport, :index)
+
+      # Ownership hierarchy views (read-only, all authenticated users)
+      live("/ownership", OwnershipLive.Index, :index)
+      live("/ownership/brands/:id", OwnershipLive.BrandShow, :show)
+      live("/ownership/organizations/:id", OwnershipLive.OrganizationShow, :show)
+      live("/ownership/projects/:id", OwnershipLive.ProjectShow, :show)
+      live("/ownership/people/:id", OwnershipLive.PersonShow, :show)
+
+      # Uptime monitoring (accessible to all authenticated users)
+      live("/uptime", UptimeLive.Index, :index)
+      live("/uptime/:domain_id", UptimeLive.Show, :show)
     end
   end
 
@@ -100,16 +110,11 @@ defmodule RavnerWeb.Router do
     pipe_through([:browser, :require_authenticated_user, :require_editor])
 
     live_session :admin_governance, on_mount: [{RavnerWeb.UserAuth, :ensure_editor}] do
-      live("/organizations", AdminLive.OrganizationLive.Index, :index)
       live("/organizations/new", AdminLive.OrganizationLive.Index, :new)
       live("/organizations/:id/edit", AdminLive.OrganizationLive.Index, :edit)
-      live("/people", AdminLive.PersonLive.Index, :index)
       live("/people/new", AdminLive.PersonLive.Index, :new)
-      live("/people/:id", AdminLive.PersonLive.Show, :show)
       live("/people/:id/edit", AdminLive.PersonLive.Index, :edit)
-      live("/projects", AdminLive.ProjectLive.Index, :index)
       live("/projects/new", AdminLive.ProjectLive.Index, :new)
-      live("/projects/:id", AdminLive.ProjectLive.Show, :show)
       live("/projects/:id/edit", AdminLive.ProjectLive.Index, :edit)
     end
   end
@@ -125,13 +130,15 @@ defmodule RavnerWeb.Router do
       live("/invites", AdminLive.Invites, :index)
       live("/invites/new", AdminLive.Invites, :new)
       live("/settings", AdminLive.Settings, :index)
+      live("/settings/delivery", AdminLive.DeliverySettings, :index)
+      live("/settings/system", AdminLive.SystemStatus, :index)
       live("/settings/backup", AdminLive.Backup, :index)
       live("/certificates", AdminLive.Certificates, :index)
       live("/domain-registrations", AdminLive.DomainRegistrations, :index)
-      live("/brands", AdminLive.BrandLive.Index, :index)
       live("/brands/new", AdminLive.BrandLive.Index, :new)
       live("/brands/:id/edit", AdminLive.BrandLive.Index, :edit)
       live("/jobs", AdminLive.Jobs, :index)
+      live("/uptime/notifications", AdminLive.UptimeNotifications, :index)
     end
 
     get("/settings/backup/download", BackupController, :download)
@@ -152,5 +159,8 @@ defmodule RavnerWeb.Router do
     get("/users/log-in/:token", UserSessionController, :confirm)
     post("/users/log-in", UserSessionController, :create)
     delete("/users/log-out", UserSessionController, :delete)
+
+    get("/users/reset-password/:token", UserResetPasswordController, :new)
+    post("/users/reset-password", UserResetPasswordController, :create)
   end
 end

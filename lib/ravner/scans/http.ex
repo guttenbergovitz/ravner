@@ -25,29 +25,61 @@ defmodule Ravner.Scans.Http do
           {:ok, Ravner.Domains.DomainMetadata.t()} | {:error, term()}
   def run_httpx_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
+    Ravner.ActivityLog.emit(:step, "Probing HTTP for #{domain.name}…")
 
     case do_httpx_scan(domain.name) do
       {:ok, data} ->
-        meta = %{
-          http_status: data.http_status,
-          final_url: data.final_url,
-          server_header: data.server_header,
-          security_headers: data.security_headers,
-          redirect_chain: data.redirect_chain,
-          tech_stack: data.tech_stack,
-          hosting_platform: data.hosting_platform,
-          scanned_at: DateTime.utc_now(),
-          http_scanned_at: DateTime.utc_now()
-        }
+        if Ravner.Scans.external_redirect?(domain.name, data.final_url) do
+          Ravner.ActivityLog.emit(:step, "External redirect detected → #{data.final_url}")
+        end
 
-        # Enrich with ASN if we have stored IPs from a previous DNS scan
-        meta = maybe_enrich_with_asn(meta, domain_id)
-        # Enrich with SSL if it is an HTTPS site
-        meta = Ravner.Scans.Ssl.enrich(meta, domain.name, data.final_url)
+        now = DateTime.utc_now()
+
+        meta =
+          if Ravner.Scans.external_redirect?(domain.name, data.final_url) do
+            # Store only redirect-relevant data; null out target-domain fields
+            redirect_status =
+              data.redirect_chain
+              |> List.wrap()
+              |> Enum.find_value(fn
+                %{status: s} when s in 300..399 -> s
+                _ -> nil
+              end) || data.http_status
+
+            %{
+              http_status: redirect_status,
+              final_url: data.final_url,
+              redirect_chain: data.redirect_chain,
+              server_header: nil,
+              security_headers: nil,
+              tech_stack: nil,
+              hosting_platform: nil,
+              scanned_at: now,
+              http_scanned_at: now
+            }
+          else
+            meta = %{
+              http_status: data.http_status,
+              final_url: data.final_url,
+              server_header: data.server_header,
+              security_headers: data.security_headers,
+              redirect_chain: data.redirect_chain,
+              tech_stack: data.tech_stack,
+              hosting_platform: data.hosting_platform,
+              scanned_at: now,
+              http_scanned_at: now
+            }
+
+            # Enrich with ASN if we have stored IPs from a previous DNS scan
+            meta = maybe_enrich_with_asn(meta, domain_id)
+            # Enrich with SSL if it is an HTTPS site
+            Ravner.Scans.Ssl.enrich(meta, domain.name, data.final_url)
+          end
 
         Domains.upsert_domain_metadata(domain_id, meta)
         maybe_update_domain_url(domain, data.final_url)
         record_technical_status_from_http(domain, data)
+        Ravner.ActivityLog.emit(:done, "HTTP done — #{domain.name} → status #{data.http_status}")
         {:ok, data}
 
       {:error, reason} ->
@@ -82,14 +114,19 @@ defmodule Ravner.Scans.Http do
     http_result = run_httpx_scan(domain_id)
 
     target_url = deep_scan_target_url(domain_id, domain)
+    Ravner.ActivityLog.emit(:step, "Deep tech scan — crawling #{target_url}…")
 
     {crawl_data, crawl_errors, tech_evidence, webanalyze_errors} =
       if deep_http_allows_tools?(http_result) do
+        Ravner.ActivityLog.emit(:step, "Running katana crawler on #{target_url}…")
+
         {crawl_data, crawl_errors} =
           case run_katana(target_url) do
             {:ok, data} -> {data, []}
             {:error, reason} -> {%{urls: [], js_assets: [], forms: []}, [to_string(reason)]}
           end
+
+        Ravner.ActivityLog.emit(:step, "Fingerprinting technologies via webanalyze…")
 
         {tech_evidence, webanalyze_errors} =
           case run_webanalyze(target_url) do
@@ -130,6 +167,11 @@ defmodule Ravner.Scans.Http do
          _ <-
            Domains.sync_tech_evidence(domain_id, Enum.take(tech_evidence, @deep_evidence_limit)),
          _ <- Domains.sync_discovered_urls(domain_id, Enum.take(crawl_data.urls, @deep_url_limit)) do
+      Ravner.ActivityLog.emit(
+        :done,
+        "Deep tech done — #{length(tech_stack)} techs, #{length(crawl_data.urls)} URLs discovered"
+      )
+
       {:ok,
        %{
          target_url: target_url,
@@ -409,17 +451,8 @@ defmodule Ravner.Scans.Http do
 
   defp maybe_update_domain_url(_domain, _final_url), do: :ok
 
-  defp external_redirect?(domain_name, final_url) when is_binary(final_url) do
-    final_host =
-      final_url
-      |> URI.parse()
-      |> Map.get(:host)
-      |> Kernel.||("")
-      |> String.replace_leading("www.", "")
-
-    own_host = String.replace_leading(domain_name, "www.", "")
-    final_host != "" && final_host != own_host
-  end
+  defp external_redirect?(domain_name, final_url),
+    do: Ravner.Scans.external_redirect?(domain_name, final_url)
 
   defp do_httpx_scan(domain_name) do
     https_url = "https://#{domain_name}"

@@ -8,7 +8,8 @@ defmodule RavnerWeb.Endpoint do
     store: :cookie,
     key: "_ravner_key",
     signing_salt: "j5r47Zkr",
-    same_site: "Lax"
+    same_site: "Lax",
+    max_age: 3 * 24 * 60 * 60
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
@@ -41,7 +42,10 @@ defmodule RavnerWeb.Endpoint do
     cookie_key: "request_logger"
 
   plug Plug.RequestId
-  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+
+  plug Plug.Telemetry,
+    event_prefix: [:phoenix, :endpoint],
+    log: {__MODULE__, :log_level, []}
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -52,4 +56,8 @@ defmodule RavnerWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug RavnerWeb.Router
+
+  # Removing /health logs
+  def log_level(%Plug.Conn{request_path: "/health"}), do: false
+  def log_level(_conn), do: :info
 end

@@ -48,3 +48,7 @@ npm-debug.log
 
 # Antigravity CLI artifacts
 /.antigravitycli/
+
+# Miscellaneous IDE/editor files
+/.idea/
+/.vscode/

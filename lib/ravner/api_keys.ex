@@ -22,6 +22,12 @@ defmodule Ravner.ApiKeys do
       required: true
     },
     %{
+      name: "lonkero",
+      label: "Lonkero License",
+      description: "Commercial license key for Lonkero vulnerability scanner (optional)",
+      required: false
+    },
+    %{
       name: "securitytrails",
       label: "SecurityTrails",
       description: "DNS and domain intelligence (optional, not currently used)",
@@ -143,6 +149,34 @@ defmodule Ravner.ApiKeys do
 
       _ ->
         {:error, "Key not available"}
+    end
+  end
+
+  defp do_validate("lonkero") do
+    case get_effective_key("lonkero") do
+      {:none, _, _} ->
+        {:error, "No license key configured"}
+
+      {_, key, _} when is_binary(key) ->
+        case System.find_executable("lonkero") do
+          nil ->
+            {:error, "lonkero executable not found"}
+
+          exec ->
+            case System.cmd(exec, ["license", "status", "-L", key], stderr_to_stdout: true) do
+              {output, 0} ->
+                lower_out = String.downcase(output)
+
+                if String.contains?(lower_out, "invalid") or String.contains?(lower_out, "failed") do
+                  {:error, String.trim(output)}
+                else
+                  :ok
+                end
+
+              {output, _} ->
+                {:error, String.trim(output)}
+            end
+        end
     end
   end
 

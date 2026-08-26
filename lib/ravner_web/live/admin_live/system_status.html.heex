@@ -1,0 +1,104 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-4xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-2xl font-light tracking-tight">System Status</h1>
+      <button phx-click="refresh" class="btn-line text-xs flex items-center gap-1.5">
+        <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
+      </button>
+    </div>
+
+    <%!-- Mailer --%>
+    <div class="border border-neutral-200 p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-light tracking-tight">Mailer</h2>
+        <%= if @checks.mailer.configured? do %>
+          <span class="flex items-center gap-1 text-xs text-green-600">
+            <.icon name="hero-check-circle" class="w-4 h-4" /> Configured
+          </span>
+        <% else %>
+          <span class="flex items-center gap-1 text-xs text-red-500">
+            <.icon name="hero-x-circle" class="w-4 h-4" /> Not configured
+          </span>
+        <% end %>
+      </div>
+
+      <dl class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm mb-4">
+        <dt class="text-neutral-500">Adapter</dt>
+        <dd class="font-mono">{@checks.mailer.adapter || "—"}</dd>
+        <dt class="text-neutral-500">Relay</dt>
+        <dd class="font-mono">{@checks.mailer.relay || "—"}</dd>
+        <dt class="text-neutral-500">Port</dt>
+        <dd class="font-mono">{@checks.mailer.port || "—"}</dd>
+        <dt class="text-neutral-500">Sender</dt>
+        <dd class="font-mono">{@checks.mailer.mail_from}</dd>
+      </dl>
+
+      <button
+        phx-click="send_test_email"
+        class="btn-line text-xs flex items-center gap-1.5"
+      >
+        <.icon name="hero-paper-airplane" class="w-4 h-4" />
+        Send test email to {@current_scope.user.email}
+      </button>
+    </div>
+
+    <%!-- Database --%>
+    <div class="border border-neutral-200 p-6 mb-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-light tracking-tight">Database</h2>
+        <%= if @checks.database.status == :ok do %>
+          <span class="flex items-center gap-1 text-xs text-green-600">
+            <.icon name="hero-check-circle" class="w-4 h-4" /> Connected
+          </span>
+        <% else %>
+          <span class="flex items-center gap-1 text-xs text-red-500">
+            <.icon name="hero-x-circle" class="w-4 h-4" /> {Map.get(
+              @checks.database,
+              :message,
+              "Error"
+            )}
+          </span>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Oban --%>
+    <div class="border border-neutral-200 p-6 mb-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-light tracking-tight">Oban (Background Jobs)</h2>
+        <%= if @checks.oban.status == :ok do %>
+          <span class="flex items-center gap-1 text-xs text-green-600">
+            <.icon name="hero-check-circle" class="w-4 h-4" /> Running
+          </span>
+        <% else %>
+          <span class="flex items-center gap-1 text-xs text-red-500">
+            <.icon name="hero-x-circle" class="w-4 h-4" /> Not running
+          </span>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- External tools --%>
+    <div class="border border-neutral-200 p-6">
+      <h2 class="text-lg font-light tracking-tight mb-4">External Tools</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <%= for {tool, available?} <- @checks.tools do %>
+          <div class={[
+            "flex items-center gap-2 px-3 py-2 border text-sm font-mono",
+            if(available?,
+              do: "border-green-200 text-green-700 bg-green-50",
+              else: "border-red-200 text-red-600 bg-red-50"
+            )
+          ]}>
+            <%= if available? do %>
+              <.icon name="hero-check" class="w-3.5 h-3.5" />
+            <% else %>
+              <.icon name="hero-x-mark" class="w-3.5 h-3.5" />
+            <% end %>
+            {tool}
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

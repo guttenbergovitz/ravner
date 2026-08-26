@@ -110,22 +110,34 @@ if config_env() == :prod do
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
   # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :ravner, Ravner.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+  config :ravner, Ravner.Mailer,
+    adapter: Swoosh.Adapters.SMTP,
+    relay: System.get_env("SMTP_HOST"),
+    port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
+    username: System.get_env("SMTP_USERNAME"),
+    password: System.get_env("SMTP_PASSWORD"),
+    tls: :if_available,
+    auth: :if_available
+
+  config :ravner, :mail_from, System.get_env("SMTP_MAIL_FROM") || "noreply@example.com"
+
+  # Uptime SMS adapter
+  sms_adapter =
+    case System.get_env("UPTIME_SMS_ADAPTER", "log") do
+      "twilio" -> Ravner.Uptime.SmsAdapters.Twilio
+      _ -> Ravner.Uptime.SmsAdapters.Log
+    end
+
+  config :ravner, :uptime_sms_adapter, sms_adapter
+
+  config :ravner,
+         :uptime_mail_from,
+         System.get_env(
+           "UPTIME_MAIL_FROM",
+           System.get_env("SMTP_MAIL_FROM") || "noreply@example.com"
+         )
+
+  config :ravner, :uptime_mail_from_name, System.get_env("UPTIME_MAIL_FROM_NAME", "Ravner Uptime")
 end
 
 config :ravner,

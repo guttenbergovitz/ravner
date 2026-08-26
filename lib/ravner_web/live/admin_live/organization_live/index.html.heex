@@ -1,21 +1,41 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
   <div class="max-w-6xl mx-auto px-6 py-8">
-    <div class="flex items-center justify-between mb-8">
-      <h1 class="text-2xl font-light tracking-tight">Organizations</h1>
-      <.link
-        patch={~p"/admin/organizations/new"}
-        class="btn-line text-xs flex items-center gap-1.5"
-      >
-        <.icon name="hero-plus" class="w-4 h-4" /> Add organization
+    <%!-- Breadcrumb --%>
+    <nav class="text-xs font-light text-neutral-400 mb-6 flex items-center gap-2">
+      <.link navigate={~p"/ownership"} class="hover:text-neutral-600 transition-colors">
+        <.icon name="hero-arrow-left" class="w-3 h-3 inline" /> Ownership
       </.link>
-    </div>
+      <%= if @live_action == :edit && @org do %>
+        <%= if @org.brand do %>
+          <.icon name="hero-chevron-right" class="w-3 h-3" />
+          <.link
+            navigate={~p"/ownership/brands/#{@org.brand.id}"}
+            class="hover:text-neutral-600 transition-colors"
+          >
+            {@org.brand.display_name || @org.brand.name}
+          </.link>
+        <% end %>
+        <.icon name="hero-chevron-right" class="w-3 h-3" />
+        <span class="text-neutral-600">{@org.display_name || @org.name}</span>
+      <% end %>
+    </nav>
 
-    <%= if @live_action in [:new, :edit] do %>
-      <div class="border border-neutral-200 p-6 mb-8">
-        <h2 class="text-lg font-light tracking-tight mb-4">
-          {if @org.id, do: "Edit Organization", else: "New Organization"}
-        </h2>
+    <div class="border border-neutral-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-light tracking-tight">
+          {if @live_action == :edit, do: "Edit Organization", else: "New Organization"}
+        </h1>
+        <%= if @live_action == :edit do %>
+          <.link
+            navigate={~p"/ownership/organizations/#{@org.id}"}
+            class="text-xs font-normal text-neutral-500 hover:text-neutral-900 transition-colors flex items-center gap-1"
+          >
+            View in Ownership <.icon name="hero-arrow-right" class="w-3 h-3" />
+          </.link>
+        <% end %>
+      </div>
 
+      <%= if @form do %>
         <.form
           for={@form}
           phx-change="validate"
@@ -95,61 +115,81 @@
           />
           <.input field={@form[:notes]} type="textarea" label="Notes" />
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 pt-4">
             <button type="submit" class="btn-line-filled text-xs">Save</button>
-            <.link patch={~p"/admin/organizations"} class="btn-line text-xs">Cancel</.link>
+            <.link
+              navigate={
+                if @live_action == :edit && @org,
+                  do: ~p"/ownership/organizations/#{@org.id}",
+                  else: ~p"/ownership"
+              }
+              class="btn-line text-xs"
+            >
+              Cancel
+            </.link>
           </div>
         </.form>
-      </div>
-    <% end %>
+      <% end %>
 
-    <div class="border border-neutral-200">
-      <%= if @orgs == [] do %>
-        <div class="p-6 text-sm font-light text-neutral-500">No organizations yet.</div>
-      <% else %>
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b border-neutral-200 text-left text-xs font-normal text-neutral-500 uppercase tracking-wider">
-              <th class="px-4 py-3">Name</th>
-              <th class="px-4 py-3">Type</th>
-              <th class="px-4 py-3">Country</th>
-              <th class="px-4 py-3">Brand</th>
-              <th class="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for org <- @orgs do %>
-              <tr class="border-b border-neutral-100">
-                <td class="px-4 py-3">{org.display_name || org.name}</td>
-                <td class="px-4 py-3">
-                  <span class="text-xs px-2 py-0.5 border border-neutral-200">{org.type}</span>
-                </td>
-                <td class="px-4 py-3 text-neutral-500">{org.country}</td>
-                <td class="px-4 py-3 text-neutral-500">
-                  {org.brand && (org.brand.display_name || org.brand.name)}
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex items-center justify-end gap-2">
-                    <.link
-                      patch={~p"/admin/organizations/#{org.id}/edit"}
-                      class="text-neutral-400 hover:text-neutral-900 transition-colors"
-                    >
-                      <.icon name="hero-pencil" class="w-4 h-4" />
-                    </.link>
-                    <button
-                      phx-click="delete"
-                      phx-value-id={org.id}
-                      data-confirm="Delete this organization?"
-                      class="text-neutral-400 hover:text-red-600 transition-colors"
-                    >
-                      <.icon name="hero-trash" class="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+      <%!-- Contextual panel for edit --%>
+      <%= if @live_action == :edit && @stats do %>
+        <div class="mt-8 pt-6 border-t border-neutral-100">
+          <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-4">
+            Related
+          </h3>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <.link
+              navigate={~p"/ownership/organizations/#{@org.id}?tab=projects"}
+              class="border border-neutral-200 p-4 hover:border-neutral-400 transition-colors"
+            >
+              <div class="text-xl font-light text-neutral-900">{@stats.projects_count}</div>
+              <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-1">
+                Projects
+              </div>
+            </.link>
+            <.link
+              navigate={~p"/ownership/organizations/#{@org.id}?tab=people"}
+              class="border border-neutral-200 p-4 hover:border-neutral-400 transition-colors"
+            >
+              <div class="text-xl font-light text-neutral-900">{@stats.people_count}</div>
+              <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-1">
+                People
+              </div>
+            </.link>
+            <.link
+              navigate={~p"/ownership/organizations/#{@org.id}?tab=domains"}
+              class="border border-neutral-200 p-4 hover:border-neutral-400 transition-colors"
+            >
+              <div class="text-xl font-light text-neutral-900">{@stats.domains_count}</div>
+              <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-1">
+                Domains
+              </div>
+            </.link>
+          </div>
+          <div class="flex items-center justify-between mt-4">
+            <div class="flex items-center gap-3">
+              <.link
+                href={~p"/admin/projects/new"}
+                class="text-xs font-normal text-neutral-500 hover:text-neutral-900 transition-colors"
+              >
+                + Add Project
+              </.link>
+              <.link
+                href={~p"/admin/people/new"}
+                class="text-xs font-normal text-neutral-500 hover:text-neutral-900 transition-colors"
+              >
+                + Add Person
+              </.link>
+            </div>
+            <button
+              phx-click="delete"
+              data-confirm="Delete this organization and all its projects, people and roles?"
+              class="text-xs font-normal text-red-500 hover:text-red-700 transition-colors"
+            >
+              Delete Organization
+            </button>
+          </div>
+        </div>
       <% end %>
     </div>
   </div>

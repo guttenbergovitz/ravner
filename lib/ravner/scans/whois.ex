@@ -26,6 +26,7 @@ defmodule Ravner.Scans.Whois do
   @spec run_rdap_scan(integer()) :: {:ok, map()} | {:error, term()}
   def run_rdap_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
+    Ravner.ActivityLog.emit(:step, "Looking up registration for #{domain.name}…")
     ns_records = get_stored_ns_records(domain_id)
 
     {data, source} = fetch_registration_data(domain.name, ns_records)
@@ -37,8 +38,12 @@ defmodule Ravner.Scans.Whois do
       })
 
     case Domains.upsert_domain_metadata(domain_id, meta) do
-      {:ok, _} -> {:ok, %{source: source, data: data}}
-      error -> error
+      {:ok, _} ->
+        Ravner.ActivityLog.emit(:done, "Registration data via #{source} for #{domain.name}")
+        {:ok, %{source: source, data: data}}
+
+      error ->
+        error
     end
   end
 

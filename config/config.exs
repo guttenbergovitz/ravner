@@ -72,7 +72,11 @@ config :ravner, Oban,
        {"0 * * * *", Ravner.Workers.SecurityScanDispatcher},
        {"0 3 * * *", Ravner.Workers.SslCheckDispatcher},
        {"30 * * * *", Ravner.Workers.HttpxScanDispatcher},
-       {"45 * * * *", Ravner.Workers.DnsxScanDispatcher}
+       {"45 * * * *", Ravner.Workers.DnsxScanDispatcher},
+       {"0 5 * * *", Ravner.Workers.A11yScanDispatcher},
+       {"0 6 * * *", Ravner.Workers.LighthouseScanDispatcher},
+       {"0 4 * * *", Ravner.Workers.HeartbeatRetentionWorker},
+       {"* * * * *", Ravner.Workers.DomainCheckDispatcher}
      ]}
   ],
   queues: [
@@ -82,6 +86,11 @@ config :ravner, Oban,
     deep_tech: 2,
     default: 10
   ]
+
+# Uptime monitoring
+config :ravner, :uptime_sms_adapter, Ravner.Uptime.SmsAdapters.Log
+config :ravner, :uptime_mail_from, "uptime@example.com"
+config :ravner, :uptime_mail_from_name, "Ravner Uptime"
 
 # Configure Ash
 config :ravner,
