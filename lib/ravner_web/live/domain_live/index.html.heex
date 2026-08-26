@@ -5,7 +5,7 @@
       <aside class="space-y-8 sticky top-8">
         <div>
           <h1 class="text-2xl font-light tracking-tight mb-1">Domains</h1>
-          <div class="flex items-center justify-between">
+          <div class="space-y-2">
             <p class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
               {if @total == 0 && @search == "" && @lifecycle_filter == [] &&
                     @technical_status_filter == [] && @brand_filter == [] && @org_filter == [] &&
@@ -13,7 +13,7 @@
                   do: "No domains yet",
                   else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
             </p>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-col items-start gap-1.5">
               <button
                 phx-click="toggle_filter_subdomains"
                 aria-pressed={@include_subdomains}
