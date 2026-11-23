@@ -88,6 +88,29 @@ defmodule RavnerWeb.UserSessionController do
     end
   end
 
+  def one_time_login(conn, %{"token" => token}) do
+    case Accounts.consume_one_time_login_token(token) do
+      {:ok, user} ->
+        conn
+        |> put_flash(:info, "Logged in via one-time link. Please set your new password.")
+        |> put_session(:user_return_to, ~p"/users/settings")
+        |> UserAuth.log_in_user(user)
+
+      {:error, :inactive} ->
+        conn
+        |> put_flash(
+          :error,
+          "Your account has been deactivated. Please contact an administrator."
+        )
+        |> redirect(to: ~p"/users/log-in")
+
+      {:error, _} ->
+        conn
+        |> put_flash(:error, "The one-time login link is invalid or has expired.")
+        |> redirect(to: ~p"/users/log-in")
+    end
+  end
+
   def delete(conn, _params) do
     conn
     |> put_flash(:info, "Logged out successfully.")

@@ -5,6 +5,7 @@ defmodule Ravner.Inventory.Person do
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
     data_layer: AshPostgres.DataLayer,
+    extensions: [AshPaperTrail.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
@@ -14,14 +15,22 @@ defmodule Ravner.Inventory.Person do
     repo(Ravner.Repo)
   end
 
+  paper_trail do
+    primary_key_type(:integer)
+    change_tracking_mode(:changes_only)
+    store_action_name?(true)
+    reference_source?(false)
+  end
+
   policies do
     policy action_type(:read) do
-      authorize_if(always())
+      authorize_if({Ravner.Accounts.ScopeReadCheck, []})
     end
 
     policy action_type([:create, :update, :destroy]) do
       authorize_if(actor_attribute_equals(:role, :admin))
       authorize_if(actor_attribute_equals(:role, :editor))
+      authorize_if({Ravner.Accounts.ScopeCheck, permission: :manage_person})
     end
   end
 
@@ -40,7 +49,8 @@ defmodule Ravner.Inventory.Person do
         :mobile,
         :default_role,
         :notes,
-        :organization_id
+        :organization_id,
+        :user_id
       ])
     end
 
@@ -56,7 +66,8 @@ defmodule Ravner.Inventory.Person do
         :mobile,
         :default_role,
         :notes,
-        :organization_id
+        :organization_id,
+        :user_id
       ])
     end
   end
@@ -78,6 +89,7 @@ defmodule Ravner.Inventory.Person do
     attribute(:mobile, :string)
     attribute(:default_role, :string)
     attribute(:notes, :string)
+    attribute(:user_id, :integer)
 
     create_timestamp(:inserted_at, type: :utc_datetime)
     update_timestamp(:updated_at, type: :utc_datetime)
@@ -85,6 +97,7 @@ defmodule Ravner.Inventory.Person do
 
   relationships do
     belongs_to :organization, Ravner.Inventory.Organization, attribute_type: :integer
+    belongs_to :user, Ravner.Accounts.UserResource, attribute_type: :integer
     has_many :project_roles, Ravner.Inventory.ProjectRole
   end
 
@@ -104,9 +117,11 @@ defmodule Ravner.Inventory.Person do
       :mobile,
       :default_role,
       :notes,
-      :organization_id
+      :organization_id,
+      :user_id
     ])
     |> validate_required([:first_name, :last_name])
     |> unique_constraint(:email)
+    |> unique_constraint(:user_id)
   end
 end

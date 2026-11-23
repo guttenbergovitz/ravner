@@ -2,13 +2,40 @@ defmodule Ravner.Domains.Domain do
   @moduledoc """
   Ecto schema representing a discovered domain or subdomain.
   """
+
+  # Lifecycle state classifications
+  @scannable_states [:priority, :active, :under_review]
+  @operational_states [
+    :priority,
+    :active,
+    :under_review,
+    :placeholder,
+    :redirect_internal,
+    :redirect_external
+  ]
+  @archived_states [:deprecated, :decommissioned, :abandoned]
+  @redirect_states [:redirect_internal, :redirect_external]
+
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
     data_layer: AshPostgres.DataLayer,
-    extensions: [AshPaperTrail.Resource],
+    extensions: [AshPaperTrail.Resource, AshJsonApi.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
+
+  json_api do
+    type("domain")
+
+    routes do
+      base("/domains")
+      get(:read)
+      index(:read)
+      post(:create)
+      patch(:update)
+      delete(:destroy)
+    end
+  end
 
   postgres do
     table("domains")
@@ -28,12 +55,17 @@ defmodule Ravner.Domains.Domain do
     create :create do
       primary?(true)
 
+      validate(present(:name))
+      validate(match(:name, ~r/^[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z0-9][-a-zA-Z0-9.]*$/))
+
       accept([
         :name,
         :type,
         :url,
         :lifecycle_state,
         :technical_status,
+        :redirect_target_url,
+        :redirect_target_domain_id,
         :pm_email,
         :po_email,
         :delivery_organization,
@@ -43,7 +75,9 @@ defmodule Ravner.Domains.Domain do
         :project_id,
         :brand_id,
         :organization_id,
-        :parent_domain_id
+        :parent_domain_id,
+        :application_id,
+        :registrar_id
       ])
     end
 
@@ -56,6 +90,8 @@ defmodule Ravner.Domains.Domain do
         :url,
         :lifecycle_state,
         :technical_status,
+        :redirect_target_url,
+        :redirect_target_domain_id,
         :pm_email,
         :po_email,
         :delivery_organization,
@@ -65,7 +101,9 @@ defmodule Ravner.Domains.Domain do
         :project_id,
         :brand_id,
         :organization_id,
-        :parent_domain_id
+        :parent_domain_id,
+        :application_id,
+        :registrar_id
       ])
     end
 
@@ -84,11 +122,15 @@ defmodule Ravner.Domains.Domain do
     update :assign_organization do
       accept([:organization_id, :project_id, :brand_id])
     end
+
+    update :assign_contacts do
+      accept([:pm_email, :po_email])
+    end
   end
 
   policies do
     policy action_type(:read) do
-      authorize_if(always())
+      authorize_if({Ravner.Accounts.ScopeReadCheck, []})
     end
 
     policy action(:destroy) do
@@ -106,15 +148,17 @@ defmodule Ravner.Domains.Domain do
 
     attribute :name, :string do
       allow_nil?(false)
+      public?(true)
     end
 
     attribute :type, :atom do
       constraints(one_of: [:domain, :subdomain])
       default(:domain)
       allow_nil?(false)
+      public?(true)
     end
 
-    attribute(:url, :string)
+    attribute(:url, :string, public?: true)
 
     attribute :lifecycle_state, :atom do
       constraints(
@@ -123,6 +167,8 @@ defmodule Ravner.Domains.Domain do
           :active,
           :under_review,
           :placeholder,
+          :redirect_internal,
+          :redirect_external,
           :deprecated,
           :decommissioned,
           :abandoned
@@ -130,37 +176,61 @@ defmodule Ravner.Domains.Domain do
       )
 
       default(:under_review)
+      public?(true)
     end
+
+    # For redirect domains: where they redirect to
+    attribute(:redirect_target_url, :string, public?: true)
 
     attribute :technical_status, :atom do
       constraints(one_of: [:unknown, :reachable, :redirect, :insecure, :error])
       default(:unknown)
       allow_nil?(false)
+      public?(true)
     end
 
-    attribute(:pm_email, :string)
-    attribute(:po_email, :string)
-    attribute(:delivery_organization, :string)
-    attribute(:hosting_platform, :string)
-    attribute(:domain_registrar, :string)
-    attribute(:repository_url, :string)
+    attribute(:pm_email, :string, public?: true)
+    attribute(:po_email, :string, public?: true)
+    attribute(:delivery_organization, :string, public?: true)
+    attribute(:hosting_platform, :string, public?: true)
+    attribute(:domain_registrar, :string, public?: true)
+    attribute(:repository_url, :string, public?: true)
+    attribute(:application_id, :integer, public?: true)
+    attribute(:registrar_id, :integer, public?: true)
 
-    create_timestamp(:inserted_at, type: :utc_datetime)
-    update_timestamp(:updated_at, type: :utc_datetime)
+    create_timestamp(:inserted_at, type: :utc_datetime, public?: true)
+    update_timestamp(:updated_at, type: :utc_datetime, public?: true)
   end
 
   relationships do
     belongs_to :parent_domain, Ravner.Domains.Domain, attribute_type: :integer
+    belongs_to :redirect_target_domain, Ravner.Domains.Domain, attribute_type: :integer
     has_many :subdomains, Ravner.Domains.Domain, destination_attribute: :parent_domain_id
+
+    has_many :redirecting_domains, Ravner.Domains.Domain,
+      destination_attribute: :redirect_target_domain_id
+
     has_many :domain_tags, Ravner.Domains.DomainTag
     has_one :domain_metadata, Ravner.Domains.DomainMetadata
     has_many :dns_records, Ravner.Domains.DnsRecord
     has_many :tech_evidence, Ravner.Domains.TechEvidence
     has_many :discovered_urls, Ravner.Domains.DiscoveredUrl
 
+    has_many :repositories, Ravner.Inventory.ProjectRepository, destination_attribute: :domain_id
+
     belongs_to :project, Ravner.Inventory.Project, attribute_type: :integer
     belongs_to :brand, Ravner.Inventory.Brand, attribute_type: :integer
     belongs_to :organization, Ravner.Inventory.Organization, attribute_type: :integer
+
+    belongs_to :application, Ravner.Inventory.Application,
+      attribute_type: :integer,
+      define_attribute?: false,
+      source_attribute: :application_id
+
+    belongs_to :registrar, Ravner.Inventory.Registrar,
+      attribute_type: :integer,
+      define_attribute?: false,
+      source_attribute: :registrar_id
   end
 
   identities do
@@ -176,6 +246,8 @@ defmodule Ravner.Domains.Domain do
       :url,
       :lifecycle_state,
       :technical_status,
+      :redirect_target_url,
+      :redirect_target_domain_id,
       :pm_email,
       :po_email,
       :delivery_organization,
@@ -184,7 +256,9 @@ defmodule Ravner.Domains.Domain do
       :repository_url,
       :project_id,
       :brand_id,
-      :organization_id
+      :organization_id,
+      :application_id,
+      :registrar_id
     ])
     |> validate_required([:name, :type])
     |> validate_format(:name, ~r/^[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z0-9][-a-zA-Z0-9.]*$/,
@@ -219,4 +293,55 @@ defmodule Ravner.Domains.Domain do
       nil
     end
   end
+
+  # ─── Lifecycle State Helpers ─────────────────────────────────────────────────
+
+  @doc "States eligible for scanning (priority, active, under_review)."
+  def scannable_states, do: @scannable_states
+
+  @doc "States shown by default in listings (excludes archived)."
+  def operational_states, do: @operational_states
+
+  @doc "Archived states hidden by default (deprecated, decommissioned, abandoned)."
+  def archived_states, do: @archived_states
+
+  @doc "Check if domain is eligible for scanning."
+  def scannable?(%{lifecycle_state: state}), do: state in @scannable_states
+  def scannable?(state) when is_atom(state), do: state in @scannable_states
+
+  @doc "Check if domain is operational (shown by default in listings)."
+  def operational?(%{lifecycle_state: state}), do: state in @operational_states
+  def operational?(state) when is_atom(state), do: state in @operational_states
+
+  @doc "Check if domain is archived (hidden by default)."
+  def archived?(%{lifecycle_state: state}), do: state in @archived_states
+  def archived?(state) when is_atom(state), do: state in @archived_states
+
+  @doc "Check if domain is a placeholder (excluded from non-placeholder views)."
+  def placeholder?(%{lifecycle_state: :placeholder}), do: true
+  def placeholder?(%{lifecycle_state: _}), do: false
+  def placeholder?(:placeholder), do: true
+  def placeholder?(_), do: false
+
+  @doc "Redirect states (internal and external redirects)."
+  def redirect_states, do: @redirect_states
+
+  @doc "Check if domain is a redirect (internal or external)."
+  def redirect?(%{lifecycle_state: state}), do: state in @redirect_states
+  def redirect?(state) when is_atom(state), do: state in @redirect_states
+  def redirect?(_), do: false
+
+  @doc "Check if domain is an internal redirect."
+  def redirect_internal?(%{lifecycle_state: :redirect_internal}), do: true
+  def redirect_internal?(_), do: false
+
+  @doc "Check if domain is an external redirect."
+  def redirect_external?(%{lifecycle_state: :redirect_external}), do: true
+  def redirect_external?(_), do: false
+
+  @doc "States that should hide scoring/security sections."
+  def hide_scoring?(%{lifecycle_state: state}) when state in [:placeholder | @redirect_states],
+    do: true
+
+  def hide_scoring?(_), do: false
 end

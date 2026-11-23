@@ -7,11 +7,13 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    scope = socket.assigns[:current_scope]
+
     {:ok,
      socket
      |> assign(:page_title, "Projects")
-     |> assign(:orgs, Inventory.list_organizations())
-     |> assign(:people, Inventory.list_people())}
+     |> assign(:orgs, Inventory.list_organizations(scope: scope))
+     |> assign(:people, Inventory.list_people(scope: scope))}
   end
 
   @impl true
@@ -20,41 +22,61 @@ defmodule RavnerWeb.AdminLive.ProjectLive.Index do
   end
 
   defp apply_action(socket, :new, _params) do
-    socket
-    |> assign(:page_title, "New Project")
-    |> assign(:project, %Project{})
-    |> assign(:roles, [])
-    |> assign(:repos, [])
-    |> assign(:stats, nil)
-    |> assign(:form, nil)
-    |> assign(
-      :form,
-      AshPhoenix.Form.for_create(Project, :create,
-        as: "project",
-        actor: socket.assigns.current_scope.user
+    scope = socket.assigns[:current_scope]
+
+    can_create? =
+      scope &&
+        (scope.admin? or scope.editor? or
+           scope.role in [:brand_manager, :organization_manager])
+
+    if can_create? do
+      socket
+      |> assign(:page_title, "New Project")
+      |> assign(:project, %Project{})
+      |> assign(:roles, [])
+      |> assign(:repos, [])
+      |> assign(:stats, nil)
+      |> assign(:form, nil)
+      |> assign(
+        :form,
+        AshPhoenix.Form.for_create(Project, :create,
+          as: "project",
+          actor: socket.assigns.current_scope.user
+        )
+        |> to_form()
       )
-      |> to_form()
-    )
+    else
+      socket
+      |> put_flash(:error, "You do not have permission to create projects.")
+      |> push_navigate(to: ~p"/ownership")
+    end
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    scope = socket.assigns[:current_scope]
     project = Inventory.get_project!(id)
 
-    socket
-    |> assign(:page_title, "Edit Project")
-    |> assign(:project, project)
-    |> assign(:roles, Inventory.list_project_roles(project.id))
-    |> assign(:repos, Inventory.list_project_repositories(project.id))
-    |> assign(:stats, OwnershipStats.project_stats(id))
-    |> assign(:form, nil)
-    |> assign(
-      :form,
-      AshPhoenix.Form.for_update(project, :update,
-        as: "project",
-        actor: socket.assigns.current_scope.user
+    if scope && not Ravner.Accounts.ScopeResolver.can_manage_project?(scope, project) do
+      socket
+      |> put_flash(:error, "You do not have permission to manage this project.")
+      |> push_navigate(to: ~p"/ownership/projects/#{project.id}")
+    else
+      socket
+      |> assign(:page_title, "Edit Project")
+      |> assign(:project, project)
+      |> assign(:roles, Inventory.list_project_roles(project.id))
+      |> assign(:repos, Inventory.list_project_repositories(project.id))
+      |> assign(:stats, OwnershipStats.project_stats(id))
+      |> assign(:form, nil)
+      |> assign(
+        :form,
+        AshPhoenix.Form.for_update(project, :update,
+          as: "project",
+          actor: socket.assigns.current_scope.user
+        )
+        |> to_form()
       )
-      |> to_form()
-    )
+    end
   end
 
   @impl true

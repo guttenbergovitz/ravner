@@ -79,7 +79,61 @@ defmodule RavnerWeb.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # Synthetic Domain & Vulnerability Metrics (OpenTelemetry SemConv)
+      summary("ravner.synthetic.http.stop.duration_ms",
+        unit: :millisecond,
+        description: "Synthetic HTTP heartbeat probe latency"
+      ),
+      counter("ravner.synthetic.http.stop.count",
+        description: "Total synthetic HTTP probes executed"
+      ),
+      summary("ravner.synthetic.sca.stop.duration_ms",
+        unit: :millisecond,
+        description: "Software Composition Analysis (SCA) scan duration"
+      ),
+      sum("ravner.synthetic.sca.stop.vulnerability_count",
+        description: "Total vulnerabilities discovered across repositories"
+      ),
+      summary("ravner.synthetic.tls.stop.handshake_ms",
+        unit: :millisecond,
+        description: "TLS handshake duration"
+      ),
+      summary("ravner.synthetic.uptime.status.response_time_ms",
+        unit: :millisecond,
+        description: "Uptime probe response time"
+      ),
+      last_value("ravner.synthetic.uptime.status.status",
+        description: "Current domain availability status (1 for up, 0 for down)"
+      ),
+      counter("ravner.synthetic.incident.opened.count",
+        description: "Incidents opened"
+      ),
+      counter("ravner.synthetic.incident.resolved.count",
+        description: "Incidents resolved"
+      ),
+      summary("ravner.synthetic.incident.resolved.duration_seconds",
+        unit: :second,
+        description: "Incident downtime duration until resolution (MTTR)"
+      ),
+      summary("ravner.synthetic.web_vitals.stop.lcp_ms",
+        unit: :millisecond,
+        description: "Largest Contentful Paint (LCP)"
+      ),
+      summary("ravner.synthetic.web_vitals.stop.performance_score",
+        description: "Google Lighthouse Performance Score (0-100)"
+      ),
+      sum("ravner.synthetic.a11y.stop.violations_count",
+        description: "Total WCAG accessibility violations"
+      ),
+      summary("ravner.synthetic.dns.stop.duration_ms",
+        unit: :millisecond,
+        description: "DNS resolution latency"
+      ),
+      sum("ravner.synthetic.security_headers.stop.findings_count",
+        description: "Total security headers posture findings"
+      )
     ]
   end
 

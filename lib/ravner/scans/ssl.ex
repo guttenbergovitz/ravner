@@ -20,13 +20,33 @@ defmodule Ravner.Scans.Ssl do
   @spec run(integer()) :: {:ok, map()} | {:error, term()}
   def run(domain_id) do
     domain = Domains.get_domain!(domain_id)
+    Ravner.ActivityLog.emit(:step, "Checking SSL certificate for #{domain.name}…")
 
     case scan(domain.name) do
       {:ok, data} ->
+        data = Map.put(data, :ssl_scanned_at, DateTime.utc_now(:second))
         Domains.upsert_domain_metadata(domain_id, data)
+        Ravner.Governance.RiskScore.recalculate_for_domain(domain_id)
+
+        days = Map.get(data, :ssl_days_remaining)
+
+        if is_integer(days) and days <= 14 do
+          Ravner.Notifications.dispatch_ssl_expiry(domain_id, domain.name, data)
+        end
+
+        Ravner.ActivityLog.emit(
+          :done,
+          "SSL done — #{domain.name} (#{days || "?"} days remaining)"
+        )
+
         {:ok, data}
 
-      error ->
+      {:error, reason} = error ->
+        Ravner.ActivityLog.emit(
+          :error,
+          "SSL check failed for #{domain.name}: #{inspect(reason)}"
+        )
+
         error
     end
   end
@@ -112,7 +132,7 @@ defmodule Ravner.Scans.Ssl do
        ssl_days_remaining: days_remaining
      }}
   rescue
-    e ->
+    e in [ArgumentError, FunctionClauseError, CaseClauseError, MatchError] ->
       Logger.warning("Failed to parse SSL certificate: #{inspect(e)}")
       {:error, :parse_failed}
   end

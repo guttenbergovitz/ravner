@@ -32,81 +32,47 @@
 
     <%!-- Sleek Minimal Tabs Navigation --%>
     <div class="flex items-center gap-6 border-b border-neutral-100 mb-10 pb-px dark:border-neutral-800">
-      <button
-        phx-click="select_tab"
-        phx-value-tab="risks"
-        class={[
-          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
-          if(@current_tab == "risks",
-            do:
-              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
-            else:
-              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-          )
-        ]}
-      >
+      <.tab_button active={@current_tab == "risks"} phx-click="select_tab" phx-value-tab="risks">
         🚨 Operational Risks
-      </button>
-      <button
+      </.tab_button>
+      <.tab_button
+        active={@current_tab == "governance"}
         phx-click="select_tab"
         phx-value-tab="governance"
-        class={[
-          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
-          if(@current_tab == "governance",
-            do:
-              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
-            else:
-              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-          )
-        ]}
       >
         🏢 Governance & Gaps
-      </button>
-      <button
+      </.tab_button>
+      <.tab_button
+        active={@current_tab == "infrastructure"}
         phx-click="select_tab"
         phx-value-tab="infrastructure"
-        class={[
-          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
-          if(@current_tab == "infrastructure",
-            do:
-              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
-            else:
-              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-          )
-        ]}
       >
         🌐 Infrastructure & Vendors
-      </button>
-      <button
+      </.tab_button>
+      <.tab_button
+        active={@current_tab == "lifecycle"}
         phx-click="select_tab"
         phx-value-tab="lifecycle"
-        class={[
-          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
-          if(@current_tab == "lifecycle",
-            do:
-              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
-            else:
-              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-          )
-        ]}
       >
         📊 Lifecycle Landscape
-      </button>
-      <button
-        phx-click="select_tab"
-        phx-value-tab="uptime"
-        class={[
-          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
-          if(@current_tab == "uptime",
-            do:
-              "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100 dark:text-neutral-100",
-            else:
-              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-          )
-        ]}
-      >
+      </.tab_button>
+      <.tab_button active={@current_tab == "uptime"} phx-click="select_tab" phx-value-tab="uptime">
         💓 Uptime & Alerts
-      </button>
+      </.tab_button>
+      <.tab_button
+        active={@current_tab == "security"}
+        phx-click="select_tab"
+        phx-value-tab="security"
+        id="dashboard-tab-security"
+        class="flex items-center gap-2"
+      >
+        <span>🛡️ Security & Threats</span>
+        <%= if @security_summary.critical > 0 do %>
+          <span class="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400 rounded-full">
+            {@security_summary.critical}
+          </span>
+        <% end %>
+      </.tab_button>
     </div>
 
     <%!-- Render Tabs Content --%>
@@ -114,6 +80,78 @@
       <% @current_tab == "risks" -> %>
         <%!-- TAB 1: OPERATIONAL RISKS (NOISE-FILTERED ALERTS & SLEEK DONUT CHARTS) --%>
         <div class="space-y-10">
+          <%= if @security_summary.critical > 0 || @security_summary.high > 0 do %>
+            <div class="border border-red-200/80 dark:border-red-900/60 bg-white dark:bg-neutral-800 border-l-4 border-l-red-600 dark:border-l-red-500 p-6 shadow-xs">
+              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <%!-- Left: Icon, Badge, Title & Context --%>
+                <div class="flex items-start gap-4">
+                  <div class="w-11 h-11 rounded-lg bg-red-50 text-red-600 dark:bg-red-950/80 dark:text-red-400 border border-red-200 dark:border-red-900/60 flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                    <.icon name="hero-exclamation-triangle" class="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-widest rounded bg-red-100 text-red-700 dark:bg-red-950/80 dark:text-red-300 border border-red-200 dark:border-red-800/60">
+                        Immediate Attention
+                      </span>
+                      <span class="text-[11px] text-neutral-400 uppercase tracking-wider">
+                        Threat Detection
+                      </span>
+                    </div>
+                    <h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
+                      High Risk Security Vulnerabilities Detected
+                    </h3>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                      {@security_summary.critical} critical and {@security_summary.high} high severity findings identified across {@security_summary.domains_at_risk_count} domain(s).
+                    </p>
+                  </div>
+                </div>
+
+                <%!-- Right: Metric Cards & Action Button --%>
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 self-start lg:self-center shrink-0">
+                  <div class="flex items-center gap-4 sm:gap-6 border-l border-neutral-200 dark:border-neutral-700 pl-4 sm:pl-6">
+                    <div class="text-center sm:text-right">
+                      <div class="text-[10px] font-mono uppercase tracking-widest text-red-600 dark:text-red-400 font-semibold">
+                        Critical
+                      </div>
+                      <div class="text-2xl font-light text-red-600 dark:text-red-400">
+                        {@security_summary.critical}
+                      </div>
+                    </div>
+                    <div class="text-center sm:text-right border-l border-neutral-100 dark:border-neutral-700/60 pl-4 sm:pl-6">
+                      <div class="text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400 font-semibold">
+                        High
+                      </div>
+                      <div class="text-2xl font-light text-amber-600 dark:text-amber-400">
+                        {@security_summary.high}
+                      </div>
+                    </div>
+                    <div class="text-center sm:text-right border-l border-neutral-100 dark:border-neutral-700/60 pl-4 sm:pl-6">
+                      <div class="text-[10px] font-mono uppercase tracking-widest text-neutral-400 font-medium">
+                        At Risk
+                      </div>
+                      <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+                        {@security_summary.domains_at_risk_count}
+                        <span class="text-xs text-neutral-400 font-normal">dom</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    phx-click="select_tab"
+                    phx-value-tab="security"
+                    class="btn-line-filled text-xs py-2.5 px-4 shrink-0 flex items-center gap-2 group cursor-pointer"
+                  >
+                    <span>Inspect Threats</span>
+                    <.icon
+                      name="hero-arrow-right"
+                      class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
           <%!-- Premium Donut Visualization Row --%>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <%!-- Donut Card 1: SSL Security Donut --%>
@@ -781,6 +819,433 @@
             >
               <.icon name="hero-heart" class="w-4 h-4" /> Open Uptime Monitor
             </.link>
+          </div>
+        </div>
+      <% @current_tab == "security" -> %>
+        <%!-- TAB 6: SECURITY & THREAT POSTURE --%>
+        <div class="space-y-10">
+          <%!-- Top Metrics Row --%>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <%!-- Card 1: Domains at Risk --%>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
+                  Domains At Risk
+                </span>
+                <.icon
+                  name="hero-shield-exclamation"
+                  class={[
+                    "w-4 h-4",
+                    if(@security_summary.domains_at_risk_count > 0,
+                      do: "text-red-500",
+                      else: "text-emerald-500"
+                    )
+                  ]}
+                />
+              </div>
+              <div class={[
+                "text-2xl font-light",
+                if(@security_summary.domains_at_risk_count > 0,
+                  do: "text-red-600 dark:text-red-400",
+                  else: "text-neutral-900 dark:text-neutral-100"
+                )
+              ]}>
+                {@security_summary.domains_at_risk_count}
+              </div>
+              <p class="text-[10px] text-neutral-400 font-light mt-1">
+                out of {@security_summary.scanned_domains_count} scanned domains
+              </p>
+            </div>
+
+            <%!-- Card 2: Critical Vulnerabilities --%>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
+                  Critical CVEs & Flaws
+                </span>
+                <.icon
+                  name="hero-fire"
+                  class={[
+                    "w-4 h-4",
+                    if(@security_summary.critical > 0,
+                      do: "text-red-500",
+                      else: "text-neutral-400"
+                    )
+                  ]}
+                />
+              </div>
+              <div class={[
+                "text-2xl font-light",
+                if(@security_summary.critical > 0,
+                  do: "text-red-600 dark:text-red-400",
+                  else: "text-neutral-900 dark:text-neutral-100"
+                )
+              ]}>
+                {@security_summary.critical}
+              </div>
+              <p class="text-[10px] text-neutral-400 font-light mt-1">
+                requires immediate remediation
+              </p>
+            </div>
+
+            <%!-- Card 3: Exposed Secrets & Repos --%>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
+                  Exposed Secrets / Git
+                </span>
+                <.icon
+                  name="hero-key"
+                  class={[
+                    "w-4 h-4",
+                    if(@security_summary.exposed_secrets_count > 0,
+                      do: "text-amber-500",
+                      else: "text-neutral-400"
+                    )
+                  ]}
+                />
+              </div>
+              <div class={[
+                "text-2xl font-light",
+                if(@security_summary.exposed_secrets_count > 0,
+                  do: "text-amber-600 dark:text-amber-400",
+                  else: "text-neutral-900 dark:text-neutral-100"
+                )
+              ]}>
+                {@security_summary.exposed_secrets_count}
+              </div>
+              <p class="text-[10px] text-neutral-400 font-light mt-1">
+                leaked .env, .git/HEAD, api keys
+              </p>
+            </div>
+
+            <%!-- Card 4: Dark Web Breaches --%>
+            <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
+                  Breached Accounts
+                </span>
+                <.icon
+                  name="hero-eye-slash"
+                  class={[
+                    "w-4 h-4",
+                    if(@security_summary.breach_findings_count > 0,
+                      do: "text-purple-500",
+                      else: "text-neutral-400"
+                    )
+                  ]}
+                />
+              </div>
+              <div class={[
+                "text-2xl font-light",
+                if(@security_summary.breach_findings_count > 0,
+                  do: "text-purple-600 dark:text-purple-400",
+                  else: "text-neutral-900 dark:text-neutral-100"
+                )
+              ]}>
+                {@security_summary.breach_findings_count}
+              </div>
+              <p class="text-[10px] text-neutral-400 font-light mt-1">
+                compromised employee credentials
+              </p>
+            </div>
+          </div>
+
+          <%!-- Findings Severity Breakdown Bar --%>
+          <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-900 dark:text-neutral-100">
+                  Portfolio Severity Distribution
+                </h3>
+                <p class="text-[11px] text-neutral-400 font-light mt-0.5">
+                  {@security_summary.total_findings} active findings across all scanned domains
+                </p>
+              </div>
+              <div class="flex items-center gap-4 text-xs">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                  <span class="text-neutral-500 font-light">Critical:</span>
+                  <strong class="font-medium text-neutral-900 dark:text-neutral-100">
+                    {@security_summary.critical}
+                  </strong>
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                  <span class="text-neutral-500 font-light">High:</span>
+                  <strong class="font-medium text-neutral-900 dark:text-neutral-100">
+                    {@security_summary.high}
+                  </strong>
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span class="text-neutral-500 font-light">Medium:</span>
+                  <strong class="font-medium text-neutral-900 dark:text-neutral-100">
+                    {@security_summary.medium}
+                  </strong>
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span class="text-neutral-500 font-light">Low:</span>
+                  <strong class="font-medium text-neutral-900 dark:text-neutral-100">
+                    {@security_summary.low}
+                  </strong>
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-neutral-400"></span>
+                  <span class="text-neutral-500 font-light">Info:</span>
+                  <strong class="font-medium text-neutral-900 dark:text-neutral-100">
+                    {@security_summary.info}
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <% total_f = max(@security_summary.total_findings, 1)
+            p_crit = @security_summary.critical * 100.0 / total_f
+            p_high = @security_summary.high * 100.0 / total_f
+            p_med = @security_summary.medium * 100.0 / total_f
+            p_low = @security_summary.low * 100.0 / total_f
+            p_info = @security_summary.info * 100.0 / total_f %>
+
+            <div class="w-full h-3 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden flex">
+              <%= if @security_summary.total_findings == 0 do %>
+                <div class="w-full h-full bg-neutral-200 dark:bg-neutral-600"></div>
+              <% else %>
+                <%= if @security_summary.critical > 0 do %>
+                  <div
+                    style={"width: #{p_crit}%"}
+                    class="h-full bg-red-500"
+                    title={"Critical: #{@security_summary.critical}"}
+                  >
+                  </div>
+                <% end %>
+                <%= if @security_summary.high > 0 do %>
+                  <div
+                    style={"width: #{p_high}%"}
+                    class="h-full bg-orange-500"
+                    title={"High: #{@security_summary.high}"}
+                  >
+                  </div>
+                <% end %>
+                <%= if @security_summary.medium > 0 do %>
+                  <div
+                    style={"width: #{p_med}%"}
+                    class="h-full bg-amber-500"
+                    title={"Medium: #{@security_summary.medium}"}
+                  >
+                  </div>
+                <% end %>
+                <%= if @security_summary.low > 0 do %>
+                  <div
+                    style={"width: #{p_low}%"}
+                    class="h-full bg-blue-500"
+                    title={"Low: #{@security_summary.low}"}
+                  >
+                  </div>
+                <% end %>
+                <%= if @security_summary.info > 0 do %>
+                  <div
+                    style={"width: #{p_info}%"}
+                    class="h-full bg-neutral-400"
+                    title={"Info: #{@security_summary.info}"}
+                  >
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Main Content Grid: Top Vulnerable Assets vs Recent Detections --%>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <%!-- Left Column: Top Vulnerable Assets (7 cols) --%>
+            <div class="lg:col-span-7 border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100 dark:border-neutral-700">
+                  <div>
+                    <h3 class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
+                      Priority Remediation: Vulnerable Domains
+                    </h3>
+                    <p class="text-[11px] text-neutral-400 font-light mt-0.5">
+                      Domains ranked by critical and high severity findings
+                    </p>
+                  </div>
+                  <.link
+                    navigate={~p"/domains"}
+                    class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors flex items-center gap-1"
+                  >
+                    View directory &rarr;
+                  </.link>
+                </div>
+
+                <%= if @security_summary.top_vulnerable_domains == [] do %>
+                  <div class="py-16 text-center border border-dashed border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/50 p-6">
+                    <.icon
+                      name="hero-shield-check"
+                      class="w-10 h-10 mx-auto text-emerald-500 mb-3"
+                    />
+                    <p class="text-sm text-neutral-700 dark:text-neutral-300 font-normal">
+                      No active vulnerabilities detected!
+                    </p>
+                    <p class="text-xs text-neutral-400 font-light mt-1 max-w-sm mx-auto">
+                      All scanned domains have zero critical or high findings, or scans have not yet been executed across the portfolio.
+                    </p>
+                    <.link
+                      navigate={~p"/domains"}
+                      class="mt-4 inline-flex items-center gap-2 px-4 py-2 border border-neutral-900 text-[10px] uppercase tracking-widest font-normal hover:bg-neutral-900 hover:text-white transition-all dark:border-neutral-100 dark:hover:bg-neutral-100 dark:hover:text-neutral-900"
+                    >
+                      <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Run Bulk Security Scan
+                    </.link>
+                  </div>
+                <% else %>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                      <thead>
+                        <tr class="border-b border-neutral-100 dark:border-neutral-700 text-[10px] font-normal uppercase tracking-wider text-neutral-400">
+                          <th class="pb-3">Domain</th>
+                          <th class="pb-3 text-center">Critical</th>
+                          <th class="pb-3 text-center">High</th>
+                          <th class="pb-3 text-center">Medium</th>
+                          <th class="pb-3 text-right">Report</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-neutral-100 dark:divide-neutral-700">
+                        <%= for d <- @security_summary.top_vulnerable_domains do %>
+                          <tr class="hover:bg-neutral-50/70 dark:hover:bg-neutral-700/50 transition-colors">
+                            <td class="py-3 font-mono font-medium text-neutral-900 dark:text-neutral-100">
+                              <.link
+                                navigate={~p"/domains/#{d.domain_id}/security"}
+                                class="hover:underline"
+                              >
+                                {d.domain_name}
+                              </.link>
+                            </td>
+                            <td class="py-3 text-center">
+                              <%= if d.critical_count > 0 do %>
+                                <span class="px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 font-bold text-[10px]">
+                                  {d.critical_count}
+                                </span>
+                              <% else %>
+                                <span class="text-neutral-300 dark:text-neutral-600">-</span>
+                              <% end %>
+                            </td>
+                            <td class="py-3 text-center">
+                              <%= if d.high_count > 0 do %>
+                                <span class="px-2 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 font-semibold text-[10px]">
+                                  {d.high_count}
+                                </span>
+                              <% else %>
+                                <span class="text-neutral-300 dark:text-neutral-600">-</span>
+                              <% end %>
+                            </td>
+                            <td class="py-3 text-center">
+                              <%= if d.medium_count > 0 do %>
+                                <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-medium text-[10px]">
+                                  {d.medium_count}
+                                </span>
+                              <% else %>
+                                <span class="text-neutral-300 dark:text-neutral-600">-</span>
+                              <% end %>
+                            </td>
+                            <td class="py-3 text-right">
+                              <.link
+                                navigate={~p"/domains/#{d.domain_id}/security"}
+                                class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
+                              >
+                                View <.icon name="hero-arrow-right" class="w-3 h-3" />
+                              </.link>
+                            </td>
+                          </tr>
+                        <% end %>
+                      </tbody>
+                    </table>
+                  </div>
+                <% end %>
+              </div>
+
+              <div class="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-700 flex items-center justify-between text-xs text-neutral-400">
+                <span>Showing top vulnerable domains by weighted severity</span>
+                <.link navigate={~p"/domains"} class="hover:underline text-[11px]">
+                  Batch scanning available on Domain Directory &rarr;
+                </.link>
+              </div>
+            </div>
+
+            <%!-- Right Column: Recent Critical Findings & Quick Scan Actions (5 cols) --%>
+            <div class="lg:col-span-5 space-y-6">
+              <%!-- Recent Detections List --%>
+              <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+                <h3 class="text-sm font-normal text-neutral-900 dark:text-neutral-100 mb-4 pb-2 border-b border-neutral-100 dark:border-neutral-700">
+                  Recent Threat Detections
+                </h3>
+                <%= if @security_summary.recent_critical_findings == [] do %>
+                  <div class="py-10 text-center text-xs text-neutral-400 font-light">
+                    No critical or high severity findings recorded recently.
+                  </div>
+                <% else %>
+                  <div class="divide-y divide-neutral-100 dark:divide-neutral-700">
+                    <%= for f <- @security_summary.recent_critical_findings do %>
+                      <div class="py-3 first:pt-0 last:pb-0">
+                        <div class="flex items-start justify-between gap-2 mb-1">
+                          <span class={[
+                            "px-1.5 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded shrink-0",
+                            if(f.severity == "critical",
+                              do: "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300",
+                              else:
+                                "bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300"
+                            )
+                          ]}>
+                            {f.severity}
+                          </span>
+                          <span class="text-[10px] text-neutral-400 font-mono truncate">
+                            {f.target}
+                          </span>
+                        </div>
+                        <h4 class="text-xs font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                          {f.title}
+                        </h4>
+                        <div class="mt-1 flex items-center justify-between text-[10px] text-neutral-400">
+                          <.link
+                            navigate={~p"/domains/#{f.domain_id}/security"}
+                            class="hover:underline font-mono text-neutral-600 dark:text-neutral-300"
+                          >
+                            {f.domain_name}
+                          </.link>
+                          <span>{Calendar.strftime(f.inserted_at, "%b %d, %H:%M")}</span>
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+
+              <%!-- Quick Action Card --%>
+              <div class="border border-neutral-200 bg-neutral-50/50 p-6 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="p-2 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 rounded">
+                    <.icon name="hero-bolt" class="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+                      On-Demand Native Scanner
+                    </h4>
+                    <p class="text-[10px] text-neutral-400">
+                      In-process BEAM lightweight audit
+                    </p>
+                  </div>
+                </div>
+                <p class="text-xs text-neutral-600 dark:text-neutral-300 font-light mb-4">
+                  Runs 35+ targeted vulnerability probes, SSL/TLS 1.0 & 1.1 handshake tests, HTTP security headers analysis, and port checks without external dependencies.
+                </p>
+                <.link
+                  navigate={~p"/domains"}
+                  class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-900 text-white text-xs font-normal uppercase tracking-widest hover:bg-neutral-800 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                >
+                  Go to Domains for Bulk Scan
+                  <.icon name="hero-arrow-right" class="w-3.5 h-3.5" />
+                </.link>
+              </div>
+            </div>
           </div>
         </div>
     <% end %>

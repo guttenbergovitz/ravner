@@ -5,9 +5,14 @@ defmodule RavnerWeb.OwnershipLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    stats = OwnershipStats.dashboard_stats()
-    all_brands = OwnershipStats.list_brands_with_stats()
-    orphaned = OwnershipStats.orphaned_stats()
+    scope = socket.assigns[:current_scope]
+    stats = OwnershipStats.dashboard_stats(scope)
+
+    all_brands =
+      OwnershipStats.list_brands_with_stats()
+      |> filter_brands_by_scope(scope)
+
+    orphaned = OwnershipStats.orphaned_stats(scope)
 
     {:ok,
      socket
@@ -17,6 +22,13 @@ defmodule RavnerWeb.OwnershipLive.Index do
      |> assign(:brands, all_brands)
      |> assign(:orphaned, orphaned)
      |> assign(:search_query, "")}
+  end
+
+  defp filter_brands_by_scope(brands, nil), do: brands
+  defp filter_brands_by_scope(brands, %{global?: true}), do: brands
+
+  defp filter_brands_by_scope(brands, scope) do
+    Enum.filter(brands, &(&1.id in scope.brand_ids))
   end
 
   @impl true

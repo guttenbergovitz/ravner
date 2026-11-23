@@ -56,6 +56,30 @@
       </div>
     </div>
 
+    <%!-- Top Navigation Tabs --%>
+    <div class="flex items-center gap-6 border-b border-neutral-100 mb-8 pb-px dark:border-neutral-800">
+      <.link
+        navigate={~p"/ownership"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100 transition-all duration-200"
+      >
+        Brands & Organizations
+      </.link>
+      <%= if is_nil(@current_scope) or @current_scope.role in [:admin, :editor, :delivery_head, :pm_supervisor, :project_manager] do %>
+        <.link
+          navigate={~p"/ownership/delivery"}
+          class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-all duration-200"
+        >
+          Delivery & PM Hierarchy
+        </.link>
+      <% end %>
+      <.link
+        navigate={~p"/ownership/landscape"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-all duration-200 flex items-center gap-1.5"
+      >
+        <.icon name="hero-squares-plus" class="w-3.5 h-3.5" /> Digital Landscape
+      </.link>
+    </div>
+
     <%!-- How it works --%>
     <div class="mb-10 border border-neutral-200 bg-neutral-50/50 p-6 dark:border-neutral-700 dark:bg-neutral-800/50">
       <div class="flex items-start gap-4">
@@ -190,6 +214,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
               <%= for brand <- @brands do %>
                 <.link
+                  id={"brand-card-#{brand.id}"}
                   navigate={~p"/ownership/brands/#{brand.id}"}
                   class={[
                     "block border bg-white p-6 hover:border-neutral-400 transition-colors group dark:bg-neutral-800 dark:hover:border-neutral-500",
@@ -206,6 +231,19 @@
                       </h3>
                       <%= if brand.display_name && brand.display_name != brand.name do %>
                         <div class="text-[10px] text-neutral-400 mt-0.5">{brand.name}</div>
+                      <% end %>
+                      <%= if Map.get(brand, :brand_manager_name) && brand.brand_manager_name != "" do %>
+                        <div class="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 flex items-center gap-1">
+                          <span class="text-[9px] uppercase tracking-wider text-neutral-400">
+                            Manager:
+                          </span>
+                          <span class="font-normal truncate">{brand.brand_manager_name}</span>
+                        </div>
+                      <% else %>
+                        <div class="text-[11px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1.5">
+                          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+                          <span class="text-[10px] font-normal">No manager designated</span>
+                        </div>
                       <% end %>
                     </div>
                     <.icon
@@ -257,90 +295,164 @@
 
       <%!-- Sidebar: Needs Attention --%>
       <aside class="space-y-6 sticky top-8">
-        <div class="border border-neutral-200 bg-white p-6">
-          <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-5">
-            Needs Attention
-          </h3>
+        <%= if is_nil(@current_scope) or @current_scope.admin? or @current_scope.editor? do %>
+          <div class="border border-neutral-200 bg-white p-6">
+            <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-5">
+              Needs Attention
+            </h3>
 
-          <div class="space-y-4">
-            <%= if @orphaned.domains_without_project > 0 do %>
-              <.link
-                navigate={~p"/domains"}
-                class="flex items-center justify-between py-2 group"
-              >
-                <div class="flex items-center gap-3">
-                  <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
-                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
-                    Domains without project
+            <div class="space-y-4">
+              <%= if @orphaned.brands_without_manager > 0 do %>
+                <.link
+                  navigate={~p"/ownership"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Brands without manager
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.brands_without_manager}
                   </span>
-                </div>
-                <span class="text-sm font-normal text-neutral-900 tabular-nums">
-                  {@orphaned.domains_without_project}
-                </span>
-              </.link>
-            <% end %>
+                </.link>
+              <% end %>
 
-            <%= if @orphaned.domains_without_brand > 0 do %>
-              <.link
-                navigate={~p"/domains"}
-                class="flex items-center justify-between py-2 group"
-              >
-                <div class="flex items-center gap-3">
-                  <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
-                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
-                    Domains without brand
+              <%= if @orphaned.organizations_without_manager > 0 do %>
+                <.link
+                  navigate={~p"/ownership"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Organizations without manager
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.organizations_without_manager}
                   </span>
-                </div>
-                <span class="text-sm font-normal text-neutral-900 tabular-nums">
-                  {@orphaned.domains_without_brand}
-                </span>
-              </.link>
-            <% end %>
+                </.link>
+              <% end %>
 
-            <%= if @orphaned.empty_organizations > 0 do %>
-              <.link
-                navigate={~p"/ownership"}
-                class="flex items-center justify-between py-2 group"
-              >
-                <div class="flex items-center gap-3">
-                  <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
-                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
-                    Empty organizations
+              <%= if @orphaned.domains_without_project > 0 do %>
+                <.link
+                  navigate={~p"/domains"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Domains without project
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.domains_without_project}
                   </span>
-                </div>
-                <span class="text-sm font-normal text-neutral-900 tabular-nums">
-                  {@orphaned.empty_organizations}
-                </span>
-              </.link>
-            <% end %>
+                </.link>
+              <% end %>
 
-            <%= if @orphaned.projects_without_team > 0 do %>
-              <.link
-                navigate={~p"/ownership"}
-                class="flex items-center justify-between py-2 group"
-              >
-                <div class="flex items-center gap-3">
-                  <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
-                  <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
-                    Projects without team
+              <%= if @orphaned.domains_without_brand > 0 do %>
+                <.link
+                  navigate={~p"/domains"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Domains without brand
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.domains_without_brand}
                   </span>
-                </div>
-                <span class="text-sm font-normal text-neutral-900 tabular-nums">
-                  {@orphaned.projects_without_team}
-                </span>
-              </.link>
-            <% end %>
+                </.link>
+              <% end %>
 
-            <%= if @orphaned.domains_without_project == 0 &&
+              <%= if @orphaned.empty_organizations > 0 do %>
+                <.link
+                  navigate={~p"/ownership"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Empty organizations
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.empty_organizations}
+                  </span>
+                </.link>
+              <% end %>
+
+              <%= if Map.get(@orphaned, :projects_without_pm, 0) > 0 do %>
+                <.link
+                  navigate={~p"/ownership/delivery"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Projects without Project Manager
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-rose-600 tabular-nums">
+                    {@orphaned.projects_without_pm}
+                  </span>
+                </.link>
+              <% end %>
+
+              <%= if Map.get(@orphaned, :projects_without_po, 0) > 0 do %>
+                <.link
+                  navigate={~p"/ownership"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Projects without Product Owner
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.projects_without_po}
+                  </span>
+                </.link>
+              <% end %>
+
+              <%= if @orphaned.projects_without_team > 0 do %>
+                <.link
+                  navigate={~p"/ownership"}
+                  class="flex items-center justify-between py-2 group"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    <span class="text-sm font-light text-neutral-700 group-hover:text-neutral-900">
+                      Projects without team roster
+                    </span>
+                  </div>
+                  <span class="text-sm font-normal text-neutral-900 tabular-nums">
+                    {@orphaned.projects_without_team}
+                  </span>
+                </.link>
+              <% end %>
+
+              <%= if @orphaned.domains_without_project == 0 &&
                    @orphaned.domains_without_brand == 0 &&
                    @orphaned.empty_organizations == 0 &&
-                   @orphaned.projects_without_team == 0 do %>
-              <div class="py-4 text-center">
-                <span class="text-xs font-light text-neutral-400">All clear</span>
-              </div>
-            <% end %>
+                   @orphaned.projects_without_team == 0 &&
+                   Map.get(@orphaned, :projects_without_pm, 0) == 0 &&
+                   Map.get(@orphaned, :projects_without_po, 0) == 0 &&
+                   @orphaned.brands_without_manager == 0 &&
+                   @orphaned.organizations_without_manager == 0 do %>
+                <div class="py-4 text-center">
+                  <span class="text-xs font-light text-neutral-400">All clear</span>
+                </div>
+              <% end %>
+            </div>
           </div>
-        </div>
+        <% end %>
 
         <div class="border border-neutral-200 bg-white p-6">
           <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-5">

@@ -56,29 +56,6 @@ defmodule Ravner.ScansTest do
            } = Scans.Http.parse_katana_output(output)
   end
 
-  test "parse_webanalyze_output extracts technology evidence from jsonl" do
-    output = """
-    {"hostname":"https://example.com","matches":[{"app_name":"Phoenix","version":"1.8.0","cat_names":["Web Frameworks"]},{"app_name":"PostgreSQL","cat_names":["Databases"]}]}
-    {"hostname":"https://example.com/about","matches":[{"app_name":"Phoenix","version":"1.8.0","cat_names":["Web Frameworks"]}]}
-    """
-
-    assert [
-             %{
-               "name" => "Phoenix",
-               "version" => "1.8.0",
-               "categories" => ["Web Frameworks"],
-               "source" => "webanalyze",
-               "url" => "https://example.com"
-             },
-             %{
-               "name" => "PostgreSQL",
-               "categories" => ["Databases"],
-               "source" => "webanalyze",
-               "url" => "https://example.com"
-             }
-           ] = Scans.Http.parse_webanalyze_output(output)
-  end
-
   describe "external_redirect?/2" do
     test "returns false for nil final_url" do
       refute Scans.external_redirect?("example.com", nil)
@@ -97,16 +74,28 @@ defmodule Ravner.ScansTest do
     end
 
     test "returns true for different apex domain" do
-      assert Scans.external_redirect?("old-brand.com", "https://josera.com/page")
+      assert Scans.external_redirect?("old-brand.com", "https://new-brand.com/page")
     end
 
     test "returns true for different apex with subdomain source" do
-      assert Scans.external_redirect?("shop.old-brand.com", "https://josera.com/")
+      assert Scans.external_redirect?("shop.old-brand.com", "https://new-brand.com/")
     end
 
     test "handles two-part TLDs correctly" do
       refute Scans.external_redirect?("example.co.uk", "https://www.example.co.uk/page")
       assert Scans.external_redirect?("example.co.uk", "https://other.co.uk/page")
+    end
+
+    test "detects registrar parking and external landing redirects" do
+      assert Scans.external_redirect?(
+               "farmchamps.com",
+               "https://forsale.godaddy.com/forsale/farmchamps.com"
+             )
+
+      assert Scans.external_redirect?(
+               "probe.acme.example",
+               "https://docs.google.com/forms/d/e/123/viewform"
+             )
     end
   end
 end

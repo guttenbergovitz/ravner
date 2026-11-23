@@ -19,25 +19,37 @@ defmodule RavnerWeb.DomainLive.A11yReport do
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     domain = Domains.get_domain_with_preloads!(id)
-    scan = A11y.latest_scan(domain.id)
 
-    issues = if scan, do: scan.results_raw["issues"] || [], else: []
-    grouped = group_by_principle(issues)
+    if Ravner.Accounts.ScopeResolver.can_view_domain?(socket.assigns[:current_scope], domain) do
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(Ravner.PubSub, "a11y_scan:domain:#{domain.id}")
+      end
 
-    expanded =
-      grouped
-      |> Enum.filter(&(&1.count > 0))
-      |> Enum.map(& &1.key)
-      |> MapSet.new()
+      scan = A11y.latest_scan(domain.id)
 
-    {:ok,
-     socket
-     |> assign(:page_title, "A11y Report — #{domain.name}")
-     |> assign(:domain, domain)
-     |> assign(:scan, scan)
-     |> assign(:issues, issues)
-     |> assign(:grouped, grouped)
-     |> assign(:expanded, expanded)}
+      issues = if scan, do: scan.results_raw["issues"] || [], else: []
+      grouped = group_by_principle(issues)
+
+      expanded =
+        grouped
+        |> Enum.filter(&(&1.count > 0))
+        |> Enum.map(& &1.key)
+        |> MapSet.new()
+
+      {:ok,
+       socket
+       |> assign(:page_title, "A11y Report — #{domain.name}")
+       |> assign(:domain, domain)
+       |> assign(:scan, scan)
+       |> assign(:issues, issues)
+       |> assign(:grouped, grouped)
+       |> assign(:expanded, expanded)}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "You do not have permission to view this domain.")
+       |> push_navigate(to: ~p"/domains")}
+    end
   end
 
   @impl true
@@ -52,12 +64,18 @@ defmodule RavnerWeb.DomainLive.A11yReport do
     {:noreply, assign(socket, :expanded, expanded)}
   end
 
+  @impl true
   def handle_event("rescan", _params, socket) do
-    if socket.assigns.current_scope.user.role in [:admin, :editor] do
+    if Ravner.Accounts.ScopeResolver.can_scan_domain?(
+         socket.assigns.current_scope,
+         socket.assigns.domain
+       ) do
       domain = socket.assigns.domain
 
       if A11y.scannable?(domain) do
-        %{domain_id: domain.id}
+        user_id = socket.assigns.current_scope.user.id
+
+        %{domain_id: domain.id, user_id: user_id}
         |> Ravner.Workers.A11yScanWorker.new()
         |> Oban.insert()
 
@@ -68,6 +86,39 @@ defmodule RavnerWeb.DomainLive.A11yReport do
     else
       {:noreply, put_flash(socket, :error, "Permission denied.")}
     end
+  end
+
+  @impl true
+  def handle_info({:a11y_scan_completed, %{status: "failed"} = scan}, socket) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Accessibility scan failed: #{scan.error_message || "unknown error"}"
+     )}
+  end
+
+  @impl true
+  def handle_info({:a11y_scan_completed, scan}, socket) do
+    issues = scan.results_raw["issues"] || []
+    grouped = group_by_principle(issues)
+
+    expanded =
+      grouped
+      |> Enum.filter(&(&1.count > 0))
+      |> Enum.map(& &1.key)
+      |> MapSet.new()
+
+    {:noreply,
+     socket
+     |> assign(:scan, scan)
+     |> assign(:issues, issues)
+     |> assign(:grouped, grouped)
+     |> assign(:expanded, expanded)
+     |> put_flash(
+       :info,
+       "Accessibility scan completed (#{scan.violations_count || 0} violations)."
+     )}
   end
 
   # --- Helpers ---
@@ -146,7 +197,7 @@ defmodule RavnerWeb.DomainLive.A11yReport do
             <button
               id="rescan-a11y-btn"
               phx-click="rescan"
-              disabled={is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]}
+              disabled={!Ravner.Accounts.ScopeResolver.can_scan_domain?(@current_scope, @domain)}
               class="text-xs font-light px-3 py-1.5 border border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 transition-colors"
             >
               Re-scan

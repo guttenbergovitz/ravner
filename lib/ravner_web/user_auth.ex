@@ -52,6 +52,9 @@ defmodule RavnerWeb.UserAuth do
     user_token = get_session(conn, :user_token)
     user_token && Accounts.delete_user_session_token(user_token)
 
+    admin_token = get_session(conn, :masquerading_admin_token)
+    admin_token && Accounts.delete_user_session_token(admin_token)
+
     if live_socket_id = get_session(conn, :live_socket_id) do
       RavnerWeb.Endpoint.broadcast(live_socket_id, "disconnect", %{})
     end
@@ -68,13 +71,23 @@ defmodule RavnerWeb.UserAuth do
   Will reissue the session token if it is older than the configured age.
   """
   def fetch_current_scope_for_user(conn, _opts) do
+    masquerading_admin_token = get_session(conn, :masquerading_admin_token)
+    masquerading? = not is_nil(masquerading_admin_token)
+    masquerading_admin_email = get_session(conn, :masquerading_admin_email)
+
     with {token, conn} <- ensure_user_token(conn),
          {user, token_inserted_at} <- Accounts.get_user_by_session_token(token) do
       conn
       |> assign(:current_scope, Scope.for_user(user))
+      |> assign(:masquerading?, masquerading?)
+      |> assign(:masquerading_admin_email, masquerading_admin_email)
       |> maybe_reissue_user_session_token(user, token_inserted_at)
     else
-      nil -> assign(conn, :current_scope, Scope.for_user(nil))
+      nil ->
+        conn
+        |> assign(:current_scope, Scope.for_user(nil))
+        |> assign(:masquerading?, false)
+        |> assign(:masquerading_admin_email, nil)
     end
   end
 
@@ -94,12 +107,17 @@ defmodule RavnerWeb.UserAuth do
 
   # Reissue the session token if it is older than the configured reissue age.
   defp maybe_reissue_user_session_token(conn, user, token_inserted_at) do
-    token_age = DateTime.diff(DateTime.utc_now(:second), token_inserted_at, :day)
-
-    if token_age >= @session_reissue_age_in_days do
-      create_or_extend_session(conn, user, %{})
-    else
+    # Do not reissue tokens or clear session cookies while in masquerade mode
+    if get_session(conn, :masquerading_admin_token) do
       conn
+    else
+      token_age = DateTime.diff(DateTime.utc_now(:second), token_inserted_at, :day)
+
+      if token_age >= @session_reissue_age_in_days do
+        create_or_extend_session(conn, user, %{})
+      else
+        conn
+      end
     end
   end
 
@@ -248,9 +266,21 @@ defmodule RavnerWeb.UserAuth do
   def on_mount(:ensure_editor, _params, session, socket) do
     socket = do_mount_current_scope(session, socket)
     user = socket.assigns.current_scope && socket.assigns.current_scope.user
-    role_rank = %{viewer: 0, editor: 1, admin: 2}
 
-    if user && Map.get(role_rank, user.role, 0) >= 1 do
+    allowed? =
+      user != nil and
+        user.role in [
+          :admin,
+          :editor,
+          :brand_manager,
+          :organization_manager,
+          :product_owner,
+          :delivery_head,
+          :pm_supervisor,
+          :project_manager
+        ]
+
+    if allowed? do
       {:cont, socket}
     else
       socket =
@@ -268,6 +298,15 @@ defmodule RavnerWeb.UserAuth do
   end
 
   defp do_mount_current_scope(session, socket) do
+    masquerading_admin_token = session["masquerading_admin_token"]
+    masquerading? = not is_nil(masquerading_admin_token)
+    masquerading_admin_email = session["masquerading_admin_email"]
+
+    socket =
+      socket
+      |> Phoenix.Component.assign(:masquerading?, masquerading?)
+      |> Phoenix.Component.assign(:masquerading_admin_email, masquerading_admin_email)
+
     case session do
       %{"user_token" => token} ->
         {user, _token_inserted_at} = Accounts.get_user_by_session_token(token)

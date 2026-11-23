@@ -159,6 +159,46 @@
               </div>
             <% end %>
 
+            <%!-- AWS SES --%>
+            <%= if current_email == "aws_ses" do %>
+              <div class="grid grid-cols-3 gap-4">
+                <div>
+                  <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                    Region
+                  </label>
+                  <input
+                    type="text"
+                    name="ses_region"
+                    value={Map.get(@settings, "email_ses_region", "eu-central-1")}
+                    placeholder="eu-central-1"
+                    class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  />
+                </div>
+                <div>
+                  <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                    Access Key
+                  </label>
+                  <input
+                    type="text"
+                    name="ses_access_key"
+                    value={Map.get(@settings, "email_ses_access_key", "")}
+                    class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  />
+                </div>
+                <div>
+                  <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                    Secret Key
+                  </label>
+                  <input
+                    type="password"
+                    name="ses_secret_key"
+                    placeholder="••••••••"
+                    class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  />
+                </div>
+              </div>
+            <% end %>
+
             <%!-- SendGrid --%>
             <%= if current_email == "sendgrid" do %>
               <div>
@@ -282,6 +322,56 @@
 
           <%!-- Provider-specific fields --%>
           <% current_sms = Map.get(@settings, "sms_provider", "log") %>
+
+          <%!-- AWS SNS --%>
+          <%= if current_sms == "aws_sns" do %>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-[10px] uppercase tracking-wide text-neutral-500">Region</label>
+                <input
+                  type="text"
+                  name="sns_region"
+                  value={Map.get(@settings, "sms_sns_region", "eu-central-1")}
+                  placeholder="eu-central-1"
+                  class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                  Sender ID
+                </label>
+                <input
+                  type="text"
+                  name="sns_sender_id"
+                  value={Map.get(@settings, "sms_sns_sender_id", "Ravner")}
+                  placeholder="Ravner"
+                  class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                  Access Key
+                </label>
+                <input
+                  type="text"
+                  name="sns_access_key"
+                  value={Map.get(@settings, "sms_sns_access_key", "")}
+                  class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                  Secret Key
+                </label>
+                <input
+                  type="password"
+                  name="sns_secret_key"
+                  placeholder="••••••••"
+                  class="block w-full text-sm border border-neutral-200 rounded px-3 py-2 mt-1 dark:border-neutral-700 dark:bg-neutral-800"
+                />
+              </div>
+            </div>
+          <% end %>
 
           <%!-- Twilio --%>
           <%= if current_sms == "twilio" do %>

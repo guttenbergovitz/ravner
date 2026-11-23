@@ -3,7 +3,9 @@ defmodule Ravner.Workers.DomainCheckDispatcher do
   Dispatches HeartbeatWorker jobs for domain_checks that are due.
   Runs every minute via Oban cron (same as HeartbeatDispatcher).
   """
-  use Oban.Worker, queue: :default
+  use Oban.Worker,
+    queue: :default,
+    unique: [period: 120, fields: [:args]]
 
   import Ecto.Query
   alias Ravner.Repo

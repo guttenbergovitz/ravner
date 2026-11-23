@@ -1,0 +1,1514 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <%!-- Breadcrumbs --%>
+    <nav class="text-xs font-light text-neutral-400 mb-6 flex items-center gap-2">
+      <.link navigate={~p"/ownership"} class="hover:text-neutral-600 transition-colors">
+        Ownership
+      </.link>
+      <.icon name="hero-chevron-right" class="w-3 h-3" />
+      <.link navigate={~p"/ownership/landscape"} class="hover:text-neutral-600 transition-colors">
+        Landscape
+      </.link>
+      <%= if @app.project do %>
+        <.icon name="hero-chevron-right" class="w-3 h-3" />
+        <.link
+          navigate={~p"/ownership/projects/#{@app.project.id}?tab=landscape"}
+          class="hover:text-neutral-600 transition-colors"
+        >
+          {@app.project.display_name || @app.project.name}
+        </.link>
+      <% end %>
+      <.icon name="hero-chevron-right" class="w-3 h-3" />
+      <span class="text-neutral-600 dark:text-neutral-300 font-medium">
+        {@app.name}
+      </span>
+    </nav>
+
+    <%!-- Header Card --%>
+    <div class="flex items-start justify-between mb-8 border-b border-neutral-100 pb-8 dark:border-neutral-800">
+      <div>
+        <div class="flex items-center gap-3 mb-2 flex-wrap">
+          <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 font-semibold">
+            {@app.app_type}
+          </span>
+          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            {@app.name}
+          </h1>
+          <span class="text-xs font-mono text-neutral-400">
+            ({@app.slug})
+          </span>
+          <span class={[
+            "text-[10px] uppercase font-mono px-2 py-0.5 border rounded",
+            if(@app.criticality in ["mission_critical", "tier_1"],
+              do:
+                "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+              else:
+                "bg-neutral-50 text-neutral-600 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-300 dark:border-neutral-700"
+            )
+          ]}>
+            {@app.criticality}
+          </span>
+          <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded border bg-neutral-100 text-neutral-600 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700">
+            Status: {@app.lifecycle_state}
+          </span>
+          <%= if @can_manage? do %>
+            <button
+              type="button"
+              phx-click="open_edit_metadata"
+              id="btn-edit-app-metadata"
+              class="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-900 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:hover:text-neutral-200"
+            >
+              <.icon name="hero-pencil" class="w-3 h-3 inline mr-1" /> Edit
+            </button>
+          <% end %>
+        </div>
+
+        <%= if @app.description do %>
+          <p class="text-sm font-light text-neutral-500 dark:text-neutral-400 max-w-2xl leading-relaxed">
+            {@app.description}
+          </p>
+        <% end %>
+
+        <%= if @app.project do %>
+          <div class="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+            <span>Project:</span>
+            <.link
+              navigate={~p"/ownership/projects/#{@app.project.id}?tab=landscape"}
+              class="font-medium text-neutral-800 dark:text-neutral-200 hover:underline inline-flex items-center gap-1"
+            >
+              {@app.project.display_name || @app.project.name}
+              <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+            </.link>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Stats metrics --%>
+      <div class="flex gap-6 shrink-0">
+        <div class="text-right">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Domains
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100 font-mono">
+            {length(@app.domains || [])}
+          </div>
+        </div>
+        <div class="text-right border-l border-neutral-100 pl-6 dark:border-neutral-800">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Datastores
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100 font-mono">
+            {length(@app.datastores || [])}
+          </div>
+        </div>
+        <div class="text-right border-l border-neutral-100 pl-6 dark:border-neutral-800">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Services
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100 font-mono">
+            {length(@app.external_services || [])}
+          </div>
+        </div>
+        <div class="text-right border-l border-neutral-100 pl-6 dark:border-neutral-800">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Constraints
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100 font-mono">
+            {length(@app.constraints || [])}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Tabs --%>
+    <div class="flex items-center gap-6 border-b border-neutral-100 mb-8 pb-px dark:border-neutral-800">
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=overview"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "overview",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Overview & Topology
+      </.link>
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=domains"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "domains",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Domains ({length(@app.domains || [])})
+      </.link>
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=datastores"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "datastores",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Datastores ({length(@app.datastores || [])})
+      </.link>
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=services"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "services",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        External Services ({length(@app.external_services || [])})
+      </.link>
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=constraints"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "constraints",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Policy Constraints ({length(@app.constraints || [])})
+      </.link>
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=architecture"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "architecture",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Architecture Links
+      </.link>
+      <.link
+        patch={~p"/ownership/applications/#{@app.id}?tab=audit"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "audit",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Audit Trail ({length(@versions)})
+      </.link>
+    </div>
+
+    <%!-- Tab Content --%>
+    <%= cond do %>
+      <% @current_tab == "overview" -> %>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <%!-- Technical & Deployment Info --%>
+          <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+            <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200 mb-4 border-b border-neutral-100 pb-2 dark:border-neutral-700 flex items-center justify-between">
+              <span>Infrastructure & Hosting Environment</span>
+              <span class="text-[10px] font-mono text-neutral-400">Node</span>
+            </h3>
+            <%= if @app.hosting_environment do %>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Provider</span>
+                  <span class="font-medium text-neutral-900 dark:text-neutral-100 uppercase font-mono text-xs">
+                    {@app.hosting_environment.provider}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Environment Node</span>
+                  <span class="font-normal text-neutral-900 dark:text-neutral-100">
+                    {@app.hosting_environment.name}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Region</span>
+                  <span class="font-mono text-xs text-neutral-700 dark:text-neutral-300">
+                    {@app.hosting_environment.region || "Global / Multi-region"}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Classification</span>
+                  <span class="text-xs font-mono px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">
+                    {@app.hosting_environment.environment_type}
+                  </span>
+                </div>
+              </div>
+            <% else %>
+              <div class="py-6 text-center text-xs text-neutral-400 italic">
+                No hosting environment configured.
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Network & Ingress Access --%>
+          <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+            <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200 mb-4 border-b border-neutral-100 pb-2 dark:border-neutral-700 flex items-center justify-between">
+              <span>Network Boundary & Ingress</span>
+              <span class="text-[10px] font-mono text-neutral-400">Perimeter</span>
+            </h3>
+            <%= if @app.network_access do %>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Zone Name</span>
+                  <span class="font-normal text-neutral-900 dark:text-neutral-100">
+                    {@app.network_access.name}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Access Level</span>
+                  <span class="text-xs font-mono uppercase px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300">
+                    {@app.network_access.access_level}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-neutral-500">Exposure</span>
+                  <span class="font-mono text-xs text-neutral-700 dark:text-neutral-300">
+                    {@app.network_access.exposure || "Public Ingress"}
+                  </span>
+                </div>
+              </div>
+            <% else %>
+              <div class="py-6 text-center text-xs text-neutral-400 italic">
+                No dedicated network access boundary specified.
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Notes & Architecture Context --%>
+          <div class="col-span-1 md:col-span-2 border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
+            <h3 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200 mb-3 border-b border-neutral-100 pb-2 dark:border-neutral-700">
+              Architecture & Compliance Notes
+            </h3>
+            <%= if @app.notes && @app.notes != "" do %>
+              <p class="text-xs font-light text-neutral-600 dark:text-neutral-300 whitespace-pre-line leading-relaxed">
+                {@app.notes}
+              </p>
+            <% else %>
+              <p class="text-xs text-neutral-400 italic font-light">
+                No technical notes or regulatory constraints entered for this workload yet.
+              </p>
+            <% end %>
+          </div>
+        </div>
+      <% @current_tab == "domains" -> %>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                Attached Domain Endpoints
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                Public web hostnames routing traffic directly to this application workload.
+              </p>
+            </div>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_add_domain"
+                id="btn-open-attach-domain"
+                class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5"
+              >
+                <.icon name="hero-plus" class="w-3.5 h-3.5" /> Attach Domain
+              </button>
+            <% end %>
+          </div>
+
+          <%= if (@app.domains || []) == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-globe-alt" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">No domains attached</h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto mb-4">
+                Attach scanned domains to map them to this application workload.
+              </p>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_add_domain"
+                  class="btn-line text-xs py-1.5 px-3"
+                >
+                  Attach First Domain
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
+              <%= for d <- @app.domains do %>
+                <div class="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+                  <div class="flex items-center gap-3">
+                    <.icon name="hero-globe-alt" class="w-4 h-4 text-neutral-400" />
+                    <div>
+                      <.link
+                        navigate={~p"/domains/#{d.id}"}
+                        class="text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:underline"
+                      >
+                        {d.name}
+                      </.link>
+                      <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded border bg-neutral-50 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+                          {d.lifecycle_state || "active"}
+                        </span>
+                        <%= if d.technical_status do %>
+                          <span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
+                            {d.technical_status}
+                          </span>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-3">
+                    <.link
+                      navigate={~p"/domains/#{d.id}"}
+                      class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 font-light"
+                    >
+                      View Details
+                    </.link>
+                    <%= if @can_manage? do %>
+                      <button
+                        type="button"
+                        phx-click="detach_domain"
+                        phx-value-domain_id={d.id}
+                        data-confirm={"Detach #{d.name} from this application?"}
+                        class="p-1 text-neutral-400 hover:text-red-600 transition-colors"
+                        title="Detach Domain"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4" />
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% @current_tab == "datastores" -> %>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                Bound Datastores & Persistence Nodes
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                Databases, caches, object storage, and search indexes leveraged by this workload.
+              </p>
+            </div>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_add_datastore"
+                id="btn-open-add-datastore"
+                class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/40"
+              >
+                <.icon name="hero-plus" class="w-3.5 h-3.5" /> Add Datastore
+              </button>
+            <% end %>
+          </div>
+
+          <%= if (@app.datastores || []) == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-circle-stack" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">No datastores provisioned</h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto mb-4">
+                Bind PostgreSQL, Redis, S3, or MySQL persistence nodes to document compliance and data lineage.
+              </p>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_add_datastore"
+                  class="btn-line text-xs py-1.5 px-3"
+                >
+                  Provision Datastore
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <%= for ds <- @app.datastores do %>
+                <div class="border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                        {ds.store_type}
+                      </span>
+                      <%= if @can_manage? do %>
+                        <button
+                          type="button"
+                          phx-click="delete_datastore"
+                          phx-value-id={ds.id}
+                          data-confirm={"Delete datastore #{ds.name}?"}
+                          class="text-neutral-400 hover:text-red-600 transition-colors p-1"
+                          title="Remove datastore"
+                        >
+                          <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                        </button>
+                      <% end %>
+                    </div>
+                    <h4 class="text-base font-light text-neutral-900 dark:text-neutral-100">
+                      {ds.name}
+                    </h4>
+                    <p class="text-xs font-mono text-neutral-400 mt-0.5">
+                      Role: {ds.role}
+                    </p>
+                    <%= if ds.notes do %>
+                      <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2 font-light">
+                        {ds.notes}
+                      </p>
+                    <% end %>
+                  </div>
+                  <div class="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-700 text-[10px] text-neutral-400 flex items-center justify-between font-mono">
+                    <span>ID: #{ds.id}</span>
+                    <span>{ds.slug}</span>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% @current_tab == "services" -> %>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                Third-Party & External Services
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                SaaS/PaaS integrations (e.g. Stripe, Gadget.dev, Algolia, Sendgrid, Shopify).
+              </p>
+            </div>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_link_service"
+                id="btn-open-link-service"
+                class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5"
+              >
+                <.icon name="hero-link" class="w-3.5 h-3.5" /> Link External Service
+              </button>
+            <% end %>
+          </div>
+
+          <%= if (@app.external_services || []) == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-cloud" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">
+                No external services linked
+              </h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto mb-4">
+                Record third-party SaaS platforms to track data processors and DORA/NIS2 supply chain compliance.
+              </p>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_link_service"
+                  class="btn-line text-xs py-1.5 px-3"
+                >
+                  Link First Service
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
+              <%= for svc <- @app.external_services do %>
+                <div class="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h4 class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
+                        {svc.name}
+                      </h4>
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded border bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                        {svc.service_type || "saas"}
+                      </span>
+                    </div>
+                    <%= if svc.vendor do %>
+                      <p class="text-xs text-neutral-500 font-light mt-0.5">
+                        Vendor: {svc.vendor}
+                      </p>
+                    <% end %>
+                  </div>
+                  <%= if @can_manage? do %>
+                    <button
+                      type="button"
+                      phx-click="unlink_external_service"
+                      phx-value-service_id={svc.id}
+                      data-confirm={"Unlink service #{svc.name} from this application?"}
+                      class="text-neutral-400 hover:text-red-600 p-1 transition-colors"
+                      title="Unlink service"
+                    >
+                      <.icon name="hero-x-mark" class="w-4 h-4" />
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% @current_tab == "constraints" -> %>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                Policy-as-Code & Regulatory Constraints
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                European Accessibility Act (EAA), NIS2, DORA, and GDPR compliance assertions.
+              </p>
+            </div>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_add_constraint"
+                id="btn-open-add-constraint"
+                class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/40"
+              >
+                <.icon name="hero-plus" class="w-3.5 h-3.5" /> Register Constraint
+              </button>
+            <% end %>
+          </div>
+
+          <%= if (@app.constraints || []) == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-shield-check" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">
+                No architecture constraints defined
+              </h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto mb-4">
+                Define regulatory constraints (EAA Accessibility, NIS2 Incident Resilience, DORA ICT Risk) to monitor audit compliance.
+              </p>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_add_constraint"
+                  class="btn-line text-xs py-1.5 px-3"
+                >
+                  Register Policy
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
+              <%= for c <- @app.constraints do %>
+                <div class="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h4 class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
+                        {c.name}
+                      </h4>
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded border bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                        {c.category}
+                      </span>
+                      <span class={[
+                        "text-[9px] uppercase font-mono px-1.5 py-0.2 rounded border",
+                        case c.compliance_status do
+                          "compliant" ->
+                            "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800"
+
+                          "non_compliant" ->
+                            "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800"
+
+                          _ ->
+                            "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
+                        end
+                      ]}>
+                        {c.compliance_status || "pending"}
+                      </span>
+                    </div>
+                    <p class="text-xs text-neutral-400 mt-1 font-mono">
+                      Rule: {c.rule_type} • Level: {c.enforcement_level}
+                    </p>
+                  </div>
+                  <%= if @can_manage? do %>
+                    <button
+                      type="button"
+                      phx-click="delete_constraint"
+                      phx-value-id={c.id}
+                      data-confirm={"Delete constraint #{c.name}?"}
+                      class="text-neutral-400 hover:text-red-600 p-1 transition-colors"
+                      title="Delete constraint"
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% @current_tab == "architecture" -> %>
+        <div class="space-y-8">
+          <%!-- Value Streams Section --%>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                  Linked Value Streams
+                </h2>
+                <p class="text-xs font-light text-neutral-400 mt-0.5">
+                  Business value streams this application participates in.
+                </p>
+              </div>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_link_value_stream"
+                  class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5"
+                >
+                  <.icon name="hero-link" class="w-3.5 h-3.5" /> Link Value Stream
+                </button>
+              <% end %>
+            </div>
+
+            <%= if (@app.value_streams || []) == [] do %>
+              <div class="py-8 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <.icon name="hero-arrow-path" class="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                <p class="text-xs font-light text-neutral-400">
+                  No value streams linked to this application.
+                </p>
+              </div>
+            <% else %>
+              <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
+                <%= for vs <- @app.value_streams do %>
+                  <div class="p-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+                    <div class="flex items-center gap-3">
+                      <.icon name="hero-arrow-path" class="w-4 h-4 text-blue-500" />
+                      <div>
+                        <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {vs.name}
+                        </div>
+                        <div class="text-[10px] text-neutral-400 font-mono">
+                          {vs.stage} · {vs.criticality}
+                        </div>
+                      </div>
+                    </div>
+                    <%= if @can_manage? do %>
+                      <button
+                        type="button"
+                        phx-click="unlink_value_stream"
+                        phx-value-value_stream_id={vs.id}
+                        data-confirm={"Unlink #{vs.name} from this application?"}
+                        class="text-neutral-400 hover:text-red-600 p-1"
+                        title="Unlink"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4" />
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Business Capabilities Section --%>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                  Linked Business Capabilities
+                </h2>
+                <p class="text-xs font-light text-neutral-400 mt-0.5">
+                  Business capabilities this application provides or supports.
+                </p>
+              </div>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_link_capability"
+                  class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5"
+                >
+                  <.icon name="hero-link" class="w-3.5 h-3.5" /> Link Capability
+                </button>
+              <% end %>
+            </div>
+
+            <%= if (@app.capabilities || []) == [] do %>
+              <div class="py-8 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+                <.icon name="hero-puzzle-piece" class="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                <p class="text-xs font-light text-neutral-400">
+                  No business capabilities linked to this application.
+                </p>
+              </div>
+            <% else %>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <%= for cap <- @app.capabilities do %>
+                  <div class="border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <.icon name="hero-puzzle-piece" class="w-4 h-4 text-emerald-500" />
+                      <div>
+                        <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {cap.name}
+                        </div>
+                        <div class="text-[10px] text-neutral-400 font-mono">
+                          {cap.category || "core"}
+                        </div>
+                      </div>
+                    </div>
+                    <%= if @can_manage? do %>
+                      <button
+                        type="button"
+                        phx-click="unlink_capability"
+                        phx-value-capability_id={cap.id}
+                        data-confirm={"Unlink #{cap.name} from this application?"}
+                        class="text-neutral-400 hover:text-red-600 p-1"
+                        title="Unlink"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4" />
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% @current_tab == "audit" -> %>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
+            <div>
+              <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+                AshPaperTrail Compliance History
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                Immutable audit ledger recording every lifecycle transition and attribute change.
+              </p>
+            </div>
+            <span class="text-xs font-mono text-neutral-400">
+              {length(@versions)} revisions
+            </span>
+          </div>
+
+          <%= if @versions == [] do %>
+            <div class="py-12 text-center text-xs text-neutral-400 italic">
+              No audit trail records yet.
+            </div>
+          <% else %>
+            <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
+              <%= for v <- @versions do %>
+                <div class="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-bold">
+                        {v.version_action_name || "action"}
+                      </span>
+                      <span class="text-xs font-medium text-neutral-900 dark:text-neutral-100">
+                        Revision #{v.version_source_id}
+                      </span>
+                    </div>
+                    <div class="text-[11px] text-neutral-500 font-light mt-1">
+                      Recorded at: {v.version_inserted_at}
+                    </div>
+                  </div>
+                  <div class="text-right text-[11px] font-mono text-neutral-400">
+                    actor: {if v.version_user_id, do: "user_#{v.version_user_id}", else: "system"}
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+    <% end %>
+  </div>
+
+  <%!-- Modal: Edit Application Metadata --%>
+  <%= if @editing_metadata? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-edit-app-metadata"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-5">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Edit Application Workload
+          </h3>
+          <button
+            type="button"
+            phx-click="close_edit_metadata"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <.form
+          for={@app_edit_form}
+          id="form-edit-app"
+          phx-change="validate_app_edit"
+          phx-submit="save_app_edit"
+          class="space-y-4"
+        >
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Application Name *
+            </label>
+            <.input
+              field={@app_edit_form[:name]}
+              type="text"
+              required
+              class="w-full text-sm font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Type
+              </label>
+              <.input
+                field={@app_edit_form[:app_type]}
+                type="select"
+                options={[
+                  {"Website", "website"},
+                  {"Storefront", "storefront"},
+                  {"API / Backend", "api"},
+                  {"CMS", "cms"},
+                  {"CRM", "crm"},
+                  {"PIM", "pim"},
+                  {"ERP", "erp"},
+                  {"Integration Hub", "integration_hub"},
+                  {"Portal", "portal"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Criticality
+              </label>
+              <.input
+                field={@app_edit_form[:criticality]}
+                type="select"
+                options={[
+                  {"Mission Critical", "mission_critical"},
+                  {"Tier 1", "tier_1"},
+                  {"Operational", "operational"},
+                  {"Internal", "internal"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Lifecycle State
+              </label>
+              <.input
+                field={@app_edit_form[:lifecycle_state]}
+                type="select"
+                options={[
+                  {"Active", "active"},
+                  {"Deprecated", "deprecated"},
+                  {"Under Migration", "under_migration"},
+                  {"Decommissioned", "decommissioned"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Hosting Environment
+              </label>
+              <.input
+                field={@app_edit_form[:hosting_environment_id]}
+                type="select"
+                prompt="None (Unassigned)"
+                options={
+                  Enum.map(@hosting_environments, fn env ->
+                    {"#{env.name} (#{env.provider})", env.id}
+                  end)
+                }
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Description
+            </label>
+            <.input
+              field={@app_edit_form[:description]}
+              type="textarea"
+              rows={2}
+              class="w-full text-sm font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Architecture / Compliance Notes
+            </label>
+            <.input
+              field={@app_edit_form[:notes]}
+              type="textarea"
+              rows={2}
+              class="w-full text-sm font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+            <button
+              type="button"
+              phx-click="close_edit_metadata"
+              class="btn-line text-xs py-1.5 px-3"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="btn-line text-xs py-1.5 px-4 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium"
+            >
+              Save Changes
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Attach Domain --%>
+  <%= if @adding_domain? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-attach-domain"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Attach Domain Endpoint
+          </h3>
+          <button
+            type="button"
+            phx-click="close_add_domain"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <form phx-change="search_domain_candidates" class="relative">
+          <.icon
+            name="hero-magnifying-glass"
+            class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+          />
+          <input
+            type="text"
+            name="query"
+            value={@domain_search_query}
+            placeholder="Search domain name..."
+            class="w-full pl-9 pr-3 py-2 text-xs border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800"
+          />
+        </form>
+
+        <% candidate_list =
+          filter_candidate_domains(@candidate_domains, @domain_search_query, @app.id) %>
+
+        <div class="border border-neutral-100 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800 max-h-60 overflow-y-auto">
+          <%= if candidate_list == [] do %>
+            <div class="p-6 text-center text-xs text-neutral-400">
+              No matching candidate domains found.
+            </div>
+          <% else %>
+            <%= for d <- candidate_list do %>
+              <div class="p-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                <div>
+                  <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {d.name}
+                  </div>
+                  <div class="text-[10px] text-neutral-400">
+                    Currently assigned: {if d.application_id,
+                      do: "App ##{d.application_id}",
+                      else: "None"}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  phx-click="attach_domain"
+                  phx-value-domain_id={d.id}
+                  class="btn-line text-[11px] py-1 px-2.5 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                >
+                  Attach
+                </button>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button
+            type="button"
+            phx-click="close_add_domain"
+            class="btn-line text-xs py-1.5 px-3"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Add Datastore --%>
+  <%= if @adding_datastore? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-add-datastore"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Provision Application Datastore
+          </h3>
+          <button
+            type="button"
+            phx-click="close_add_datastore"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <.form
+          for={@datastore_form}
+          id="form-add-datastore"
+          phx-submit="save_datastore"
+          class="space-y-4"
+        >
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Datastore Name *
+            </label>
+            <.input
+              field={@datastore_form[:name]}
+              type="text"
+              placeholder="e.g. Core Commerce Database"
+              required
+              class="w-full text-sm font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Store Engine
+              </label>
+              <.input
+                field={@datastore_form[:store_type]}
+                type="select"
+                options={[
+                  {"PostgreSQL", "postgresql"},
+                  {"Redis", "redis"},
+                  {"MySQL", "mysql"},
+                  {"S3 / Object Store", "s3"},
+                  {"MongoDB", "mongodb"},
+                  {"Elasticsearch", "elasticsearch"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Role
+              </label>
+              <.input
+                field={@datastore_form[:role]}
+                type="select"
+                options={[
+                  {"Primary Database", "primary_database"},
+                  {"Read Replica", "read_replica"},
+                  {"Cache Node", "cache"},
+                  {"Search Index", "search_index"},
+                  {"Analytics Warehouse", "analytics_warehouse"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Hosting Node
+            </label>
+            <.input
+              field={@datastore_form[:hosting_environment_id]}
+              type="select"
+              prompt="Inherit from Application / Cloud Provider"
+              options={
+                Enum.map(@hosting_environments, fn env ->
+                  {"#{env.name} (#{env.provider})", env.id}
+                end)
+              }
+              class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Notes
+            </label>
+            <.input
+              field={@datastore_form[:notes]}
+              type="text"
+              placeholder="Version, connection details or notes"
+              class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+            <button
+              type="button"
+              phx-click="close_add_datastore"
+              class="btn-line text-xs py-1.5 px-3"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="btn-line text-xs py-1.5 px-4 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium"
+            >
+              Provision
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Link External Service --%>
+  <%= if @linking_service? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-link-service"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Link SaaS / External Service
+          </h3>
+          <button
+            type="button"
+            phx-click="close_link_service"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="border border-neutral-100 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800 max-h-64 overflow-y-auto">
+          <%= for svc <- @all_services do %>
+            <% already_linked? =
+              Enum.any?(@app.external_services || [], fn s -> s.id == svc.id end) %>
+            <div class="p-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800">
+              <div>
+                <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  {svc.name}
+                </div>
+                <div class="text-[10px] text-neutral-400">
+                  {svc.vendor} • {svc.service_type}
+                </div>
+              </div>
+              <%= if already_linked? do %>
+                <span class="text-[10px] font-mono text-emerald-600">Linked</span>
+              <% else %>
+                <button
+                  type="button"
+                  phx-click="link_external_service"
+                  phx-value-service_id={svc.id}
+                  class="btn-line text-[11px] py-1 px-2.5 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                >
+                  Link
+                </button>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button
+            type="button"
+            phx-click="close_link_service"
+            class="btn-line text-xs py-1.5 px-3"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Add Architecture Constraint --%>
+  <%= if @adding_constraint? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-add-constraint"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Register Architecture Policy Constraint
+          </h3>
+          <button
+            type="button"
+            phx-click="close_add_constraint"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <.form
+          for={@constraint_form}
+          id="form-add-constraint"
+          phx-submit="save_constraint"
+          class="space-y-4"
+        >
+          <div>
+            <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+              Constraint / Requirement Name *
+            </label>
+            <.input
+              field={@constraint_form[:name]}
+              type="text"
+              placeholder="e.g. EAA WCAG 2.1 AA Compliance Mandate"
+              required
+              class="w-full text-sm font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Category
+              </label>
+              <.input
+                field={@constraint_form[:category]}
+                type="select"
+                options={[
+                  {"Accessibility (EAA)", "accessibility"},
+                  {"Security (NIS2)", "security"},
+                  {"ICT Risk (DORA)", "resilience"},
+                  {"Privacy (GDPR)", "privacy"},
+                  {"Architecture Standard", "architecture"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Rule Type
+              </label>
+              <.input
+                field={@constraint_form[:rule_type]}
+                type="select"
+                options={[
+                  {"Regulatory Mandate", "mandatory_compliance"},
+                  {"Security Policy", "security_baseline"},
+                  {"Standard Pattern", "design_pattern"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Enforcement Level
+              </label>
+              <.input
+                field={@constraint_form[:enforcement_level]}
+                type="select"
+                options={[
+                  {"Blocking / Mandatory", "blocking"},
+                  {"Audit Warning", "warning"},
+                  {"Advisory", "advisory"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase font-mono text-neutral-500 mb-1">
+                Compliance Status
+              </label>
+              <.input
+                field={@constraint_form[:compliance_status]}
+                type="select"
+                options={[
+                  {"Compliant", "compliant"},
+                  {"Non-Compliant", "non_compliant"},
+                  {"Under Audit", "under_audit"},
+                  {"Exempted", "exempted"}
+                ]}
+                class="w-full text-xs font-light px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 rounded-none"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+            <button
+              type="button"
+              phx-click="close_add_constraint"
+              class="btn-line text-xs py-1.5 px-3"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="btn-line text-xs py-1.5 px-4 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium"
+            >
+              Register Policy
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Link Value Stream --%>
+  <%= if @linking_value_stream? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-link-value-stream"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Link Value Stream
+          </h3>
+          <button
+            type="button"
+            phx-click="close_link_value_stream"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="border border-neutral-100 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800 max-h-64 overflow-y-auto">
+          <%= for vs <- @all_value_streams do %>
+            <% already_linked? =
+              Enum.any?(@app.value_streams || [], fn v -> v.id == vs.id end) %>
+            <div class="p-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800">
+              <div>
+                <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  {vs.name}
+                </div>
+                <div class="text-[10px] text-neutral-400">
+                  {vs.stage} · {vs.criticality}
+                </div>
+              </div>
+              <%= if already_linked? do %>
+                <span class="text-[10px] font-mono text-emerald-600">Linked</span>
+              <% else %>
+                <button
+                  type="button"
+                  phx-click="link_value_stream"
+                  phx-value-value_stream_id={vs.id}
+                  class="btn-line text-[11px] py-1 px-2.5 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                >
+                  Link
+                </button>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button
+            type="button"
+            phx-click="close_link_value_stream"
+            class="btn-line text-xs py-1.5 px-3"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Link Capability --%>
+  <%= if @linking_capability? do %>
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 backdrop-blur-xs p-4"
+      id="modal-link-capability"
+    >
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-lg p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-3">
+          <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+            Link Business Capability
+          </h3>
+          <button
+            type="button"
+            phx-click="close_link_capability"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div class="border border-neutral-100 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800 max-h-64 overflow-y-auto">
+          <%= for cap <- @all_capabilities do %>
+            <% already_linked? =
+              Enum.any?(@app.capabilities || [], fn c -> c.id == cap.id end) %>
+            <div class="p-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800">
+              <div>
+                <div class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                  {cap.name}
+                </div>
+                <div class="text-[10px] text-neutral-400">
+                  {cap.category || "core"}
+                </div>
+              </div>
+              <%= if already_linked? do %>
+                <span class="text-[10px] font-mono text-emerald-600">Linked</span>
+              <% else %>
+                <button
+                  type="button"
+                  phx-click="link_capability"
+                  phx-value-capability_id={cap.id}
+                  class="btn-line text-[11px] py-1 px-2.5 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                >
+                  Link
+                </button>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button
+            type="button"
+            phx-click="close_link_capability"
+            class="btn-line text-xs py-1.5 px-3"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</Layouts.app>

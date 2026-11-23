@@ -4,7 +4,11 @@
 
 ## Goal
 
-Provide a stable, unified boundary for executing external CLI tools (`dnsx`, `httpx`, `naabu`, `nuclei`, `katana`, `webanalyze`) while ensuring robust cleanup of orphaned processes.
+Provide a stable, unified boundary for executing external CLI tools (`naabu`, `nuclei`, `katana`, `lonkero`, `lighthouse`, `pa11y`, `whois`) while ensuring robust cleanup of orphaned processes.
+
+DNS resolution, HTTP probing and Wappalyzer technology fingerprinting are
+implemented natively in Elixir/Erlang (`:inet_res`, `Req`,
+`Ravner.Scans.TechFingerprint`) and do not use this runner.
 
 ## Architecture: `Ravner.SystemCommand`
 
@@ -21,7 +25,7 @@ All external tool execution must go through `Ravner.SystemCommand.run_with_timeo
 
 The `Scans` context uses the command runner to implement specific scanner logic:
 
-- **Quick Scan**: A sequence of `dnsx` → `httpx` → `rdap/whois` → `subdomain_discovery`.
+- **Quick Scan**: A sequence of DNS resolution (native `:inet_res`) → HTTP probe (native `Req`) → `rdap/whois` → `subdomain_discovery`.
 - **Concurrency Control**: `Scans.scan_max_concurrency/0` reads limits from application config (defaulting to 5), preventing system exhaustion during bulk operations.
 
 ## Configuration

@@ -2,6 +2,7 @@ defmodule RavnerWeb.DashboardLive.Index do
   use RavnerWeb, :live_view
 
   alias Ravner.Domains
+  alias Ravner.SecurityScans
   alias Ravner.Uptime
 
   @impl true
@@ -19,6 +20,7 @@ defmodule RavnerWeb.DashboardLive.Index do
 
     # Uptime summary
     uptime_summary = build_uptime_summary()
+    security_summary = SecurityScans.portfolio_security_summary()
 
     {:ok,
      socket
@@ -28,6 +30,7 @@ defmodule RavnerWeb.DashboardLive.Index do
      |> assign(:scan_chart, scan_chart)
      |> assign(:top_subs_max, top_subs_max)
      |> assign(:uptime_summary, uptime_summary)
+     |> assign(:security_summary, security_summary)
      |> assign(:current_tab, "risks")}
   end
 

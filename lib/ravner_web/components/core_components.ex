@@ -379,6 +379,276 @@ defmodule RavnerWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders a card title/header.
+  """
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  def card_header(assigns) do
+    ~H"""
+    <h2 class={["card-title", @class]}>
+      {render_slot(@inner_block)}
+    </h2>
+    """
+  end
+
+  @doc """
+  Renders a collapsible facet/section header.
+  """
+  attr :title, :string, required: true
+  attr :group, :string, required: true
+  attr :expanded, :boolean, default: false
+
+  def facet_header(assigns) do
+    ~H"""
+    <button
+      phx-click="toggle_facet_group"
+      phx-value-group={@group}
+      class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group dark:text-neutral-500 dark:border-neutral-800 dark:hover:text-neutral-100"
+    >
+      <span>{@title}</span>
+      <.icon
+        name={if @expanded, do: "hero-chevron-up", else: "hero-chevron-down"}
+        class="w-3 h-3 opacity-50 group-hover:opacity-100"
+      />
+    </button>
+    """
+  end
+
+  @doc """
+  Renders a status indicator with colored dot.
+  """
+  attr :color, :atom,
+    values: [:green, :yellow, :orange, :red, :neutral, :sky, :indigo],
+    default: :neutral
+
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  def status_indicator(assigns) do
+    ~H"""
+    <span class={["inline-flex items-center gap-1.5 font-light", status_text_class(@color), @class]}>
+      <span class={["w-1.5 h-1.5 rounded-full shrink-0", status_dot_bg(@color)]}></span>
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  defp status_text_class(:green), do: "text-green-700 dark:text-green-400"
+  defp status_text_class(:yellow), do: "text-yellow-600 dark:text-yellow-400"
+  defp status_text_class(:orange), do: "text-orange-700 dark:text-orange-400"
+  defp status_text_class(:red), do: "text-red-700 dark:text-red-400"
+  defp status_text_class(:sky), do: "text-sky-700 dark:text-sky-400"
+  defp status_text_class(:indigo), do: "text-indigo-700 dark:text-indigo-400"
+  defp status_text_class(_), do: "text-neutral-500 dark:text-neutral-400"
+
+  defp status_dot_bg(:green), do: "bg-green-500"
+  defp status_dot_bg(:yellow), do: "bg-yellow-400"
+  defp status_dot_bg(:orange), do: "bg-orange-500"
+  defp status_dot_bg(:red), do: "bg-red-500"
+  defp status_dot_bg(:sky), do: "bg-sky-500"
+  defp status_dot_bg(:indigo), do: "bg-indigo-500"
+  defp status_dot_bg(_), do: "bg-neutral-400"
+
+  @doc """
+  Renders a compact inline badge.
+  """
+  attr :class, :any, default: nil
+  attr :severity, :atom, values: [:critical, :high, :medium, :low, :info, nil], default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def badge(assigns) do
+    ~H"""
+    <span
+      class={[
+        "inline-flex items-center gap-1.5 text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
+        severity_badge_class(@severity),
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </span>
+    """
+  end
+
+  defp severity_badge_class(:critical),
+    do:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800"
+
+  defp severity_badge_class(:high),
+    do:
+      "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800"
+
+  defp severity_badge_class(:medium),
+    do:
+      "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/60 dark:text-yellow-300 dark:border-yellow-800"
+
+  defp severity_badge_class(:low),
+    do:
+      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800"
+
+  defp severity_badge_class(:info),
+    do:
+      "bg-neutral-50 text-neutral-600 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700"
+
+  defp severity_badge_class(_), do: nil
+
+  @doc """
+  Renders a status pill with dot indicator.
+  """
+  attr :status, :atom,
+    values: [:operational, :down, :degraded, :disabled, :unknown],
+    default: :unknown
+
+  attr :label, :string, default: nil
+  attr :class, :any, default: nil
+
+  def status_pill(assigns) do
+    ~H"""
+    <span class={[
+      "inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full",
+      status_pill_class(@status),
+      @class
+    ]}>
+      <span class={["w-1.5 h-1.5 rounded-full", status_dot_class(@status)]}></span>
+      {@label || status_label(@status)}
+    </span>
+    """
+  end
+
+  defp status_pill_class(:operational),
+    do: "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+
+  defp status_pill_class(:down), do: "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+
+  defp status_pill_class(:degraded),
+    do: "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400"
+
+  defp status_pill_class(:disabled),
+    do: "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+
+  defp status_pill_class(_),
+    do: "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+
+  defp status_dot_class(:operational), do: "bg-green-500"
+  defp status_dot_class(:down), do: "bg-red-500"
+  defp status_dot_class(:degraded), do: "bg-yellow-500"
+  defp status_dot_class(:disabled), do: "bg-neutral-400"
+  defp status_dot_class(_), do: "bg-neutral-400"
+
+  defp status_label(:operational), do: "Operational"
+  defp status_label(:down), do: "Down"
+  defp status_label(:degraded), do: "Degraded"
+  defp status_label(:disabled), do: "Disabled"
+  defp status_label(_), do: "Unknown"
+
+  @doc """
+  Renders a form label with consistent styling.
+  """
+  attr :for, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def form_label(assigns) do
+    ~H"""
+    <label
+      for={@for}
+      class={[
+        "block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1 dark:text-neutral-400",
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </label>
+    """
+  end
+
+  @doc """
+  Renders a toggle badge button for filters.
+  """
+  attr :active, :boolean, default: false
+  attr :class, :any, default: nil
+  attr :rest, :global, include: ~w(phx-click aria-pressed title)
+  slot :inner_block, required: true
+
+  def toggle_badge(assigns) do
+    ~H"""
+    <button
+      class={[
+        "inline-flex items-center gap-1.5 text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
+        @active &&
+          "bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100",
+        !@active &&
+          "text-neutral-400 border-neutral-200 hover:border-neutral-400 dark:text-neutral-500 dark:border-neutral-700 dark:hover:border-neutral-500",
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </button>
+    """
+  end
+
+  @doc """
+  Renders a tab button for navigation.
+  """
+  attr :active, :boolean, default: false
+  attr :count, :integer, default: nil
+  attr :variant, :atom, values: [:minimal, :compact], default: :minimal
+  attr :class, :any, default: nil
+  attr :rest, :global, include: ~w(phx-click phx-value-tab id)
+  slot :inner_block, required: true
+
+  def tab_button(%{variant: :compact} = assigns) do
+    ~H"""
+    <button
+      class={[
+        "px-3 py-2.5 font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
+        @active &&
+          "border-neutral-900 text-neutral-900 font-semibold dark:border-neutral-100 dark:text-neutral-100",
+        !@active &&
+          "border-transparent text-neutral-500 hover:text-neutral-800 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-200",
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+      <%= if @count && @count > 0 do %>
+        <span class={[
+          "text-[10px] px-1.5 py-0.5 rounded-full",
+          @active && "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
+          !@active && "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+        ]}>
+          {@count}
+        </span>
+      <% end %>
+    </button>
+    """
+  end
+
+  def tab_button(assigns) do
+    ~H"""
+    <button
+      class={[
+        "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+        @active &&
+          "border-neutral-900 text-neutral-900 font-medium dark:text-neutral-100 dark:border-neutral-100",
+        !@active &&
+          "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
+        @class
+      ]}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+    </button>
+    """
+  end
+
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do

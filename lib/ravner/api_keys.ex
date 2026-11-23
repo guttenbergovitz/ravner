@@ -26,45 +26,45 @@ defmodule Ravner.ApiKeys do
       label: "Lonkero License",
       description: "Commercial license key for Lonkero vulnerability scanner (optional)",
       required: false
-    },
-    %{
-      name: "securitytrails",
-      label: "SecurityTrails",
-      description: "DNS and domain intelligence (optional, not currently used)",
-      required: false
-    },
-    %{
-      name: "shodan",
-      label: "Shodan",
-      description: "Internet-wide scanning (optional, not currently used)",
-      required: false
     }
   ]
 
+  @spec list_known_keys() :: [map()]
   def list_known_keys, do: @known_keys
 
+  @spec list_api_keys() :: [ApiKey.t()]
   def list_api_keys do
     Repo.all(from(k in ApiKey, order_by: [asc: k.name]))
   end
 
+  @spec get_api_key!(integer() | String.t()) :: ApiKey.t()
   def get_api_key!(id), do: Repo.get!(ApiKey, id)
+
+  @spec get_api_key_by_name(String.t()) :: ApiKey.t() | nil
   def get_api_key_by_name(name), do: Repo.get_by(ApiKey, name: name)
 
+  @spec create_api_key(map()) :: {:ok, ApiKey.t()} | {:error, Ecto.Changeset.t()}
   def create_api_key(attrs \\ %{}) do
     %ApiKey{}
     |> ApiKey.changeset_with_key(attrs)
     |> Repo.insert()
   end
 
+  @spec update_api_key(ApiKey.t(), map()) :: {:ok, ApiKey.t()} | {:error, Ecto.Changeset.t()}
   def update_api_key(%ApiKey{} = api_key, attrs) do
     api_key
     |> ApiKey.changeset_with_key(attrs)
     |> Repo.update()
   end
 
+  @spec delete_api_key(ApiKey.t()) :: {:ok, ApiKey.t()} | {:error, Ecto.Changeset.t()}
   def delete_api_key(%ApiKey{} = api_key), do: Repo.delete(api_key)
+
+  @spec change_api_key(ApiKey.t(), map()) :: Ecto.Changeset.t()
   def change_api_key(%ApiKey{} = api_key, attrs \\ %{}), do: ApiKey.changeset(api_key, attrs)
 
+  @spec get_effective_key(atom() | String.t()) ::
+          {:settings | :env | :none, String.t() | nil, ApiKey.t() | nil}
   def get_effective_key(service_name) when is_atom(service_name),
     do: get_effective_key(Atom.to_string(service_name))
 
@@ -82,6 +82,7 @@ defmodule Ravner.ApiKeys do
     end
   end
 
+  @spec key_configured?(atom() | String.t()) :: boolean()
   def key_configured?(service_name) do
     case get_effective_key(service_name) do
       {:none, _, _} -> false
@@ -89,6 +90,7 @@ defmodule Ravner.ApiKeys do
     end
   end
 
+  @spec get_key_source(atom() | String.t()) :: :settings | :env | :none
   def get_key_source(service_name) do
     case get_effective_key(service_name) do
       {:settings, _, _} -> :settings
@@ -97,6 +99,7 @@ defmodule Ravner.ApiKeys do
     end
   end
 
+  @spec validate_key(String.t()) :: {:ok, :valid} | {:error, String.t()}
   def validate_key(service_name) do
     r = get_api_key_by_name(service_name)
 
@@ -158,24 +161,28 @@ defmodule Ravner.ApiKeys do
         {:error, "No license key configured"}
 
       {_, key, _} when is_binary(key) ->
-        case System.find_executable("lonkero") do
-          nil ->
-            {:error, "lonkero executable not found"}
+        case Ravner.SystemCommand.run_with_timeout(
+               "lonkero",
+               ["license", "status", "-L", key],
+               10_000
+             ) do
+          {output, 0} ->
+            lower_out = String.downcase(output)
 
-          exec ->
-            case System.cmd(exec, ["license", "status", "-L", key], stderr_to_stdout: true) do
-              {output, 0} ->
-                lower_out = String.downcase(output)
-
-                if String.contains?(lower_out, "invalid") or String.contains?(lower_out, "failed") do
-                  {:error, String.trim(output)}
-                else
-                  :ok
-                end
-
-              {output, _} ->
-                {:error, String.trim(output)}
+            if String.contains?(lower_out, "invalid") or String.contains?(lower_out, "failed") do
+              {:error, String.trim(output)}
+            else
+              :ok
             end
+
+          {:error, :timeout} ->
+            {:error, "lonkero license check timed out"}
+
+          {:error, reason} ->
+            {:error, reason}
+
+          {output, _} ->
+            {:error, String.trim(output)}
         end
     end
   end
@@ -184,4 +191,56 @@ defmodule Ravner.ApiKeys do
 
   defp trunc(s, n) when is_binary(s) and byte_size(s) > n, do: String.slice(s, 0, n) <> "..."
   defp trunc(s, _) when is_binary(s), do: s
+
+  @doc """
+  Validates all known API keys at startup. Logs warnings for missing required keys
+  and errors for invalid configured keys. Does not block startup.
+  """
+  @spec validate_on_startup() :: :ok
+  def validate_on_startup do
+    # Skip in test environment
+    if Application.get_env(:ravner, :env) == :test do
+      :ok
+    else
+      do_startup_validation()
+    end
+  end
+
+  defp do_startup_validation do
+    Logger.info("[ApiKeys] Checking API key configuration...")
+
+    results =
+      @known_keys
+      |> Enum.map(fn %{name: name, label: label, required: required} ->
+        case get_effective_key(name) do
+          {:none, _, _} ->
+            if required do
+              Logger.warning(
+                "[ApiKeys] #{label} (#{name}) — NOT CONFIGURED (required for some features)"
+              )
+            else
+              Logger.debug("[ApiKeys] #{label} (#{name}) — not configured (optional)")
+            end
+
+            {name, :missing, required}
+
+          {source, _key, _} ->
+            Logger.info("[ApiKeys] #{label} (#{name}) — configured via #{source}")
+            {name, :configured, required}
+        end
+      end)
+
+    missing_required =
+      Enum.filter(results, fn {_, status, required} -> status == :missing and required end)
+
+    if missing_required != [] do
+      names = Enum.map(missing_required, fn {name, _, _} -> name end) |> Enum.join(", ")
+
+      Logger.warning(
+        "[ApiKeys] Missing required keys: #{names}. Some scan features will be degraded."
+      )
+    end
+
+    :ok
+  end
 end

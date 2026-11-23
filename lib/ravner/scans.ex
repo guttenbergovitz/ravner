@@ -11,6 +11,9 @@ defmodule Ravner.Scans do
   alias Ravner.Domains
   alias Ravner.Domains.Domain
   alias Ravner.Repo
+  alias Ravner.Scans.HttpRetry
+
+  @max_retries 2
 
   @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
 
@@ -58,10 +61,18 @@ defmodule Ravner.Scans do
   @spec run_quick_scan(integer()) :: %{atom() => {:ok, term()} | {:error, term()}}
   def run_quick_scan(domain_id) do
     domain = Domains.get_domain!(domain_id)
+    Ravner.ActivityLog.emit(:step, "Quick scan started for #{domain.name}…")
     dnsx = Ravner.Scans.Dns.run(domain_id)
 
     if dns_scan_allows_network_steps?(dnsx) do
-      rdap_task = Task.async(fn -> Ravner.Scans.Whois.run_rdap_scan(domain_id) end)
+      user_id = Ravner.ActivityLog.get_user()
+
+      rdap_task =
+        Task.async(fn ->
+          if user_id, do: Ravner.ActivityLog.set_user(user_id)
+          Ravner.Scans.Whois.run_rdap_scan(domain_id)
+        end)
+
       httpx = Ravner.Scans.Http.run_httpx_scan(domain_id)
       rdap = Task.await(rdap_task, :infinity)
 
@@ -70,9 +81,15 @@ defmodule Ravner.Scans do
           do: {:error, :external_redirect},
           else: maybe_run_subdomain_scan(domain)
 
+      Ravner.ActivityLog.emit(:done, "Quick scan complete for #{domain.name}")
       %{dnsx: dnsx, httpx: httpx, rdap: rdap, subdomains: subdomains}
     else
-      skipped = mark_unreachable_after_dns(domain)
+      skipped = mark_unreachable_after_dns(domain, dnsx)
+
+      Ravner.ActivityLog.emit(
+        :error,
+        "Quick scan stopped for #{domain.name} — no routable DNS records"
+      )
 
       %{
         dnsx: dnsx,
@@ -98,10 +115,6 @@ defmodule Ravner.Scans do
     metadata_has_ips?(metadata)
   end
 
-  defp dns_scan_allows_network_steps?({:error, reason}) when is_binary(reason) do
-    String.contains?(reason, "executable not found")
-  end
-
   defp dns_scan_allows_network_steps?(_), do: false
 
   defp metadata_has_ips?(%{ip_v4: ip_v4, ip_v6: ip_v6}) do
@@ -110,7 +123,7 @@ defmodule Ravner.Scans do
 
   defp metadata_has_ips?(_), do: false
 
-  defp mark_unreachable_after_dns(domain) do
+  defp mark_unreachable_after_dns(domain, dns_result) do
     now = DateTime.utc_now()
 
     Domains.upsert_domain_metadata(domain.id, %{
@@ -121,7 +134,11 @@ defmodule Ravner.Scans do
 
     Domains.record_technical_status(domain, :error)
 
-    {:error, :dns_unresolved}
+    # Preserve typed DNS error for caller visibility
+    case dns_result do
+      {:error, reason} -> {:error, {:dns, reason}}
+      {:ok, _} -> {:error, {:dns, :no_ips}}
+    end
   end
 
   @spec scan_max_concurrency() :: pos_integer()
@@ -200,18 +217,28 @@ defmodule Ravner.Scans do
 
   defp get_chaos_api_key do
     case ApiKeys.get_effective_key("chaos") do
-      {:settings, _, _} -> System.get_env("CHAOS_API_KEY")
-      {:env, key, _} -> key
-      {:none, _, _} -> nil
+      {source, key, _} when source in [:settings, :env] and is_binary(key) and key != "" ->
+        key
+
+      _ ->
+        nil
     end
   end
 
   defp execute_chaos_request(domain_name, api_key) do
-    case Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
-           headers: %{"authorization" => api_key},
-           retry: false,
-           receive_timeout: 30_000
-         ) do
+    result =
+      HttpRetry.with_retry(
+        fn ->
+          Req.get("#{@chaos_api}/dns/#{domain_name}/subdomains",
+            headers: %{"authorization" => api_key},
+            retry: false,
+            receive_timeout: 30_000
+          )
+        end,
+        max_retries: @max_retries
+      )
+
+    case result do
       {:ok, %{status: 200, body: %{"subdomains" => subdomains}}} when is_list(subdomains) ->
         {:ok, subdomains}
 
@@ -233,10 +260,18 @@ defmodule Ravner.Scans do
   end
 
   defp run_hackertarget(domain_name) do
-    case Req.get("#{@hackertarget_api}/?q=#{domain_name}",
-           retry: false,
-           receive_timeout: 30_000
-         ) do
+    result =
+      HttpRetry.with_retry(
+        fn ->
+          Req.get("#{@hackertarget_api}/?q=#{domain_name}",
+            retry: false,
+            receive_timeout: 30_000
+          )
+        end,
+        max_retries: @max_retries
+      )
+
+    case result do
       {:ok, %{status: 200, body: body}} ->
         parse_hackertarget_response(body, domain_name)
 
@@ -314,8 +349,8 @@ defmodule Ravner.Scans do
         {:error, "crt.sh returned #{status}"}
 
       {:error, %Req.TransportError{reason: :timeout}} ->
-        Logger.info("crt.sh timed out for #{domain_name}, treating as no results")
-        {:ok, []}
+        Logger.warning("crt.sh timed out for #{domain_name}")
+        {:error, "crt.sh timed out"}
 
       {:error, exception} ->
         Logger.warning("crt.sh request failed for #{domain_name}: #{inspect(exception)}")
@@ -324,14 +359,14 @@ defmodule Ravner.Scans do
   end
 
   defp save_subdomains(subdomains, parent_id) do
-    domain = Domains.get_domain!(parent_id)
-    names = filter_subdomain_names(subdomains, domain.name)
+    parent = Domains.get_domain!(parent_id)
+    names = filter_subdomain_names(subdomains, parent.name)
     existing = get_existing_domains(names)
 
     {inserted_count, new_domains} =
       names
       |> Enum.reject(&Map.has_key?(existing, &1))
-      |> insert_new_subdomains(parent_id)
+      |> insert_new_subdomains(parent)
 
     relink_existing_subdomains(existing, parent_id)
 
@@ -361,18 +396,24 @@ defmodule Ravner.Scans do
     |> Map.new(fn {name, id, pid} -> {name, {id, pid}} end)
   end
 
-  defp insert_new_subdomains([], _parent_id), do: {0, []}
+  defp insert_new_subdomains([], _parent), do: {0, []}
 
-  defp insert_new_subdomains(names, parent_id) do
+  defp insert_new_subdomains(names, parent) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    # Inherit lifecycle and ownership from parent domain
+    inherited_lifecycle = inherit_lifecycle(parent.lifecycle_state)
 
     entries =
       Enum.map(names, fn name ->
         %{
           name: name,
           type: :subdomain,
-          lifecycle_state: :under_review,
-          parent_domain_id: parent_id,
+          lifecycle_state: inherited_lifecycle,
+          parent_domain_id: parent.id,
+          project_id: parent.project_id,
+          brand_id: parent.brand_id,
+          organization_id: parent.organization_id,
           inserted_at: now,
           updated_at: now
         }
@@ -386,6 +427,14 @@ defmodule Ravner.Scans do
 
     {count, Enum.map(entries, &struct(Domain, &1))}
   end
+
+  # Subdomains inherit parent lifecycle, but archived states become :under_review
+  defp inherit_lifecycle(parent_state)
+       when parent_state in [:deprecated, :decommissioned, :abandoned] do
+    :under_review
+  end
+
+  defp inherit_lifecycle(parent_state), do: parent_state
 
   defp relink_existing_subdomains(existing, parent_id) do
     ids_to_relink =

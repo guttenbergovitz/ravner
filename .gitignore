@@ -52,3 +52,6 @@ npm-debug.log
 # Miscellaneous IDE/editor files
 /.idea/
 /.vscode/
+
+# Downloaded Wappalyzer fingerprint database
+/priv/wappalyzer/

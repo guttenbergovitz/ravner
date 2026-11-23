@@ -337,10 +337,11 @@ defmodule RavnerWeb.UptimeLive.Show do
 
   defp build_chart_data(domain_id, "month", offset) do
     today = Date.utc_today()
-    target_month = Date.add(today, offset * 30) |> Date.beginning_of_month()
+    target_month = Uptime.month_start(today, offset)
     days_in_month = Date.days_in_month(target_month)
+    days_since_target = Date.diff(today, target_month) + 1
 
-    daily = Uptime.daily_stats(domain_id, 60)
+    daily = Uptime.daily_stats(domain_id, days_since_target)
     daily_map = Map.new(daily, fn d -> {d.date, d} end)
 
     chart =

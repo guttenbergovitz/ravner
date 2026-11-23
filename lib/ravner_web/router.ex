@@ -26,8 +26,59 @@ defmodule RavnerWeb.Router do
     plug(RavnerWeb.Plugs.RequireRole, :editor)
   end
 
+  pipeline :metrics do
+    plug :accepts, ["text", "plain"]
+    plug RavnerWeb.Plugs.RequireMetricsAuth
+  end
+
+  pipeline :mcp_api do
+    plug :accepts, ["json"]
+    plug RavnerWeb.Plugs.RequireMcpAuth
+  end
+
+  pipeline :json_api do
+    plug :accepts, ["json", "json-api"]
+    plug :fetch_session
+    plug :fetch_current_scope_for_user
+    plug RavnerWeb.Plugs.RequireApiAuth
+  end
+
+  pipeline :admin_api_docs do
+    plug :accepts, ["html", "json", "json-api"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_secure_browser_headers
+    plug RavnerWeb.Plugs.RequireSetup
+    plug :fetch_current_scope_for_user
+  end
+
   scope "/", RavnerWeb do
     get("/health", HealthController, :index)
+  end
+
+  scope "/", RavnerWeb do
+    pipe_through :metrics
+    get("/metrics", MetricsController, :index)
+  end
+
+  scope "/mcp" do
+    pipe_through :mcp_api
+    forward "/", AshAi.Mcp.Router, otp_app: :ravner
+  end
+
+  scope "/api" do
+    pipe_through [:admin_api_docs, :require_authenticated_user, :require_admin]
+
+    forward "/swagger-ui", OpenApiSpex.Plug.SwaggerUI,
+      path: "/api/v1/open_api",
+      title: "Ravner Governance & Inventory REST API"
+  end
+
+  scope "/api" do
+    scope "/v1" do
+      pipe_through :json_api
+      forward "/", RavnerWeb.AshJsonApiRouter
+    end
   end
 
   scope "/", RavnerWeb do
@@ -82,18 +133,30 @@ defmodule RavnerWeb.Router do
 
     get("/domains/export", DomainExportController, :index)
 
+    get(
+      "/projects/:project_id/export/archimate",
+      ArchitectureExportController,
+      :export_project_archimate
+    )
+
+    post("/admin/unmasquerade", MasqueradeController, :delete)
+    delete("/admin/unmasquerade", MasqueradeController, :delete)
+
     live_session :authenticated, on_mount: [{RavnerWeb.UserAuth, :ensure_authenticated}] do
       live("/dashboard", DashboardLive.Index, :index)
       live("/domains", DomainLive.Index, :index)
       live("/domains/new", DomainLive.Index, :new)
       live("/domains/import", DomainLive.Index, :import)
       live("/domains/:id", DomainLive.Show, :show)
-      live("/domains/:id/edit", DomainLive.Show, :edit)
       live("/domains/:id/a11y", DomainLive.A11yReport, :index)
       live("/domains/:id/lighthouse", DomainLive.LighthouseReport, :index)
+      live("/domains/:id/security", DomainLive.SecurityReport, :index)
 
       # Ownership hierarchy views (read-only, all authenticated users)
       live("/ownership", OwnershipLive.Index, :index)
+      live("/ownership/delivery", OwnershipLive.Delivery, :index)
+      live("/ownership/landscape", OwnershipLive.Landscape, :index)
+      live("/ownership/applications/:id", OwnershipLive.ApplicationShow, :show)
       live("/ownership/brands/:id", OwnershipLive.BrandShow, :show)
       live("/ownership/organizations/:id", OwnershipLive.OrganizationShow, :show)
       live("/ownership/projects/:id", OwnershipLive.ProjectShow, :show)
@@ -112,11 +175,17 @@ defmodule RavnerWeb.Router do
     live_session :admin_governance, on_mount: [{RavnerWeb.UserAuth, :ensure_editor}] do
       live("/organizations/new", AdminLive.OrganizationLive.Index, :new)
       live("/organizations/:id/edit", AdminLive.OrganizationLive.Index, :edit)
+      live("/people", AdminLive.PersonLive.Index, :index)
       live("/people/new", AdminLive.PersonLive.Index, :new)
       live("/people/:id/edit", AdminLive.PersonLive.Index, :edit)
       live("/projects/new", AdminLive.ProjectLive.Index, :new)
       live("/projects/:id/edit", AdminLive.ProjectLive.Index, :edit)
+      live("/repositories", AdminLive.Repositories, :index)
+      live("/telemetry", AdminLive.TelemetryLive, :index)
     end
+
+    get("/repositories/:id/sbom.cdx.json", SbomController, :download_repository)
+    get("/projects/:id/sbom.cdx.json", SbomController, :download_project)
   end
 
   # Admin-only routes — require :admin role via plug and on_mount.
@@ -127,12 +196,14 @@ defmodule RavnerWeb.Router do
       live("/users", AdminLive.Users, :index)
       live("/users/new", AdminLive.Users, :new)
       live("/users/:id/edit", AdminLive.Users, :edit)
+      live("/api-tokens", AdminLive.ApiTokens, :index)
       live("/invites", AdminLive.Invites, :index)
       live("/invites/new", AdminLive.Invites, :new)
       live("/settings", AdminLive.Settings, :index)
       live("/settings/delivery", AdminLive.DeliverySettings, :index)
       live("/settings/system", AdminLive.SystemStatus, :index)
       live("/settings/backup", AdminLive.Backup, :index)
+      live("/breach-findings", AdminLive.BreachFindingsLive, :index)
       live("/certificates", AdminLive.Certificates, :index)
       live("/domain-registrations", AdminLive.DomainRegistrations, :index)
       live("/brands/new", AdminLive.BrandLive.Index, :new)
@@ -142,6 +213,8 @@ defmodule RavnerWeb.Router do
     end
 
     get("/settings/backup/download", BackupController, :download)
+    post("/masquerade/:user_id", MasqueradeController, :create)
+    post("/masquerade", MasqueradeController, :create)
   end
 
   # Invite accept route — accessible without full auth (user sets password here)
@@ -156,6 +229,7 @@ defmodule RavnerWeb.Router do
     pipe_through([:browser])
 
     get("/users/log-in", UserSessionController, :new)
+    get("/users/log-in/one-time/:token", UserSessionController, :one_time_login)
     get("/users/log-in/:token", UserSessionController, :confirm)
     post("/users/log-in", UserSessionController, :create)
     delete("/users/log-out", UserSessionController, :delete)

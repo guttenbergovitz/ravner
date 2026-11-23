@@ -1,0 +1,596 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <%!-- Page Header --%>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            Telemetry & OTel Inspector
+          </h1>
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+            <span class={[
+              "w-2 h-2 rounded-full",
+              if(@paused?, do: "bg-amber-500", else: "bg-emerald-500 animate-pulse")
+            ]}>
+            </span>
+            {if @paused?, do: "STREAM PAUSED", else: "LIVE STREAM"}
+          </span>
+        </div>
+        <p class="text-xs font-light text-neutral-500 dark:text-neutral-400 mt-1">
+          Real-time stream of synthetic probes, latency measurements, and OpenTelemetry Semantic Conventions metadata
+        </p>
+      </div>
+
+      <%!-- Action Toolbar --%>
+      <div class="flex flex-wrap items-center gap-2">
+        <%!-- Emit Test Buttons --%>
+        <div class="inline-flex flex-wrap rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-0.5 shadow-2xs">
+          <button
+            type="button"
+            id="btn-emit-test-http"
+            phx-click="emit_test"
+            phx-value-type="http"
+            title="Emit a simulated HTTP synthetic heartbeat probe"
+            class="px-2 py-1 text-xs font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors"
+          >
+            + HTTP
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-uptime"
+            phx-click="emit_test"
+            phx-value-type="uptime"
+            title="Emit a simulated Uptime probe status event"
+            class="px-2 py-1 text-xs font-medium text-emerald-700 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + Uptime
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-incident"
+            phx-click="emit_test"
+            phx-value-type="incident"
+            title="Emit a simulated Incident transition event"
+            class="px-2 py-1 text-xs font-medium text-rose-700 hover:text-rose-900 dark:text-rose-400 dark:hover:text-rose-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + Incident
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-vitals"
+            phx-click="emit_test"
+            phx-value-type="web_vitals"
+            title="Emit a simulated Lighthouse Web Vitals scan event"
+            class="px-2 py-1 text-xs font-medium text-cyan-700 hover:text-cyan-900 dark:text-cyan-400 dark:hover:text-cyan-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + Vitals
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-a11y"
+            phx-click="emit_test"
+            phx-value-type="a11y"
+            title="Emit a simulated A11y WCAG scan event"
+            class="px-2 py-1 text-xs font-medium text-indigo-700 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + A11y
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-dns"
+            phx-click="emit_test"
+            phx-value-type="dns"
+            title="Emit a simulated DNS deliverability audit event"
+            class="px-2 py-1 text-xs font-medium text-teal-700 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + DNS
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-sec"
+            phx-click="emit_test"
+            phx-value-type="security_headers"
+            title="Emit a simulated Security Headers & TLS event"
+            class="px-2 py-1 text-xs font-medium text-orange-700 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + Headers
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-sca"
+            phx-click="emit_test"
+            phx-value-type="sca"
+            title="Emit a simulated SCA repository scan event"
+            class="px-2 py-1 text-xs font-medium text-purple-700 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + SCA
+          </button>
+          <button
+            type="button"
+            id="btn-emit-test-tls"
+            phx-click="emit_test"
+            phx-value-type="tls"
+            title="Emit a simulated TLS / SSL handshake check"
+            class="px-2 py-1 text-xs font-medium text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 rounded-xs transition-colors border-l border-neutral-200 dark:border-neutral-700"
+          >
+            + TLS
+          </button>
+        </div>
+
+        <%!-- Pause / Resume Toggle --%>
+        <button
+          type="button"
+          id="btn-toggle-pause"
+          phx-click="toggle_pause"
+          class={[
+            "px-3 py-1.5 text-xs font-medium rounded border transition-colors flex items-center gap-1.5",
+            if(@paused?,
+              do: "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700",
+              else:
+                "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+            )
+          ]}
+        >
+          <.icon name={if(@paused?, do: "hero-play", else: "hero-pause")} class="w-3.5 h-3.5" />
+          {if @paused?, do: "Resume Stream", else: "Pause Stream"}
+        </button>
+
+        <%!-- Clear Stream Button --%>
+        <button
+          type="button"
+          id="btn-clear-events"
+          phx-click="clear_events"
+          data-confirm="Clear all buffered telemetry events?"
+          class="px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <%!-- Metrics Grid --%>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div
+        id="stat-total-events"
+        class="p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/60 rounded"
+      >
+        <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+          Total Events
+        </span>
+        <div class="text-xl font-light text-neutral-900 dark:text-neutral-100 mt-1">
+          {@stats.total}
+        </div>
+      </div>
+
+      <div
+        id="stat-http-events"
+        class="p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/60 rounded"
+      >
+        <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+          HTTP Probes
+        </span>
+        <div class="text-xl font-light text-blue-600 dark:text-blue-400 mt-1">
+          {@stats.http_count}
+        </div>
+      </div>
+
+      <div
+        id="stat-sca-events"
+        class="p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/60 rounded"
+      >
+        <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+          SCA Scans
+        </span>
+        <div class="text-xl font-light text-purple-600 dark:text-purple-400 mt-1">
+          {@stats.sca_count}
+        </div>
+      </div>
+
+      <div
+        id="stat-avg-latency"
+        class="p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/60 rounded"
+      >
+        <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+          Avg HTTP Latency
+        </span>
+        <div class="text-xl font-light text-neutral-900 dark:text-neutral-100 mt-1">
+          {@stats.avg_latency_ms} <span class="text-xs text-neutral-400">ms</span>
+        </div>
+      </div>
+
+      <div
+        id="stat-vulnerabilities"
+        class="p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/60 rounded"
+      >
+        <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+          CVEs Discovered
+        </span>
+        <div class="text-xl font-light text-amber-600 dark:text-amber-400 mt-1">
+          {@stats.total_vulnerabilities}
+        </div>
+      </div>
+
+      <div
+        id="stat-error-events"
+        class="p-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/60 rounded"
+      >
+        <span class="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+          Probe Errors
+        </span>
+        <div class={[
+          "text-xl font-light mt-1",
+          if(@stats.error_count > 0,
+            do: "text-red-600 dark:text-red-400 font-normal",
+            else: "text-neutral-400"
+          )
+        ]}>
+          {@stats.error_count}
+        </div>
+      </div>
+    </div>
+
+    <%!-- Filter & Documentation Bar --%>
+    <div class="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-50/70 p-3 border border-neutral-200 dark:bg-neutral-800/40 dark:border-neutral-700 rounded">
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-neutral-500 font-mono">Filter by type:</span>
+        <div class="inline-flex rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-0.5 text-xs">
+          <%= for {label, key} <- [
+            {"All", "all"},
+            {"HTTP", "http"},
+            {"Uptime", "uptime"},
+            {"Incidents", "incident"},
+            {"Web Vitals", "web_vitals"},
+            {"A11y", "a11y"},
+            {"DNS", "dns"},
+            {"Sec Headers", "security_headers"},
+            {"SCA Repos", "sca"},
+            {"TLS", "tls"},
+            {"Probes", "probe"}
+          ] do %>
+            <button
+              type="button"
+              id={"filter-type-#{key}"}
+              phx-click="filter_type"
+              phx-value-type={key}
+              class={[
+                "px-2 py-1 rounded transition-colors text-xs font-medium",
+                if(@filter_type == key,
+                  do: "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
+                  else:
+                    "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                )
+              ]}
+            >
+              {label}
+            </button>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 text-xs text-neutral-500">
+        <.link
+          navigate={~p"/admin/repositories"}
+          class="hover:text-neutral-900 dark:hover:text-neutral-200 underline decoration-neutral-300"
+        >
+          Repositories &rarr;
+        </.link>
+        <.link
+          navigate={~p"/admin/settings"}
+          class="hover:text-neutral-900 dark:hover:text-neutral-200 underline decoration-neutral-300"
+        >
+          VCS Settings &rarr;
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Live Events Stream Table --%>
+    <div class="border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 rounded overflow-hidden shadow-2xs">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-neutral-50/80 dark:bg-neutral-800/60 border-b border-neutral-200 dark:border-neutral-700 text-neutral-500 uppercase font-mono text-[10px] tracking-wider">
+              <th class="py-2.5 px-4 w-28">Timestamp</th>
+              <th class="py-2.5 px-4 w-24">Type</th>
+              <th class="py-2.5 px-4">Target / Resource</th>
+              <th class="py-2.5 px-4 w-36">Measurements</th>
+              <th class="py-2.5 px-4 w-32">Status / Result</th>
+              <th class="py-2.5 px-4 w-24 text-right">Details</th>
+            </tr>
+          </thead>
+          <tbody
+            id="telemetry-events-stream"
+            phx-update="stream"
+            class="divide-y divide-neutral-100 dark:divide-neutral-800 font-mono"
+          >
+            <tr
+              :for={{dom_id, ev} <- @streams.telemetry_events}
+              id={dom_id}
+              class="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors"
+            >
+              <td class="py-3 px-4 text-neutral-400 whitespace-nowrap text-[11px]">
+                {Calendar.strftime(ev.timestamp, "%H:%M:%S")}.{String.pad_leading(
+                  to_string(div(ev.timestamp.microsecond |> elem(0), 1000)),
+                  3,
+                  "0"
+                )}
+              </td>
+
+              <td class="py-3 px-4 whitespace-nowrap">
+                <%= case ev.type do %>
+                  <% :http -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800">
+                      HTTP
+                    </span>
+                  <% :uptime -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+                      UPTIME
+                    </span>
+                  <% :incident -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
+                      INCIDENT
+                    </span>
+                  <% :web_vitals -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800">
+                      WEB VITALS
+                    </span>
+                  <% :a11y -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800">
+                      A11Y WCAG
+                    </span>
+                  <% :dns -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800">
+                      DNS
+                    </span>
+                  <% :security_headers -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800">
+                      SEC HEADERS
+                    </span>
+                  <% :sca -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800">
+                      SCA REPO
+                    </span>
+                  <% :tls -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
+                      TLS SSL
+                    </span>
+                  <% _ -> %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-100 text-neutral-700 border border-neutral-300 dark:bg-neutral-800 dark:text-neutral-300">
+                      PROBE
+                    </span>
+                <% end %>
+              </td>
+
+              <td class="py-3 px-4">
+                <div class="font-sans font-medium text-neutral-900 dark:text-neutral-100 truncate max-w-sm">
+                  {ev.metadata["server.address"] || ev.metadata["vcs.repository.name"] ||
+                    "Internal Target"}
+                </div>
+                <div class="text-[10px] text-neutral-400 truncate max-w-sm">
+                  {ev.metadata["url.full"] || ev.metadata["vcs.repository.url"] ||
+                    Enum.join(ev.event, ".")}
+                </div>
+              </td>
+
+              <td class="py-3 px-4 whitespace-nowrap">
+                <%= if ev.measurements[:duration_ms] do %>
+                  <span class="text-neutral-700 dark:text-neutral-300 font-medium">
+                    {ev.measurements[:duration_ms]}ms
+                  </span>
+                <% end %>
+
+                <%= if not is_nil(ev.measurements[:response_time_ms]) and is_nil(ev.measurements[:duration_ms]) do %>
+                  <span class="text-neutral-700 dark:text-neutral-300 font-medium">
+                    {ev.measurements[:response_time_ms]}ms
+                  </span>
+                <% end %>
+
+                <%= if ev.type == :web_vitals do %>
+                  <div class="text-[11px] text-neutral-600 dark:text-neutral-400">
+                    LCP:
+                    <span class="font-medium text-neutral-800 dark:text-neutral-200">
+                      {ev.measurements[:lcp_ms]}ms
+                    </span>
+                    | Perf:
+                    <span class="font-medium text-emerald-600 dark:text-emerald-400">
+                      {ev.measurements[:performance_score]}/100
+                    </span>
+                  </div>
+                <% end %>
+
+                <%= if ev.type == :a11y do %>
+                  <div class="text-[11px] text-neutral-600 dark:text-neutral-400">
+                    <span class={
+                      if((ev.measurements[:violations_count] || 0) > 0,
+                        do: "text-red-600 font-semibold",
+                        else: "text-emerald-600 font-medium"
+                      )
+                    }>
+                      {ev.measurements[:violations_count]} Violations
+                    </span>
+                    <span class="text-neutral-400">
+                      ({ev.measurements[:warnings_count]} Warn)
+                    </span>
+                  </div>
+                <% end %>
+
+                <%= if ev.type == :dns do %>
+                  <div class="text-[11px] text-neutral-600 dark:text-neutral-400">
+                    {ev.measurements[:record_count]} Records | SPF: {if ev.measurements[
+                                                                          :spf_valid
+                                                                        ] == 1, do: "✓", else: "✗"}
+                  </div>
+                <% end %>
+
+                <%= if ev.type == :security_headers do %>
+                  <div class="text-[11px] text-neutral-600 dark:text-neutral-400">
+                    {ev.measurements[:findings_count]} Findings | HSTS: {if ev.measurements[
+                                                                              :hsts_present
+                                                                            ] == 1,
+                                                                            do: "✓",
+                                                                            else: "✗"}
+                  </div>
+                <% end %>
+
+                <%= if ev.type == :incident do %>
+                  <div class="text-[11px] text-neutral-600 dark:text-neutral-400">
+                    <%= if ev.measurements[:duration_seconds] do %>
+                      MTTR: <span class="font-medium">{ev.measurements[:duration_seconds]}s</span>
+                    <% else %>
+                      Failures:
+                      <span class="font-medium text-red-600">
+                        {ev.measurements[:consecutive_failures]}
+                      </span>
+                    <% end %>
+                  </div>
+                <% end %>
+
+                <%= if ev.measurements[:vulnerability_count] do %>
+                  <div class="text-[11px] text-neutral-500">
+                    {ev.measurements[:vulnerability_count]} CVEs
+                    <%= if (ev.measurements[:critical_count] || 0) > 0 do %>
+                      <span class="text-red-600 font-semibold">
+                        ({ev.measurements[:critical_count]} Crit)
+                      </span>
+                    <% end %>
+                  </div>
+                <% end %>
+
+                <%= if ev.measurements[:days_until_expiry] do %>
+                  <div class="text-[11px] text-neutral-500">
+                    {ev.measurements[:days_until_expiry]} days valid
+                  </div>
+                <% end %>
+              </td>
+
+              <td class="py-3 px-4 whitespace-nowrap">
+                <%= if ev.metadata["incident.state"] do %>
+                  <% state = ev.metadata["incident.state"] %>
+                  <span class={[
+                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border uppercase",
+                    if(state == "resolved",
+                      do:
+                        "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300",
+                      else:
+                        "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300"
+                    )
+                  ]}>
+                    {state}
+                  </span>
+                <% end %>
+
+                <%= if ev.metadata["is_up"] != nil do %>
+                  <span class={[
+                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border",
+                    if(ev.metadata["is_up"],
+                      do:
+                        "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300",
+                      else:
+                        "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-300"
+                    )
+                  ]}>
+                    {if ev.metadata["is_up"], do: "UP", else: "DOWN"}
+                  </span>
+                <% end %>
+
+                <%= if ev.metadata["http.response.status_code"] do %>
+                  <% status = ev.metadata["http.response.status_code"] %>
+                  <span class={[
+                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                    if(status < 400,
+                      do:
+                        "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300",
+                      else:
+                        "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-300"
+                    )
+                  ]}>
+                    {status}
+                  </span>
+                <% end %>
+
+                <%= if ev.metadata["error.type"] do %>
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/50 dark:text-red-300">
+                    {ev.metadata["error.type"]}
+                  </span>
+                <% end %>
+
+                <%= if is_nil(ev.metadata["http.response.status_code"]) and is_nil(ev.metadata["error.type"]) and is_nil(ev.metadata["incident.state"]) and is_nil(ev.metadata["is_up"]) do %>
+                  <span class="text-emerald-600 dark:text-emerald-400 text-[11px]">
+                    ✓ OK
+                  </span>
+                <% end %>
+              </td>
+
+              <td class="py-3 px-4 text-right">
+                <button
+                  type="button"
+                  phx-click="toggle_details"
+                  phx-value-id={ev.id}
+                  class="text-[11px] text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 font-sans underline"
+                >
+                  {if @expanded_id == ev.id, do: "Hide", else: "OTel JSON"}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <%!-- Empty State --%>
+      <div :if={@stats.total == 0} class="py-16 text-center text-neutral-400 text-xs font-light">
+        <.icon
+          name="hero-radio"
+          class="w-8 h-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-3"
+        />
+        <p class="font-normal text-neutral-600 dark:text-neutral-300">
+          No telemetry events captured yet
+        </p>
+        <p class="mt-1 text-neutral-400">
+          Synthetic probes run on scheduled intervals. Click <strong>+ Test HTTP</strong>
+          or <strong>+ Test SCA</strong>
+          above to preview.
+        </p>
+      </div>
+    </div>
+
+    <%!-- Expanded Detail Drawer --%>
+    <%= if @expanded_id do %>
+      <% expanded_ev = Enum.find(Ravner.Telemetry.EventBuffer.list(), &(&1.id == @expanded_id)) %>
+      <%= if expanded_ev do %>
+        <div
+          id="otel-json-drawer"
+          class="mt-4 p-4 border border-neutral-300 bg-neutral-900 text-neutral-100 rounded text-xs font-mono shadow-md"
+        >
+          <div class="flex items-center justify-between border-b border-neutral-800 pb-2 mb-3">
+            <span class="text-amber-400 font-semibold">
+              OpenTelemetry Event Payload (SemConv) — ID #{expanded_ev.id}
+            </span>
+            <button
+              type="button"
+              phx-click="toggle_details"
+              phx-value-id={expanded_ev.id}
+              class="text-neutral-400 hover:text-white"
+            >
+              ✕ Close
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="text-neutral-400 uppercase text-[10px] tracking-wider block mb-1">
+                Measurements
+              </span>
+              <pre class="bg-neutral-950 p-2.5 rounded text-[11px] text-emerald-400 overflow-x-auto">{Jason.encode!(expanded_ev.measurements, pretty: true)}</pre>
+            </div>
+
+            <div>
+              <span class="text-neutral-400 uppercase text-[10px] tracking-wider block mb-1">
+                Metadata (OTel Attributes)
+              </span>
+              <pre class="bg-neutral-950 p-2.5 rounded text-[11px] text-blue-300 overflow-x-auto">{Jason.encode!(expanded_ev.metadata, pretty: true)}</pre>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</Layouts.app>

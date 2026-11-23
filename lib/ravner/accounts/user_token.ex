@@ -1,7 +1,21 @@
 defmodule Ravner.Accounts.UserToken do
+  @moduledoc """
+  Ecto schema representing a security token (session, email change, password reset, magic link).
+  """
   use Ecto.Schema
   import Ecto.Query
   alias Ravner.Accounts.UserToken
+
+  @type t :: %__MODULE__{
+          id: integer() | nil,
+          token: binary() | nil,
+          context: String.t() | nil,
+          sent_to: String.t() | nil,
+          authenticated_at: DateTime.t() | nil,
+          user_id: integer() | nil,
+          user: Ravner.Accounts.User.t() | term(),
+          inserted_at: DateTime.t() | nil
+        }
 
   @hash_algorithm :sha256
   @rand_size 32
@@ -12,6 +26,7 @@ defmodule Ravner.Accounts.UserToken do
   @change_email_validity_in_days 7
   @reset_password_validity_in_days 1
   @session_validity_in_days 14
+  @one_time_login_validity_in_days 2
 
   schema "users_tokens" do
     field :token, :binary
@@ -106,7 +121,7 @@ defmodule Ravner.Accounts.UserToken do
   of a magic link token is always "login".
   """
   def verify_magic_link_token_query(token) do
-    case Base.url_decode64(token, padding: false) do
+    case decode_token(token) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
 
@@ -114,7 +129,7 @@ defmodule Ravner.Accounts.UserToken do
           from token in by_token_and_context_query(hashed_token, "login"),
             join: user in assoc(token, :user),
             where: token.inserted_at > ago(^@magic_link_validity_in_minutes, "minute"),
-            where: token.sent_to == user.email,
+            where: fragment("lower(?) = lower(?)", token.sent_to, user.email),
             select: {user, token}
 
         {:ok, query}
@@ -136,7 +151,7 @@ defmodule Ravner.Accounts.UserToken do
   The context must always start with "change:".
   """
   def verify_change_email_token_query(token, "change:" <> _ = context) do
-    case Base.url_decode64(token, padding: false) do
+    case decode_token(token) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
 
@@ -157,7 +172,7 @@ defmodule Ravner.Accounts.UserToken do
   If found, the query returns a tuple of the form `{user, token}`.
   """
   def verify_password_reset_token_query(token) do
-    case Base.url_decode64(token, padding: false) do
+    case decode_token(token) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
 
@@ -165,7 +180,7 @@ defmodule Ravner.Accounts.UserToken do
           from token in by_token_and_context_query(hashed_token, "reset_password"),
             join: user in assoc(token, :user),
             where: token.inserted_at > ago(@reset_password_validity_in_days, "day"),
-            where: token.sent_to == user.email,
+            where: fragment("lower(?) = lower(?)", token.sent_to, user.email),
             select: {user, token}
 
         {:ok, query}
@@ -174,6 +189,42 @@ defmodule Ravner.Accounts.UserToken do
         :error
     end
   end
+
+  @doc """
+  Checks if the one-time login token is valid and returns its underlying lookup query.
+
+  If found, the query returns a tuple of the form `{user, token}`.
+  Tokens expire after #{@one_time_login_validity_in_days} days (48 hours).
+  """
+  def verify_one_time_login_token_query(token) do
+    case decode_token(token) do
+      {:ok, decoded_token} ->
+        hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
+
+        query =
+          from token in by_token_and_context_query(hashed_token, "one_time_login"),
+            join: user in assoc(token, :user),
+            where: token.inserted_at > ago(@one_time_login_validity_in_days, "day"),
+            where: fragment("lower(?) = lower(?)", token.sent_to, user.email),
+            select: {user, token}
+
+        {:ok, query}
+
+      :error ->
+        :error
+    end
+  end
+
+  defp decode_token(token) when is_binary(token) do
+    trimmed = String.trim(token)
+
+    case Base.url_decode64(trimmed, padding: false) do
+      {:ok, decoded} -> {:ok, decoded}
+      :error -> Base.url_decode64(trimmed, padding: true)
+    end
+  end
+
+  defp decode_token(_), do: :error
 
   defp by_token_and_context_query(token, context) do
     from UserToken, where: [token: ^token, context: ^context]

@@ -17,9 +17,50 @@ defmodule Ravner.Inventory.OwnershipStats do
 
   @doc """
   Dashboard-level stats: total counts for all entity types.
+  Accepts an optional scope map to restrict counts to authorized entities.
   """
-  @spec dashboard_stats() :: map()
-  def dashboard_stats do
+  @spec dashboard_stats(map() | nil) :: map()
+  def dashboard_stats(scope \\ nil)
+
+  def dashboard_stats(%{global?: false} = scope) do
+    org_ids = scope[:organization_ids] || []
+    brand_ids = scope[:brand_ids] || []
+    project_ids = scope[:project_ids] || []
+
+    people_count =
+      if org_ids == [] do
+        0
+      else
+        Repo.aggregate(from(pe in Person, where: pe.organization_id in ^org_ids), :count, :id)
+      end
+
+    domains_count =
+      cond do
+        org_ids == [] and project_ids == [] and brand_ids == [] ->
+          0
+
+        true ->
+          Repo.aggregate(
+            from(d in Domain,
+              where:
+                d.organization_id in ^org_ids or d.project_id in ^project_ids or
+                  d.brand_id in ^brand_ids
+            ),
+            :count,
+            :id
+          )
+      end
+
+    %{
+      brands_count: length(brand_ids),
+      organizations_count: length(org_ids),
+      projects_count: length(project_ids),
+      people_count: people_count,
+      domains_count: domains_count
+    }
+  end
+
+  def dashboard_stats(_scope) do
     %{
       brands_count: Repo.aggregate(Brand, :count, :id),
       organizations_count: Repo.aggregate(Organization, :count, :id),
@@ -77,6 +118,8 @@ defmodule Ravner.Inventory.OwnershipStats do
       on: pes.brand_id == b.id,
       left_join: ds in subquery(domains_subq),
       on: ds.brand_id == b.id,
+      left_join: bm in Person,
+      on: b.brand_manager_id == bm.id,
       order_by: [asc: b.name],
       select: %{
         id: b.id,
@@ -84,6 +127,7 @@ defmodule Ravner.Inventory.OwnershipStats do
         display_name: b.display_name,
         slug: b.slug,
         notes: b.notes,
+        brand_manager_name: fragment("TRIM(CONCAT(? , ' ', ?))", bm.first_name, bm.last_name),
         orgs_count: coalesce(os.orgs_count, 0),
         projects_count: coalesce(ps.projects_count, 0),
         people_count: coalesce(pes.people_count, 0),
@@ -128,11 +172,17 @@ defmodule Ravner.Inventory.OwnershipStats do
     domains_count =
       Repo.aggregate(from(d in Domain, where: d.brand_id == ^brand_id), :count, :id)
 
+    sec_summary = Ravner.SecurityScans.portfolio_security_summary(brand_id: brand_id)
+
     %{
       orgs_count: orgs_count,
       projects_count: projects_count,
       people_count: people_count,
-      domains_count: domains_count
+      domains_count: domains_count,
+      domains_at_risk_count: sec_summary.domains_at_risk_count,
+      critical_count: sec_summary.critical,
+      high_count: sec_summary.high,
+      medium_count: sec_summary.medium
     }
   end
 
@@ -170,6 +220,8 @@ defmodule Ravner.Inventory.OwnershipStats do
       on: pes.organization_id == o.id,
       left_join: ds in subquery(domains_subq),
       on: ds.organization_id == o.id,
+      left_join: m in Person,
+      on: o.manager_id == m.id,
       order_by: [asc: o.name],
       select: %{
         id: o.id,
@@ -178,6 +230,7 @@ defmodule Ravner.Inventory.OwnershipStats do
         slug: o.slug,
         type: o.type,
         country: o.country,
+        manager_name: fragment("TRIM(CONCAT(? , ' ', ?))", m.first_name, m.last_name),
         projects_count: coalesce(ps.projects_count, 0),
         people_count: coalesce(pes.people_count, 0),
         domains_count: coalesce(ds.domains_count, 0)
@@ -202,10 +255,16 @@ defmodule Ravner.Inventory.OwnershipStats do
     domains_count =
       Repo.aggregate(from(d in Domain, where: d.organization_id == ^org_id), :count, :id)
 
+    sec_summary = Ravner.SecurityScans.portfolio_security_summary(organization_id: org_id)
+
     %{
       projects_count: projects_count,
       people_count: people_count,
-      domains_count: domains_count
+      domains_count: domains_count,
+      domains_at_risk_count: sec_summary.domains_at_risk_count,
+      critical_count: sec_summary.critical,
+      high_count: sec_summary.high,
+      medium_count: sec_summary.medium
     }
   end
 
@@ -317,7 +376,7 @@ defmodule Ravner.Inventory.OwnershipStats do
   end
 
   @doc """
-  Person stats: projects they're involved in.
+  Person stats: projects, leadership responsibilities, brands and organizations they are involved in.
   """
   @spec person_stats(integer() | String.t()) :: map()
   def person_stats(person_id) do
@@ -326,9 +385,112 @@ defmodule Ravner.Inventory.OwnershipStats do
     roles_count =
       Repo.aggregate(from(pr in ProjectRole, where: pr.person_id == ^person_id), :count, :id)
 
+    pm_projects_count =
+      Repo.aggregate(from(p in Project, where: p.project_manager_id == ^person_id), :count, :id)
+
+    po_projects_count =
+      Repo.aggregate(from(p in Project, where: p.product_owner_id == ^person_id), :count, :id)
+
+    managed_brands_count =
+      Repo.aggregate(from(b in Brand, where: b.brand_manager_id == ^person_id), :count, :id)
+
+    managed_orgs_count =
+      Repo.aggregate(from(o in Organization, where: o.manager_id == ^person_id), :count, :id)
+
     %{
-      roles_count: roles_count
+      roles_count: roles_count,
+      pm_projects_count: pm_projects_count,
+      po_projects_count: po_projects_count,
+      managed_brands_count: managed_brands_count,
+      managed_orgs_count: managed_orgs_count,
+      total_leadership_count:
+        pm_projects_count + po_projects_count + managed_brands_count + managed_orgs_count
     }
+  end
+
+  @doc """
+  List projects managed by a person as Project Manager (Delivery Lead).
+  """
+  @spec list_pm_projects_for_person(integer() | String.t()) :: [map()]
+  def list_pm_projects_for_person(person_id) do
+    person_id = to_integer(person_id)
+
+    from(p in Project,
+      where: p.project_manager_id == ^person_id,
+      join: o in Organization,
+      on: p.organization_id == o.id,
+      order_by: [asc: p.name],
+      select: %{
+        project_id: p.id,
+        project_name: p.name,
+        organization_id: o.id,
+        organization_name: o.name
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  List projects represented by a person as Product Owner (Client Lead).
+  """
+  @spec list_po_projects_for_person(integer() | String.t()) :: [map()]
+  def list_po_projects_for_person(person_id) do
+    person_id = to_integer(person_id)
+
+    from(p in Project,
+      where: p.product_owner_id == ^person_id,
+      join: o in Organization,
+      on: p.organization_id == o.id,
+      order_by: [asc: p.name],
+      select: %{
+        project_id: p.id,
+        project_name: p.name,
+        organization_id: o.id,
+        organization_name: o.name
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  List brands managed by a person.
+  """
+  @spec list_brands_for_person(integer() | String.t()) :: [map()]
+  def list_brands_for_person(person_id) do
+    person_id = to_integer(person_id)
+
+    from(b in Brand,
+      where: b.brand_manager_id == ^person_id,
+      order_by: [asc: b.name],
+      select: %{
+        brand_id: b.id,
+        brand_name: b.name,
+        display_name: b.display_name,
+        slug: b.slug
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  List organizations managed by a person.
+  """
+  @spec list_organizations_for_person(integer() | String.t()) :: [map()]
+  def list_organizations_for_person(person_id) do
+    person_id = to_integer(person_id)
+
+    from(o in Organization,
+      where: o.manager_id == ^person_id,
+      order_by: [asc: o.name],
+      select: %{
+        organization_id: o.id,
+        organization_name: o.name,
+        display_name: o.display_name,
+        slug: o.slug,
+        type: o.type
+      }
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -383,7 +545,7 @@ defmodule Ravner.Inventory.OwnershipStats do
   end
 
   @doc """
-  List domains for a project.
+  List domains for a project with metadata and contact inheritance indicator.
   """
   @spec list_domains_for_project(integer() | String.t()) :: [map()]
   def list_domains_for_project(project_id) do
@@ -391,11 +553,62 @@ defmodule Ravner.Inventory.OwnershipStats do
 
     from(d in Domain,
       where: d.project_id == ^project_id,
+      left_join: m in assoc(d, :domain_metadata),
       order_by: [asc: d.name],
       select: %{
         id: d.id,
         name: d.name,
-        lifecycle_state: d.lifecycle_state
+        lifecycle_state: d.lifecycle_state,
+        technical_status: d.technical_status,
+        http_status: m.http_status,
+        has_custom_contacts?: not is_nil(d.pm_email) or not is_nil(d.po_email)
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  List candidate domains available to assign to a project.
+  Searches domains in the same organization or unassigned to any project.
+  """
+  @spec list_candidate_domains_for_project(
+          integer() | String.t(),
+          integer() | String.t() | nil,
+          String.t()
+        ) :: [map()]
+  def list_candidate_domains_for_project(project_id, org_id, query \\ "") do
+    project_id = to_integer(project_id)
+    org_id = if org_id, do: to_integer(org_id), else: nil
+    query = String.trim(query)
+
+    base =
+      from(d in Domain,
+        where: is_nil(d.project_id) or d.project_id != ^project_id
+      )
+
+    base =
+      if org_id do
+        from(d in base, where: is_nil(d.organization_id) or d.organization_id == ^org_id)
+      else
+        base
+      end
+
+    base =
+      if query != "" do
+        search_pattern = "%#{query}%"
+        from(d in base, where: ilike(d.name, ^search_pattern))
+      else
+        base
+      end
+
+    from(d in base,
+      order_by: [asc: d.name],
+      limit: 25,
+      select: %{
+        id: d.id,
+        name: d.name,
+        project_id: d.project_id,
+        organization_id: d.organization_id
       }
     )
     |> Repo.all()
@@ -410,12 +623,16 @@ defmodule Ravner.Inventory.OwnershipStats do
 
     from(d in Domain,
       where: d.organization_id == ^org_id,
+      left_join: p in Project,
+      on: d.project_id == p.id,
       order_by: [asc: d.name],
       select: %{
         id: d.id,
         name: d.name,
         lifecycle_state: d.lifecycle_state,
-        project_id: d.project_id
+        technical_status: d.technical_status,
+        project_id: d.project_id,
+        project_name: p.name
       }
     )
     |> Repo.all()
@@ -433,12 +650,20 @@ defmodule Ravner.Inventory.OwnershipStats do
 
     from(d in Domain,
       where: d.brand_id == ^brand_id,
+      left_join: o in Organization,
+      on: d.organization_id == o.id,
+      left_join: p in Project,
+      on: d.project_id == p.id,
       order_by: [asc: d.name],
       select: %{
         id: d.id,
         name: d.name,
         lifecycle_state: d.lifecycle_state,
-        organization_id: d.organization_id
+        technical_status: d.technical_status,
+        organization_id: d.organization_id,
+        organization_name: o.name,
+        project_id: d.project_id,
+        project_name: p.name
       }
     )
     |> Repo.all()
@@ -533,9 +758,141 @@ defmodule Ravner.Inventory.OwnershipStats do
 
   @doc """
   Orphaned/at-risk entity counts for the overview "Needs Attention" panel.
+  Accepts an optional scope map to restrict alerts to authorized entities.
   """
-  @spec orphaned_stats() :: map()
-  def orphaned_stats do
+  @spec orphaned_stats(map() | nil) :: map()
+  def orphaned_stats(scope \\ nil)
+
+  def orphaned_stats(%{global?: false} = scope) do
+    brand_ids = scope[:brand_ids] || []
+    org_ids = scope[:organization_ids] || []
+    project_ids = scope[:project_ids] || []
+
+    domains_without_project =
+      if org_ids == [] and brand_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(d in Domain,
+            where:
+              is_nil(d.project_id) and
+                (d.organization_id in ^org_ids or d.brand_id in ^brand_ids)
+          ),
+          :count,
+          :id
+        )
+      end
+
+    domains_without_brand =
+      if org_ids == [] and project_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(d in Domain,
+            where:
+              is_nil(d.brand_id) and
+                (d.organization_id in ^org_ids or d.project_id in ^project_ids)
+          ),
+          :count,
+          :id
+        )
+      end
+
+    empty_organizations =
+      if org_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(o in Organization,
+            left_join: p in Project,
+            on: p.organization_id == o.id,
+            left_join: pe in Person,
+            on: pe.organization_id == o.id,
+            where: o.id in ^org_ids and is_nil(p.id) and is_nil(pe.id)
+          ),
+          :count,
+          :id
+        )
+      end
+
+    projects_without_team =
+      if project_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(p in Project,
+            left_join: pr in ProjectRole,
+            on: pr.project_id == p.id,
+            where:
+              p.id in ^project_ids and is_nil(pr.id) and
+                is_nil(p.project_manager_id) and is_nil(p.product_owner_id)
+          ),
+          :count,
+          :id
+        )
+      end
+
+    projects_without_pm =
+      if project_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(p in Project,
+            where: p.id in ^project_ids and is_nil(p.project_manager_id)
+          ),
+          :count,
+          :id
+        )
+      end
+
+    projects_without_po =
+      if project_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(p in Project,
+            where: p.id in ^project_ids and is_nil(p.product_owner_id)
+          ),
+          :count,
+          :id
+        )
+      end
+
+    brands_without_manager =
+      if brand_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(b in Brand, where: b.id in ^brand_ids and is_nil(b.brand_manager_id)),
+          :count,
+          :id
+        )
+      end
+
+    organizations_without_manager =
+      if org_ids == [] do
+        0
+      else
+        Repo.aggregate(
+          from(o in Organization, where: o.id in ^org_ids and is_nil(o.manager_id)),
+          :count,
+          :id
+        )
+      end
+
+    %{
+      domains_without_project: domains_without_project,
+      domains_without_brand: domains_without_brand,
+      empty_organizations: empty_organizations,
+      projects_without_team: projects_without_team,
+      projects_without_pm: projects_without_pm,
+      projects_without_po: projects_without_po,
+      brands_without_manager: brands_without_manager,
+      organizations_without_manager: organizations_without_manager
+    }
+  end
+
+  def orphaned_stats(_scope) do
     %{
       domains_without_project:
         Repo.aggregate(from(d in Domain, where: is_nil(d.project_id)), :count, :id),
@@ -558,11 +915,19 @@ defmodule Ravner.Inventory.OwnershipStats do
           from(p in Project,
             left_join: pr in ProjectRole,
             on: pr.project_id == p.id,
-            where: is_nil(pr.id)
+            where: is_nil(pr.id) and is_nil(p.project_manager_id) and is_nil(p.product_owner_id)
           ),
           :count,
           :id
-        )
+        ),
+      projects_without_pm:
+        Repo.aggregate(from(p in Project, where: is_nil(p.project_manager_id)), :count, :id),
+      projects_without_po:
+        Repo.aggregate(from(p in Project, where: is_nil(p.product_owner_id)), :count, :id),
+      brands_without_manager:
+        Repo.aggregate(from(b in Brand, where: is_nil(b.brand_manager_id)), :count, :id),
+      organizations_without_manager:
+        Repo.aggregate(from(o in Organization, where: is_nil(o.manager_id)), :count, :id)
     }
   end
 end

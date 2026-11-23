@@ -1,0 +1,322 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-8 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+      <div>
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            API Tokens
+          </h1>
+          <span class="text-xs px-2 py-0.5 font-mono uppercase rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
+            Admin Only
+          </span>
+        </div>
+        <p class="text-sm font-light text-neutral-500 mt-1">
+          Generate, audit, and revoke programmatic authentication tokens for external microservices, CI/CD, and integration pipelines.
+        </p>
+      </div>
+
+      <button
+        id="btn-generate-token"
+        type="button"
+        phx-click="open_create_modal"
+        class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 rounded-md shadow-sm transition-all"
+      >
+        <.icon name="hero-key" class="w-4 h-4" /> Generate API Token
+      </button>
+    </div>
+
+    <%!-- Tokens Table --%>
+    <div class="border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden bg-white dark:bg-neutral-900 shadow-xs mb-8">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/75 dark:bg-neutral-800/50 text-neutral-500 uppercase tracking-wider font-mono text-[10px]">
+              <th class="py-3 px-4 font-medium">Name & Prefix</th>
+              <th class="py-3 px-4 font-medium">Role</th>
+              <th class="py-3 px-4 font-medium">Security Perimeter</th>
+              <th class="py-3 px-4 font-medium">Status</th>
+              <th class="py-3 px-4 font-medium">Last Used</th>
+              <th class="py-3 px-4 font-medium">Expires</th>
+              <th class="py-3 px-4 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+            <%= if @tokens == [] do %>
+              <tr>
+                <td colspan="7" class="py-12 text-center text-neutral-400">
+                  <.icon name="hero-key" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p class="font-light">No API tokens configured yet.</p>
+                  <p class="text-[11px] mt-1 text-neutral-500">
+                    Generate a token to allow programmatic access to the REST API.
+                  </p>
+                </td>
+              </tr>
+            <% end %>
+
+            <%= for token <- @tokens do %>
+              <% {_status_key, status_label, status_classes} = status_badge(token) %>
+              <tr class="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/30 transition-colors">
+                <td class="py-3 px-4">
+                  <div class="font-medium text-neutral-900 dark:text-neutral-100">
+                    {token.name}
+                  </div>
+                  <div class="font-mono text-[11px] text-neutral-500 mt-0.5">{token.prefix}</div>
+                </td>
+                <td class="py-3 px-4">
+                  <span class={[
+                    "px-2 py-0.5 rounded text-[10px] font-mono uppercase font-medium",
+                    token.role == :admin &&
+                      "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800",
+                    token.role == :editor &&
+                      "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
+                    token.role == :viewer &&
+                      "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700"
+                  ]}>
+                    {token.role}
+                  </span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="space-y-1">
+                    <%= if token.allowed_ips != [] do %>
+                      <div
+                        class="flex items-center gap-1 text-neutral-600 dark:text-neutral-400"
+                        title={Enum.join(token.allowed_ips, ", ")}
+                      >
+                        <.icon name="hero-shield-check" class="w-3.5 h-3.5 text-blue-500" />
+                        <span>IPs: {length(token.allowed_ips)} rule(s)</span>
+                      </div>
+                    <% else %>
+                      <div class="text-neutral-400 text-[11px]">Any IP (Public)</div>
+                    <% end %>
+
+                    <%= if token.allowed_paths != [] do %>
+                      <div
+                        class="flex items-center gap-1 text-neutral-600 dark:text-neutral-400 font-mono text-[10px]"
+                        title={Enum.join(token.allowed_paths, "\n")}
+                      >
+                        <.icon name="hero-link" class="w-3 h-3 text-emerald-500" />
+                        <span>{length(token.allowed_paths)} path scope(s)</span>
+                      </div>
+                    <% else %>
+                      <div class="text-neutral-400 text-[11px]">All API endpoints</div>
+                    <% end %>
+                  </div>
+                </td>
+                <td class="py-3 px-4">
+                  <span class={[
+                    "px-2 py-0.5 rounded border text-[10px] font-medium uppercase font-mono",
+                    status_classes
+                  ]}>
+                    {status_label}
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-neutral-500 text-[11px]">
+                  <%= if token.last_used_at do %>
+                    <div>{Calendar.strftime(token.last_used_at, "%Y-%m-%d %H:%M")}</div>
+                    <div class="font-mono text-[10px] text-neutral-400 mt-0.5">
+                      {token.last_used_ip || "unknown IP"}
+                    </div>
+                  <% else %>
+                    <span class="text-neutral-400 italic">Never used</span>
+                  <% end %>
+                </td>
+                <td class="py-3 px-4 text-neutral-500 text-[11px]">
+                  <%= if token.expires_at do %>
+                    {Calendar.strftime(token.expires_at, "%Y-%m-%d")}
+                  <% else %>
+                    <span class="text-neutral-400">Never</span>
+                  <% end %>
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <%= if is_nil(token.revoked_at) do %>
+                    <button
+                      id={"revoke-token-#{token.id}"}
+                      type="button"
+                      phx-click="revoke_token"
+                      phx-value-id={token.id}
+                      data-confirm="Are you sure you want to revoke this API token immediately? Any service using this key will be denied access."
+                      class="px-2 py-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors font-medium cursor-pointer"
+                    >
+                      Revoke
+                    </button>
+                  <% else %>
+                    <span class="text-neutral-400 text-[11px] italic">Revoked</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <%!-- Modal: Generate Token Form --%>
+  <%= if @show_create_modal do %>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-150">
+        <div class="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+          <h3 class="text-base font-normal text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+            <.icon name="hero-key" class="w-4 h-4 text-blue-500" /> Generate New API Token
+          </h3>
+          <button
+            type="button"
+            phx-click="close_create_modal"
+            class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+          >
+            <.icon name="hero-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <form id="api-token-form" phx-submit="save_token" class="p-6 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              Token Name / Application <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="token[name]"
+              required
+              placeholder="e.g. GitHub Actions CI, Prometheus Metrics, Production Importer"
+              class="w-full px-3 py-2 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md bg-transparent text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                Access Role <span class="text-neutral-400">(Least Privilege)</span>
+              </label>
+              <select
+                name="token[role]"
+                class="w-full px-3 py-2 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md bg-transparent text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+              >
+                <option value="viewer" selected>Viewer (Read-Only queries, Recommended)</option>
+                <option value="editor">Editor (Read & Write Applications/Domains)</option>
+                <option value="admin">Admin (Full Administrative access)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                Expiration Period
+              </label>
+              <select
+                name="token[expiry_preset]"
+                class="w-full px-3 py-2 text-xs border border-neutral-200 dark:border-neutral-700 rounded-md bg-transparent text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+              >
+                <option value="30">30 days</option>
+                <option value="90" selected>90 days (Recommended)</option>
+                <option value="365">1 year</option>
+                <option value="never">No expiration (Never)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              Allowed Source IPs / CIDR
+              <span class="text-neutral-400 font-normal">(Optional, one per line)</span>
+            </label>
+            <textarea
+              name="token[allowed_ips]"
+              rows="2"
+              placeholder="192.168.1.100&#10;10.0.0.0/8"
+              class="w-full px-3 py-2 text-xs font-mono border border-neutral-200 dark:border-neutral-700 rounded-md bg-transparent text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+            ></textarea>
+            <p class="text-[11px] text-neutral-500 mt-1">
+              Leave empty to allow requests from any IP address.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              Allowed Request URL Patterns
+              <span class="text-neutral-400 font-normal">(One per line)</span>
+            </label>
+            <textarea
+              name="token[allowed_paths]"
+              rows="3"
+              class="w-full px-3 py-2 text-xs font-mono border border-neutral-200 dark:border-neutral-700 rounded-md bg-transparent text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+            >GET /api/v1/*</textarea>
+            <p class="text-[11px] text-neutral-500 mt-1">
+              Supports methods and wildcards, e.g.
+              <code class="text-blue-500">GET /api/v1/applications*</code>
+              or <code class="text-blue-500">POST /api/v1/domains</code>.
+            </p>
+          </div>
+
+          <div class="pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              phx-click="close_create_modal"
+              class="px-4 py-2 text-xs text-neutral-600 hover:text-neutral-800 dark:text-neutral-400 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              id="submit-create-token"
+              type="submit"
+              class="px-4 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-md shadow-xs transition-colors"
+            >
+              Generate Token
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Display Generated Secret (Once) --%>
+  <%= if @show_secret_modal do %>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-150">
+        <div class="p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <.icon name="hero-check" class="w-6 h-6" />
+            </div>
+            <div>
+              <h3 class="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                API Token Generated
+              </h3>
+              <p class="text-xs text-neutral-500">
+                Copy this secret now. It will not be shown again.
+              </p>
+            </div>
+          </div>
+
+          <div class="my-4 p-3.5 bg-neutral-50 dark:bg-neutral-800/80 rounded-md border border-neutral-200 dark:border-neutral-700">
+            <label class="block text-[10px] uppercase font-mono tracking-wider text-neutral-400 mb-1">
+              Your API Secret Token
+            </label>
+            <div class="flex items-center justify-between gap-2">
+              <code
+                id="generated-token-value"
+                class="text-xs font-mono break-all text-neutral-900 dark:text-neutral-100 selection:bg-blue-200"
+              >
+                {@generated_secret}
+              </code>
+            </div>
+          </div>
+
+          <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-amber-800 dark:text-amber-300 text-xs">
+            <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline mr-1 text-amber-600" />
+            For security reasons, Ravner only stores a one-way cryptographic SHA-256 hash. You must store this token in your password manager or CI secrets immediately.
+          </div>
+
+          <div class="mt-6 flex justify-end">
+            <button
+              id="btn-confirm-token-copied"
+              type="button"
+              phx-click="close_secret_modal"
+              class="px-4 py-2 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 rounded-md transition-colors"
+            >
+              Done, I have copied it
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</Layouts.app>

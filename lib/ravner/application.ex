@@ -7,6 +7,8 @@ defmodule Ravner.Application do
 
   @impl true
   def start(_type, _args) do
+    Ravner.Telemetry.Oban.attach()
+
     # Load .env file in development
     if Application.get_env(:ravner, :env) == :dev do
       Dotenvy.source([".env", ".env.dev", ".env.#{Application.get_env(:ravner, :env)}"])
@@ -20,7 +22,10 @@ defmodule Ravner.Application do
        skip: System.get_env("SKIP_MIGRATIONS") == "true"},
       {DNSCluster, query: Application.get_env(:ravner, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Ravner.PubSub},
+      Ravner.Telemetry.EventBuffer,
+      Ravner.Scans.CveCache,
       {Task.Supervisor, name: Ravner.ScanTaskSupervisor},
+      {Task.Supervisor, name: Ravner.TaskSupervisor},
       {Oban, Application.fetch_env!(:ravner, Oban)},
       # Start a worker by calling: Ravner.Worker.start_link(arg)
       # {Ravner.Worker, arg},
@@ -31,7 +36,23 @@ defmodule Ravner.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Ravner.Supervisor]
-    Supervisor.start_link(children, opts)
+
+    with {:ok, pid} <- Supervisor.start_link(children, opts) do
+      maybe_schedule_technologies_update()
+      Ravner.ApiKeys.validate_on_startup()
+      {:ok, pid}
+    end
+  end
+
+  # Fetch the Wappalyzer technologies database on first boot (fresh containers).
+  # Skipped in the test environment where Oban runs jobs inline.
+  defp maybe_schedule_technologies_update do
+    if Application.get_env(:ravner, :env) != :test &&
+         Ravner.Scans.TechFingerprint.technologies_path() == nil do
+      Ravner.Workers.TechnologiesUpdateWorker.new(%{}) |> Oban.insert()
+    end
+
+    :ok
   end
 
   # Tell Phoenix to update the endpoint configuration

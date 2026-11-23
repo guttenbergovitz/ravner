@@ -70,6 +70,46 @@ defmodule RavnerWeb.UserSessionControllerTest do
     end
   end
 
+  describe "GET /users/log-in/one-time/:token" do
+    test "logs user in, confirms account, and redirects to settings", %{
+      conn: conn,
+      unconfirmed_user: user
+    } do
+      admin = user_fixture(%{role: :admin})
+
+      {:ok, link} =
+        Accounts.generate_one_time_login_link(user, admin, &~p"/users/log-in/one-time/#{&1}")
+
+      conn = get(conn, link)
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Logged in via one-time link"
+
+      refute is_nil(Accounts.get_user!(user.id).confirmed_at)
+    end
+
+    test "handles deactivated user", %{conn: conn, user: user} do
+      admin = user_fixture(%{role: :admin})
+
+      {:ok, link} =
+        Accounts.generate_one_time_login_link(user, admin, &~p"/users/log-in/one-time/#{&1}")
+
+      user |> Ecto.Changeset.change(%{active: false}) |> Ravner.Repo.update!()
+
+      conn = get(conn, link)
+      assert redirected_to(conn) == ~p"/users/log-in"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "deactivated"
+      refute get_session(conn, :user_token)
+    end
+
+    test "handles invalid or expired token", %{conn: conn} do
+      conn = get(conn, ~p"/users/log-in/one-time/invalid-token")
+      assert redirected_to(conn) == ~p"/users/log-in"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "invalid or has expired"
+      refute get_session(conn, :user_token)
+    end
+  end
+
   describe "POST /users/log-in - email and password" do
     test "logs the user in", %{conn: conn, user: user} do
       user = set_password(user)

@@ -46,12 +46,30 @@ defmodule RavnerWeb.AdminLive.UptimeNotifications do
       user_id: parse_id(params["user_id"]),
       email: blank_to_nil(params["email"]),
       phone: blank_to_nil(params["phone"]),
-      channels: params["channels"] || "email"
+      channels: params["channels"] || "email",
+      webhook_url: blank_to_nil(params["webhook_url"]),
+      webhook_type: params["webhook_type"] || "generic",
+      secret_header: blank_to_nil(params["secret_header"])
     }
 
     case %NotificationRecipient{} |> NotificationRecipient.changeset(attrs) |> Repo.insert() do
-      {:ok, _} -> {:noreply, load_data(socket) |> put_flash(:info, "Recipient added.")}
-      {:error, _cs} -> {:noreply, put_flash(socket, :error, "Failed to add recipient.")}
+      {:ok, _} ->
+        {:noreply, load_data(socket) |> put_flash(:info, "Recipient added.")}
+
+      {:error, cs} ->
+        {:noreply, put_flash(socket, :error, "Failed to add recipient: #{format_errors(cs)}")}
+    end
+  end
+
+  @impl true
+  def handle_event("test_webhook", %{"id" => id}, socket) do
+    case Ravner.Notifications.send_test_webhook(String.to_integer(id)) do
+      {:ok, _resp} ->
+        {:noreply,
+         put_flash(socket, :info, "Test webhook payload delivered successfully (HTTP 200).")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Test webhook failed: #{inspect(reason)}")}
     end
   end
 
@@ -91,11 +109,19 @@ defmodule RavnerWeb.AdminLive.UptimeNotifications do
       |> Module.split()
       |> List.last()
 
+    webhook_recipients =
+      NotificationRecipient
+      |> where([r], not is_nil(r.webhook_url))
+      |> order_by(asc: :inserted_at)
+      |> Repo.all()
+      |> Repo.preload([:policy, :group])
+
     socket
     |> assign(:policies, policies)
     |> assign(:groups, groups)
     |> assign(:users, users)
     |> assign(:sms_adapter, sms_adapter)
+    |> assign(:webhook_recipients, webhook_recipients)
   end
 
   defp parse_id(nil), do: nil
@@ -106,4 +132,14 @@ defmodule RavnerWeb.AdminLive.UptimeNotifications do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(s), do: s
+
+  defp format_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
+    |> Enum.map(fn {field, msgs} -> "#{field}: #{Enum.join(msgs, ", ")}" end)
+    |> Enum.join("; ")
+  end
 end

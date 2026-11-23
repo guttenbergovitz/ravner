@@ -32,7 +32,7 @@
       <div class="flex items-center gap-3 mt-4">
         <div
           class={lifecycle_dot_class(@domain.lifecycle_state)}
-          title={@domain.lifecycle_state}
+          title={@domain.lifecycle_state |> Atom.to_string() |> String.replace("_", " ")}
         >
         </div>
         <.technical_status_indicator status={@domain.technical_status} variant={:icon} />
@@ -45,1214 +45,151 @@
       <.severity_badges counts={@severity_counts} />
     </div>
 
+    <%!-- Tab Navigation --%>
+    <div class="border-b border-neutral-200 dark:border-neutral-800 mb-6 flex items-center justify-between">
+      <div class="flex items-center gap-1 overflow-x-auto text-xs" id="domain-tab-nav">
+        <.link
+          patch={~p"/domains/#{@domain.id}?tab=technical"}
+          id="tab-technical"
+          class={[
+            "px-3 py-2.5 font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
+            @active_tab == :technical &&
+              "border-neutral-900 text-neutral-900 font-semibold dark:border-white dark:text-white",
+            @active_tab != :technical &&
+              "border-transparent text-neutral-500 hover:text-neutral-800 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-200"
+          ]}
+        >
+          <.icon name="hero-cpu-chip" class="w-4 h-4" /> Technical Overview
+        </.link>
+        <.link
+          patch={~p"/domains/#{@domain.id}?tab=governance"}
+          id="tab-governance"
+          class={[
+            "px-3 py-2.5 font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
+            @active_tab == :governance &&
+              "border-neutral-900 text-neutral-900 font-semibold dark:border-white dark:text-white",
+            @active_tab != :governance &&
+              "border-transparent text-neutral-500 hover:text-neutral-800 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-200"
+          ]}
+        >
+          <.icon name="hero-user-group" class="w-4 h-4" /> Ownership & Governance
+        </.link>
+        <.link
+          patch={~p"/domains/#{@domain.id}?tab=audit"}
+          id="tab-audit"
+          class={[
+            "px-3 py-2.5 font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
+            @active_tab == :audit &&
+              "border-neutral-900 text-neutral-900 font-semibold dark:border-white dark:text-white",
+            @active_tab != :audit &&
+              "border-transparent text-neutral-500 hover:text-neutral-800 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-200"
+          ]}
+        >
+          <.icon name="hero-clock" class="w-4 h-4" /> Audit Trail
+          <%= if @versions != [] do %>
+            <span class={[
+              "text-[10px] px-1.5 py-0.2 rounded-full",
+              @active_tab == :audit &&
+                "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900",
+              @active_tab != :audit &&
+                "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+            ]}>
+              {length(@versions)}
+            </span>
+          <% end %>
+        </.link>
+      </div>
+
+      <div class="hidden sm:flex items-center gap-3 text-xs font-light text-neutral-400">
+        <.link
+          navigate={~p"/domains/#{@domain.id}/security"}
+          class="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors inline-flex items-center gap-1"
+        >
+          <.icon name="hero-shield-check" class="w-3.5 h-3.5" /> Security Report
+        </.link>
+        <span>·</span>
+        <.link
+          navigate={~p"/domains/#{@domain.id}/a11y"}
+          class="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors inline-flex items-center gap-1"
+        >
+          <.icon name="hero-eye" class="w-3.5 h-3.5" /> A11y Report
+        </.link>
+        <span>·</span>
+        <.link
+          navigate={~p"/domains/#{@domain.id}/lighthouse"}
+          class="hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors inline-flex items-center gap-1"
+        >
+          <.icon name="hero-bolt" class="w-3.5 h-3.5" /> PageSpeed
+        </.link>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div class="lg:col-span-2 space-y-6">
-        <div class="card-line">
-          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Details</h2>
-          <div class="grid grid-cols-2 gap-6 text-sm">
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                URL
-              </span>
-              <span :if={@domain.url} class="font-light">{@domain.url}</span>
-              <span :if={!@domain.url} class="text-neutral-400 font-light">—</span>
-            </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                HTTP status
-              </span>
-              <.http_status class={@domain_class} />
-            </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Technical
-              </span>
-              <.technical_status_indicator status={@domain.technical_status} />
-            </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Lifecycle
-              </span>
-              <div class="relative" id="lifecycle-menu-show">
-                <button
-                  phx-click="toggle_lifecycle_menu"
-                  class="inline-flex items-center gap-2 font-light hover:opacity-70 transition-opacity cursor-pointer"
-                >
-                  <span class={lifecycle_dot_class(@domain.lifecycle_state)}></span>
-                  <span class="capitalize">
-                    {@domain.lifecycle_state |> Atom.to_string() |> String.replace("_", " ")}
-                  </span>
-                  <.icon name="hero-chevron-down" class="w-3 h-3 text-neutral-400" />
-                </button>
-                <%= if @lifecycle_menu_open do %>
-                  <div
-                    class="absolute left-0 top-7 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[170px] dark:bg-neutral-800 dark:border-neutral-700"
-                    phx-click-away="close_lifecycle_menu"
-                  >
-                    <%= for {state, label, _color} <- lifecycle_options() do %>
-                      <button
-                        phx-click="set_lifecycle"
-                        phx-value-state={state}
-                        class={[
-                          "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700",
-                          @domain.lifecycle_state == state && "font-medium"
-                        ]}
-                      >
-                        <span class={lifecycle_dot_class(state, :sm)}></span>
-                        {label}
-                      </button>
-                    <% end %>
-                  </div>
-                <% end %>
-              </div>
-            </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Brand
-              </span>
-              <form phx-change="set_brand" id="brand-select-form">
-                <select
-                  name="brand_id"
-                  class="w-full px-2 py-1.5 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 focus:outline-none focus:border-neutral-500 transition-colors"
-                >
-                  <option value="">—</option>
-                  <%= for b <- @brands do %>
-                    <option value={b.id} selected={@domain.brand_id == b.id}>
-                      {b.display_name || b.name}
-                    </option>
-                  <% end %>
-                </select>
-              </form>
-            </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Organization
-              </span>
-              <form phx-change="set_organization" id="org-select-form">
-                <select
-                  name="organization_id"
-                  class="w-full px-2 py-1.5 border border-neutral-200 bg-transparent text-sm font-light text-neutral-900 focus:outline-none focus:border-neutral-500 transition-colors"
-                >
-                  <option value="">—</option>
-                  <%= for o <- @orgs do %>
-                    <%= if !@domain.brand_id || o.brand_id == @domain.brand_id do %>
-                      <option value={o.id} selected={@domain.organization_id == o.id}>
-                        {o.display_name || o.name}
-                      </option>
-                    <% end %>
-                  <% end %>
-                </select>
-              </form>
-            </div>
-            <% filtered_projects =
-              Enum.filter(@projects, fn p ->
-                !@domain.organization_id || p.organization_id == @domain.organization_id
-              end) %>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Project
-              </span>
-              <form phx-change="set_project" id="project-select-form">
-                <select
-                  name="project_id"
-                  class={[
-                    "w-full px-2 py-1.5 border bg-transparent text-sm font-light focus:outline-none focus:border-neutral-500 transition-colors",
-                    if(filtered_projects == [],
-                      do: "border-neutral-100 text-neutral-300 cursor-not-allowed",
-                      else: "border-neutral-200 text-neutral-900"
-                    )
-                  ]}
-                  disabled={filtered_projects == []}
-                >
-                  <option value="">—</option>
-                  <%= for p <- filtered_projects do %>
-                    <option value={p.id} selected={@domain.project_id == p.id}>
-                      {p.name}
-                    </option>
-                  <% end %>
-                </select>
-              </form>
-              <%= if filtered_projects == [] do %>
-                <p class="text-[10px] text-neutral-300 mt-0.5">No projects for selected org</p>
-              <% end %>
-            </div>
-            <div>
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                Repository
-              </span>
-              <span :if={@domain.repository_url} class="font-light">
-                {@domain.repository_url}
-              </span>
-              <span :if={!@domain.repository_url} class="text-neutral-400 font-light">—</span>
-            </div>
-          </div>
-        </div>
-
-        <%= if @domain.domain_metadata do %>
-          <div class="card-line">
-            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">HTTP</h2>
-            <%= case @domain_class do %>
-              <% {:external_redirect, target} -> %>
-                <p class="text-sm font-light text-neutral-500 italic mb-4">
-                  N/A — redirects to <span class="font-normal text-neutral-700">{target}</span>
-                </p>
-              <% _ -> %>
-                <div class="grid grid-cols-2 gap-6 text-sm">
-                  <div>
-                    <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                      Status
-                    </span>
-                    <span :if={@domain.domain_metadata.http_status} class="font-light">
-                      {@domain.domain_metadata.http_status}
-                    </span>
-                    <span
-                      :if={!@domain.domain_metadata.http_status}
-                      class="text-neutral-400 font-light"
-                    >
-                      —
-                    </span>
-                  </div>
-                  <div>
-                    <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                      Server
-                    </span>
-                    <span :if={@domain.domain_metadata.server_header} class="font-light">
-                      {@domain.domain_metadata.server_header}
-                    </span>
-                    <span
-                      :if={!@domain.domain_metadata.server_header}
-                      class="text-neutral-400 font-light"
-                    >
-                      —
-                    </span>
-                  </div>
-                </div>
-            <% end %>
-
-            <div class="mt-4">
-              <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                Final URL
-              </span>
-              <a
-                :if={@domain.domain_metadata.final_url}
-                href={@domain.domain_metadata.final_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-sm font-light break-all hover:underline inline-flex items-start gap-1.5 group"
-              >
-                <span>{@domain.domain_metadata.final_url}</span>
-                <.icon
-                  name="hero-arrow-top-right-on-square"
-                  class="w-3.5 h-3.5 shrink-0 mt-0.5 text-neutral-400 group-hover:text-neutral-700 transition-colors"
-                />
-              </a>
-              <span
-                :if={!@domain.domain_metadata.final_url}
-                class="text-sm font-light text-neutral-400"
-              >
-                —
-              </span>
-            </div>
-
-            <%= if @domain.domain_metadata.redirect_chain && @domain.domain_metadata.redirect_chain != [] do %>
-              <div class="mt-6 border-t border-neutral-100 pt-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
-                  Redirect Chain
-                </span>
-                <div class="space-y-2">
-                  <%= for {hop, idx} <- Enum.with_index(@domain.domain_metadata.redirect_chain) do %>
-                    <% is_last = idx == length(@domain.domain_metadata.redirect_chain) - 1 %>
-                    <div class="flex items-center gap-3 text-sm font-light">
-                      <span class={[
-                        "px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide shrink-0",
-                        if(hop["status"] >= 300 && hop["status"] < 400,
-                          do: "text-yellow-700 bg-yellow-50 border border-yellow-200",
-                          else:
-                            "text-neutral-500 bg-neutral-50 border border-neutral-200 dark:text-neutral-400 dark:bg-neutral-800 dark:border-neutral-700"
-                        )
-                      ]}>
-                        {hop["status"]}
-                      </span>
-                      <%= if is_last do %>
-                        <a
-                          href={hop["url"]}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="truncate hover:underline inline-flex items-center gap-1 group"
-                        >
-                          <span class="truncate">{hop["url"]}</span>
-                          <.icon
-                            name="hero-arrow-top-right-on-square"
-                            class="w-3 h-3 shrink-0 text-neutral-400 group-hover:text-neutral-700 transition-colors"
-                          />
-                        </a>
-                      <% else %>
-                        <span class="truncate text-neutral-500">{hop["url"]}</span>
-                        <.icon
-                          name="hero-arrow-down-right"
-                          class="w-3 h-3 shrink-0 text-neutral-300"
-                        />
-                      <% end %>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if match?({:external_redirect, _}, @domain_class) do %>
-            <% else %>
-              <%= if @domain.domain_metadata.security_headers && @domain.domain_metadata.security_headers != %{} do %>
-                <div class="mt-6 border-t border-neutral-100 pt-4">
-                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
-                    Security Headers
-                  </span>
-                  <div class="space-y-1">
-                    <%= for {key, val} <- @domain.domain_metadata.security_headers do %>
-                      <div class="flex justify-between text-xs font-light">
-                        <span class="text-neutral-500">{key}</span>
-                        <span :if={val} class="text-green-700 ml-2">✓</span>
-                        <span :if={!val} class="text-neutral-400 ml-2">—</span>
-                      </div>
-                    <% end %>
-                  </div>
-                </div>
-              <% end %>
-            <% end %>
-
-            <div
-              :if={@domain.domain_metadata.http_scanned_at}
-              class="mt-4 pt-4 border-t border-neutral-100"
-            >
-              <span class="text-[10px] font-light text-neutral-400">
-                Scanned {DateTime.to_iso8601(@domain.domain_metadata.http_scanned_at)}
-              </span>
-            </div>
-          </div>
-
-          <div :if={@domain.domain_metadata.ssl_valid_until} class="card-line">
-            <h2 class="text-sm font-normal tracking-wide uppercase mb-6 flex items-center justify-between">
-              SSL Certificate <% expiring_soon =
-                @domain.domain_metadata.ssl_days_remaining != nil &&
-                  @domain.domain_metadata.ssl_days_remaining <= 14 %>
-              <% expired =
-                @domain.domain_metadata.ssl_days_remaining != nil &&
-                  @domain.domain_metadata.ssl_days_remaining < 0 %>
-              <span class={[
-                "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider",
-                expired && "text-red-700 bg-red-50 border-red-200",
-                expiring_soon && !expired && "text-amber-700 bg-amber-50 border-amber-200",
-                !expiring_soon && "text-green-700 bg-green-50 border-green-200"
-              ]}>
-                <%= if expired do %>
-                  Expired
-                <% else %>
-                  {@domain.domain_metadata.ssl_days_remaining} days left
-                <% end %>
-              </span>
-            </h2>
-
-            <div class="space-y-4 text-sm font-light">
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Subject
-                </span>
-                <span class="break-all font-mono text-xs">
-                  {@domain.domain_metadata.ssl_subject}
-                </span>
-              </div>
-
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Issuer
-                </span>
-                <span class="break-all">
-                  {@domain.domain_metadata.ssl_issuer}
-                </span>
-              </div>
-
-              <div class="grid grid-cols-2 gap-6">
-                <div>
-                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                    Valid From
-                  </span>
-                  <span :if={@domain.domain_metadata.ssl_valid_from}>
-                    {Calendar.strftime(@domain.domain_metadata.ssl_valid_from, "%Y-%m-%d")}
-                  </span>
-                </div>
-                <div>
-                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                    Valid Until
-                  </span>
-                  <span :if={@domain.domain_metadata.ssl_valid_until}>
-                    {Calendar.strftime(@domain.domain_metadata.ssl_valid_until, "%Y-%m-%d")}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        <% end %>
-
-        <%= if @domain.domain_metadata && (@domain.domain_metadata.ip_v4 != [] || @domain.domain_metadata.ip_v6 != [] || @domain.dns_records != []) do %>
-          <div class="card-line">
-            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">DNS</h2>
-
-            <%= if @domain.domain_metadata.ip_v4 != [] do %>
-              <div class="mb-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                  IPv4
-                </span>
-                <div class="flex flex-wrap gap-2">
-                  <%= for ip <- @domain.domain_metadata.ip_v4 do %>
-                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">
-                      {ip}
-                    </span>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.domain_metadata.ip_v6 != [] do %>
-              <div class="mb-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                  IPv6
-                </span>
-                <div class="flex flex-wrap gap-2">
-                  <%= for ip <- @domain.domain_metadata.ip_v6 do %>
-                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-mono font-light">
-                      {ip}
-                    </span>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.dns_records != [] do %>
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                  Records
-                </span>
-                <div class="divide-y divide-neutral-100">
-                  <%= for rec <- @domain.dns_records do %>
-                    <div class="py-2 flex items-center gap-3 text-sm font-light">
-                      <span class="px-1.5 py-0.5 border border-neutral-200 text-[10px] font-normal uppercase w-12 text-center">
-                        {rec.type}
-                      </span>
-                      <span class="truncate">{rec.value}</span>
-                      <span class="ml-auto text-[10px] text-neutral-400">TTL:{rec.ttl}</span>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <div
-              :if={@domain.domain_metadata.dns_scanned_at}
-              class="mt-4 pt-4 border-t border-neutral-100"
-            >
-              <span class="text-[10px] font-light text-neutral-400">
-                Scanned {DateTime.to_iso8601(@domain.domain_metadata.dns_scanned_at)}
-              </span>
-            </div>
-          </div>
-        <% end %>
-
-        <%= if infrastructure_metadata?(@domain) && !match?({:external_redirect, _}, @domain_class) do %>
-          <div class="card-line">
-            <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Infrastructure</h2>
-            <div class="grid grid-cols-2 gap-6 text-sm">
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Hosting
-                </span>
-                <span :if={@domain.domain_metadata.hosting_platform} class="font-light">
-                  {@domain.domain_metadata.hosting_platform}
-                </span>
-                <span
-                  :if={!@domain.domain_metadata.hosting_platform}
-                  class="text-neutral-400 font-light"
-                >
-                  —
-                </span>
-              </div>
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  ASN
-                </span>
-                <%= if @domain.domain_metadata.asn_org || @domain.domain_metadata.asn_number do %>
-                  <span class="font-light">
-                    <%= if @domain.domain_metadata.asn_number do %>
-                      <span class="font-mono text-xs text-neutral-500">
-                        {@domain.domain_metadata.asn_number}
-                      </span>
-                      {" "}
-                    <% end %>
-                    {@domain.domain_metadata.asn_org}
-                  </span>
-                <% else %>
-                  <span class="text-neutral-400 font-light">—</span>
-                <% end %>
-              </div>
-            </div>
-
-            <%= if @domain.domain_metadata.tech_stack && @domain.domain_metadata.tech_stack != [] do %>
-              <div class="mt-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                  Tech Stack
-                </span>
-                <div class="flex flex-wrap gap-2">
-                  <%= for tech <- @domain.domain_metadata.tech_stack do %>
-                    <span class="px-2 py-0.5 border border-neutral-200 text-xs font-light">
-                      {tech}
-                    </span>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.tech_evidence != [] do %>
-              <div class="mt-6 pt-5 border-t border-neutral-100">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-3">
-                  Deep Tech Evidence
-                </span>
-                <div class="space-y-2">
-                  <%= for item <- Enum.take(@domain.tech_evidence, 12) do %>
-                    <div class="flex items-center justify-between gap-3 text-xs">
-                      <div class="min-w-0">
-                        <span class="font-light text-neutral-900">{item.name}</span>
-                        <span :if={item.version} class="font-mono text-[10px] text-neutral-400">
-                          {item.version}
-                        </span>
-                      </div>
-                      <span class="shrink-0 text-[10px] uppercase tracking-wide text-neutral-400">
-                        {item.source || "scan"}
-                      </span>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.discovered_urls != [] do %>
-              <div class="mt-6 pt-5 border-t border-neutral-100">
-                <div class="flex items-center justify-between gap-3 mb-3">
-                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500">
-                    Crawled URLs
-                  </span>
-                  <span class="text-[10px] text-neutral-400">
-                    {length(@domain.discovered_urls)}
-                  </span>
-                </div>
-                <div class="space-y-1.5">
-                  <%= for item <- Enum.take(@domain.discovered_urls, 10) do %>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      class="group flex items-center gap-2 text-xs font-light text-neutral-600 hover:text-neutral-950"
-                    >
-                      <span class="truncate">{item.url}</span>
-                      <.icon
-                        name="hero-arrow-top-right-on-square"
-                        class="w-3 h-3 shrink-0 opacity-40 group-hover:opacity-100"
-                      />
-                    </a>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.domain_metadata.js_assets && @domain.domain_metadata.js_assets != [] do %>
-              <div class="mt-6 pt-5 border-t border-neutral-100">
-                <div class="flex items-center justify-between gap-3 mb-3">
-                  <span class="text-xs font-light tracking-wide uppercase text-neutral-500">
-                    JavaScript Assets
-                  </span>
-                  <span class="text-[10px] text-neutral-400">
-                    {length(@domain.domain_metadata.js_assets)}
-                  </span>
-                </div>
-                <div class="space-y-1.5">
-                  <%= for url <- Enum.take(@domain.domain_metadata.js_assets, 8) do %>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      class="group flex items-center gap-2 text-xs font-light text-neutral-600 hover:text-neutral-950"
-                    >
-                      <span class="truncate">{url}</span>
-                      <.icon
-                        name="hero-arrow-top-right-on-square"
-                        class="w-3 h-3 shrink-0 opacity-40 group-hover:opacity-100"
-                      />
-                    </a>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.domain_metadata.deep_scan_errors && @domain.domain_metadata.deep_scan_errors != [] do %>
-              <div class="mt-6 pt-5 border-t border-neutral-100">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                  Tool Warnings
-                </span>
-                <div class="space-y-1">
-                  <%= for warning <- @domain.domain_metadata.deep_scan_errors do %>
-                    <p class="text-xs font-light text-amber-700">{warning}</p>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <%= if @domain.domain_metadata.open_ports && @domain.domain_metadata.open_ports != [] do %>
-              <div class="mt-4">
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-2">
-                  Open Ports
-                </span>
-                <div class="flex flex-wrap gap-1">
-                  <%= for port <- @domain.domain_metadata.open_ports do %>
-                    <span class="text-[11px] font-mono px-1.5 py-0.5 border border-neutral-200 text-neutral-600 rounded-sm">
-                      {port}
-                    </span>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <div
-              :if={@domain.domain_metadata.deep_tech_scanned_at}
-              class="mt-4 pt-4 border-t border-neutral-100"
-            >
-              <span class="text-[10px] font-light text-neutral-400">
-                Deep scanned {DateTime.to_iso8601(@domain.domain_metadata.deep_tech_scanned_at)}
-              </span>
-            </div>
-          </div>
-        <% end %>
-
-        <%= if @domain.domain_metadata && (@domain.domain_metadata.registrar || @domain.domain_metadata.registration_date || @domain.domain_metadata.expiration_date || @domain.domain_metadata.registrant_org) do %>
-          <% now = DateTime.utc_now() %>
-          <% days_remaining =
-            @domain.domain_metadata.expiration_date &&
-              DateTime.diff(@domain.domain_metadata.expiration_date, now, :day) %>
-          <% expired = days_remaining != nil && days_remaining < 0 %>
-          <% expiring_soon = days_remaining != nil && days_remaining <= 14 && !expired %>
-          <div class="card-line">
-            <h2 class="text-sm font-normal tracking-wide uppercase mb-6 flex items-center justify-between">
-              Registration
-              <span
-                :if={@domain.domain_metadata.expiration_date}
-                class={[
-                  "text-[10px] font-normal px-2 py-0.5 border uppercase tracking-wider",
-                  expired && "text-red-700 bg-red-50 border-red-200",
-                  expiring_soon && "text-amber-700 bg-amber-50 border-amber-200",
-                  !expired && !expiring_soon && "text-green-700 bg-green-50 border-green-200"
-                ]}
-              >
-                <%= if expired do %>
-                  Expired
-                <% else %>
-                  {days_remaining} days left
-                <% end %>
-              </span>
-            </h2>
-            <div class="grid grid-cols-2 gap-6 text-sm">
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Registrar
-                </span>
-                <span :if={@domain.domain_metadata.registrar} class="font-light">
-                  {@domain.domain_metadata.registrar}
-                </span>
-                <span :if={!@domain.domain_metadata.registrar} class="text-neutral-400 font-light">
-                  —
-                </span>
-              </div>
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Registrant
-                </span>
-                <span :if={@domain.domain_metadata.registrant_org} class="font-light">
-                  {@domain.domain_metadata.registrant_org}
-                </span>
-                <span
-                  :if={!@domain.domain_metadata.registrant_org}
-                  class="text-neutral-400 font-light"
-                >
-                  —
-                </span>
-              </div>
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Registered
-                </span>
-                <span
-                  :if={@domain.domain_metadata.registration_date}
-                  class="font-light font-mono text-xs"
-                >
-                  {DateTime.to_iso8601(@domain.domain_metadata.registration_date)}
-                </span>
-                <span
-                  :if={!@domain.domain_metadata.registration_date}
-                  class="text-neutral-400 font-light"
-                >
-                  —
-                </span>
-              </div>
-              <div>
-                <span class="text-xs font-light tracking-wide uppercase text-neutral-500 block mb-1">
-                  Expires
-                </span>
-                <span
-                  :if={@domain.domain_metadata.expiration_date}
-                  class="font-light font-mono text-xs"
-                >
-                  {DateTime.to_iso8601(@domain.domain_metadata.expiration_date)}
-                </span>
-                <span
-                  :if={!@domain.domain_metadata.expiration_date}
-                  class="text-neutral-400 font-light"
-                >
-                  —
-                </span>
-              </div>
-            </div>
-
-            <%= if @domain.domain_metadata.contacts && map_size(@domain.domain_metadata.contacts) > 0 do %>
-              <div class="mt-6 pt-6 border-t border-neutral-100">
-                <h3 class="text-xs font-normal tracking-wide uppercase text-neutral-600 mb-4">
-                  Contacts
-                </h3>
-                <div class="space-y-3">
-                  <%= for {role, contact} <- @domain.domain_metadata.contacts do %>
-                    <div class="text-sm">
-                      <p class="text-xs uppercase tracking-wide text-neutral-400 mb-1">
-                        {String.capitalize(role)}
-                      </p>
-                      <div class="space-y-0.5 text-xs font-light">
-                        <%= if contact["name"] do %>
-                          <p class="text-neutral-700">{contact["name"]}</p>
-                        <% end %>
-                        <%= if contact["email"] do %>
-                          <p class="text-neutral-500">{contact["email"]}</p>
-                        <% end %>
-                        <%= if contact["phone"] do %>
-                          <p class="text-neutral-500">{contact["phone"]}</p>
-                        <% end %>
-                        <%= if !contact["name"] && !contact["email"] && !contact["phone"] do %>
-                          <p class="text-neutral-400">—</p>
-                        <% end %>
-                      </div>
-                    </div>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
-
-            <div
-              :if={@domain.domain_metadata.rdap_scanned_at}
-              class="mt-4 pt-4 border-t border-neutral-100"
-            >
-              <span class="text-[10px] font-light text-neutral-400">
-                Scanned {DateTime.to_iso8601(@domain.domain_metadata.rdap_scanned_at)}
-              </span>
-            </div>
-          </div>
+        <%= case @active_tab do %>
+          <% :technical -> %>
+            <.domain_technical_tab
+              domain={@domain}
+              domain_class={@domain_class}
+              current_scope={@current_scope}
+              can_manage?={@can_manage?}
+              can_scan?={@can_scan?}
+              escalation_chain={@escalation_chain}
+              primary_repo={@primary_repo}
+              domain_repos={@domain_repos}
+              project_repos={@project_repos}
+            />
+          <% :governance -> %>
+            <.domain_governance_tab
+              domain={@domain}
+              can_manage?={@can_manage?}
+              brands={@brands}
+              orgs={@orgs}
+              projects={@projects}
+              primary_repo={@primary_repo}
+              pm_person={@pm_person}
+              po_person={@po_person}
+              escalation_chain={@escalation_chain}
+            />
+          <% :audit -> %>
+            <.governance_audit_trail
+              versions={@versions}
+              brands={@brands}
+              orgs={@orgs}
+              projects={@projects}
+            />
         <% end %>
       </div>
 
       <div class="space-y-6">
-        <.scan_action_panel
+        <.live_component
+          module={RavnerWeb.DomainLive.ScanPanel}
+          id="domain-scan-panel"
           domain={@domain}
           scanning={@scanning}
           active_scan_kind={@active_scan_kind}
           running_security_scan={@running_security_scan}
-          scan_results={@scan_results}
+          can_scan?={@can_scan?}
+          can_manage?={@can_manage?}
           current_scope={@current_scope}
-        />
-
-        <%!-- Security Posture --%>
-        <.live_component
-          module={RavnerWeb.DomainLive.SecurityPostureComponent}
-          id="security-posture"
-          domain={@domain}
-          current_scope={@current_scope}
-          scanning={@scanning}
-          running_security_scan={@running_security_scan}
-          latest_security_scan={@latest_security_scan}
-          latest_failed_security_scan={@latest_failed_security_scan}
-        />
-
-        <%!-- Accessibility --%>
-        <div :if={@a11y_scannable?} class="card-line" id="a11y-panel">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-normal tracking-wide uppercase">Accessibility</h2>
-            <button
-              id="scan-a11y-btn"
-              phx-click="scan_a11y"
-              disabled={
-                @a11y_running? || @scanning || is_nil(@current_scope) ||
-                  @current_scope.user.role not in [:admin, :editor]
-              }
-              class={[
-                "text-xs font-light px-2.5 py-1 border transition-colors",
-                (@a11y_running? || @scanning) &&
-                  "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                !(@a11y_running? || @scanning) &&
-                  "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
-              ]}
-            >
-              <%= if @a11y_running? do %>
-                <span class="inline-flex items-center gap-1">
-                  <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin">
-                  </span>
-                  Scanning…
-                </span>
-              <% else %>
-                Run WCAG scan
-              <% end %>
-            </button>
-          </div>
-
-          <%= if @a11y_scan do %>
-            <div class="space-y-3">
-              <div class="flex items-center gap-3">
-                <span class={[
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                  @a11y_scan.violations_count == 0 && "bg-green-100 text-green-700",
-                  @a11y_scan.violations_count > 0 && @a11y_scan.violations_count <= 5 &&
-                    "bg-yellow-100 text-yellow-700",
-                  @a11y_scan.violations_count > 5 && "bg-red-100 text-red-700"
-                ]}>
-                  {@a11y_scan.violations_count || 0} violations
-                </span>
-                <span
-                  :if={@a11y_scan.warnings_count && @a11y_scan.warnings_count > 0}
-                  class="text-xs text-neutral-400"
-                >
-                  {@a11y_scan.warnings_count} warnings
-                </span>
-              </div>
-
-              <div class="text-[10px] text-neutral-400">
-                Scanned {Calendar.strftime(@a11y_scan.completed_at, "%Y-%m-%d %H:%M")} · {@a11y_scan.standard}
-              </div>
-
-              <.link
-                navigate={~p"/domains/#{@domain.id}/a11y"}
-                class="inline-flex items-center gap-1 text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors"
-              >
-                View full report <.icon name="hero-arrow-right" class="w-3 h-3" />
-              </.link>
-            </div>
-          <% else %>
-            <p class="text-xs font-light text-neutral-400">No scan results yet.</p>
-          <% end %>
-        </div>
-
-        <%!-- Lighthouse / PageSpeed --%>
-        <div :if={@a11y_scannable?} class="card-line" id="lighthouse-panel">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-normal tracking-wide uppercase">PageSpeed</h2>
-            <button
-              id="scan-lighthouse-btn"
-              phx-click="scan_lighthouse"
-              disabled={
-                @lighthouse_running? || @scanning || is_nil(@current_scope) ||
-                  @current_scope.user.role not in [:admin, :editor]
-              }
-              class={[
-                "text-xs font-light px-2.5 py-1 border transition-colors",
-                (@lighthouse_running? || @scanning) &&
-                  "opacity-50 cursor-not-allowed border-neutral-200 text-neutral-400",
-                !(@lighthouse_running? || @scanning) &&
-                  "border-neutral-300 text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
-              ]}
-            >
-              <%= if @lighthouse_running? do %>
-                <span class="inline-flex items-center gap-1">
-                  <span class="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin">
-                  </span>
-                  Scanning…
-                </span>
-              <% else %>
-                Run Lighthouse
-              <% end %>
-            </button>
-          </div>
-
-          <%= if @lighthouse_scan do %>
-            <div class="space-y-3">
-              <div class="grid grid-cols-4 gap-2 text-center">
-                <div>
-                  <div class={[
-                    "text-lg font-light",
-                    @lighthouse_scan.performance_score && @lighthouse_scan.performance_score >= 90 &&
-                      "text-green-600",
-                    @lighthouse_scan.performance_score && @lighthouse_scan.performance_score >= 50 &&
-                      @lighthouse_scan.performance_score < 90 && "text-amber-600",
-                    @lighthouse_scan.performance_score && @lighthouse_scan.performance_score < 50 &&
-                      "text-red-600",
-                    is_nil(@lighthouse_scan.performance_score) && "text-neutral-300"
-                  ]}>
-                    {@lighthouse_scan.performance_score || "—"}
-                  </div>
-                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">Perf</div>
-                </div>
-                <div>
-                  <div class="text-lg font-light text-neutral-600">
-                    {@lighthouse_scan.seo_score || "—"}
-                  </div>
-                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">SEO</div>
-                </div>
-                <div>
-                  <div class="text-lg font-light text-neutral-600">
-                    {@lighthouse_scan.best_practices_score || "—"}
-                  </div>
-                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">BP</div>
-                </div>
-                <div>
-                  <div class="text-lg font-light text-neutral-600">
-                    {@lighthouse_scan.accessibility_score || "—"}
-                  </div>
-                  <div class="text-[9px] uppercase tracking-wide text-neutral-400">A11y</div>
-                </div>
-              </div>
-
-              <div class="text-[10px] text-neutral-400">
-                Scanned {Calendar.strftime(@lighthouse_scan.completed_at, "%Y-%m-%d %H:%M")}
-              </div>
-
-              <.link
-                navigate={~p"/domains/#{@domain.id}/lighthouse"}
-                class="inline-flex items-center gap-1 text-xs font-light text-neutral-500 hover:text-neutral-900 transition-colors"
-              >
-                View full report <.icon name="hero-arrow-right" class="w-3 h-3" />
-              </.link>
-            </div>
-          <% else %>
-            <p class="text-xs font-light text-neutral-400">No scan results yet.</p>
-          <% end %>
-        </div>
-
-        <%!-- Scheduling & Automation --%>
-        <div class="card-line">
-          <h2 class="text-sm font-normal tracking-wide uppercase mb-6">
-            Scheduling & Automation
-          </h2>
-
-          <form phx-submit="update_scheduling" class="space-y-4 text-sm font-light">
-            <div>
-              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
-                Uptime Heartbeat
-              </label>
-              <select
-                name="heartbeat_interval_minutes"
-                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
-                disabled={
-                  is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]
-                }
-              >
-                <option
-                  value=""
-                  selected={
-                    is_nil(
-                      @domain.domain_metadata &&
-                        @domain.domain_metadata.heartbeat_interval_minutes
-                    )
-                  }
-                >
-                  Disabled
-                </option>
-                <option
-                  value="1"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.heartbeat_interval_minutes == 1
-                  }
-                >
-                  Every minute
-                </option>
-                <option
-                  value="3"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.heartbeat_interval_minutes == 3
-                  }
-                >
-                  Every 3 minutes
-                </option>
-                <option
-                  value="5"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.heartbeat_interval_minutes == 5
-                  }
-                >
-                  Every 5 minutes
-                </option>
-                <option
-                  value="15"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.heartbeat_interval_minutes == 15
-                  }
-                >
-                  Every 15 minutes
-                </option>
-                <option
-                  value="60"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.heartbeat_interval_minutes == 60
-                  }
-                >
-                  Hourly
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
-                Security Scan
-              </label>
-              <select
-                name="scan_interval_days"
-                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
-                disabled={
-                  is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]
-                }
-              >
-                <option
-                  value=""
-                  selected={
-                    is_nil(@domain.domain_metadata && @domain.domain_metadata.scan_interval_days)
-                  }
-                >
-                  Manual only
-                </option>
-                <option
-                  value="1"
-                  selected={
-                    @domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 1
-                  }
-                >
-                  Daily
-                </option>
-                <option
-                  value="7"
-                  selected={
-                    @domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 7
-                  }
-                >
-                  Weekly
-                </option>
-                <option
-                  value="30"
-                  selected={
-                    @domain.domain_metadata && @domain.domain_metadata.scan_interval_days == 30
-                  }
-                >
-                  Monthly
-                </option>
-              </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
-                  HTTP Scan
-                </label>
-                <select
-                  name="http_scan_interval_days"
-                  class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
-                  disabled={
-                    is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]
-                  }
-                >
-                  <option
-                    value=""
-                    selected={
-                      is_nil(
-                        @domain.domain_metadata && @domain.domain_metadata.http_scan_interval_days
-                      )
-                    }
-                  >
-                    Manual only
-                  </option>
-                  <option
-                    value="1"
-                    selected={
-                      @domain.domain_metadata &&
-                        @domain.domain_metadata.http_scan_interval_days == 1
-                    }
-                  >
-                    Daily
-                  </option>
-                  <option
-                    value="7"
-                    selected={
-                      @domain.domain_metadata &&
-                        @domain.domain_metadata.http_scan_interval_days == 7
-                    }
-                  >
-                    Weekly
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
-                  DNS Scan
-                </label>
-                <select
-                  name="dns_scan_interval_days"
-                  class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
-                  disabled={
-                    is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]
-                  }
-                >
-                  <option
-                    value=""
-                    selected={
-                      is_nil(
-                        @domain.domain_metadata && @domain.domain_metadata.dns_scan_interval_days
-                      )
-                    }
-                  >
-                    Manual only
-                  </option>
-                  <option
-                    value="1"
-                    selected={
-                      @domain.domain_metadata &&
-                        @domain.domain_metadata.dns_scan_interval_days == 1
-                    }
-                  >
-                    Daily
-                  </option>
-                  <option
-                    value="7"
-                    selected={
-                      @domain.domain_metadata &&
-                        @domain.domain_metadata.dns_scan_interval_days == 7
-                    }
-                  >
-                    Weekly
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
-                A11y Scan
-              </label>
-              <select
-                name="a11y_scan_interval_days"
-                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
-                disabled={
-                  is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]
-                }
-              >
-                <option
-                  value=""
-                  selected={
-                    is_nil(
-                      @domain.domain_metadata && @domain.domain_metadata.a11y_scan_interval_days
-                    )
-                  }
-                >
-                  Manual only
-                </option>
-                <option
-                  value="7"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.a11y_scan_interval_days == 7
-                  }
-                >
-                  Weekly
-                </option>
-                <option
-                  value="30"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.a11y_scan_interval_days == 30
-                  }
-                >
-                  Monthly
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-light tracking-wide uppercase text-neutral-500 mb-1">
-                Lighthouse
-              </label>
-              <select
-                name="lighthouse_scan_interval_days"
-                class="w-full text-xs font-light border-neutral-200 rounded-md focus:border-neutral-900 focus:ring-0"
-                disabled={
-                  is_nil(@current_scope) || @current_scope.user.role not in [:admin, :editor]
-                }
-              >
-                <option
-                  value=""
-                  selected={
-                    is_nil(
-                      @domain.domain_metadata &&
-                        @domain.domain_metadata.lighthouse_scan_interval_days
-                    )
-                  }
-                >
-                  Manual only
-                </option>
-                <option
-                  value="7"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.lighthouse_scan_interval_days == 7
-                  }
-                >
-                  Weekly
-                </option>
-                <option
-                  value="30"
-                  selected={
-                    @domain.domain_metadata &&
-                      @domain.domain_metadata.lighthouse_scan_interval_days == 30
-                  }
-                >
-                  Monthly
-                </option>
-              </select>
-            </div>
-
-            <p class="text-[10px] text-neutral-400 mt-2">
-              Background jobs are queued automatically by Oban dispatchers based on the selected intervals.
-            </p>
-
-            <%= if @current_scope && @current_scope.user.role in [:admin, :editor] do %>
-              <button
-                type="submit"
-                class="mt-4 w-full btn-line justify-center text-xs"
-              >
-                Save Scheduling
-              </button>
-            <% end %>
-          </form>
-
-          <%!-- Uptime monitoring link --%>
-          <%= if @domain.domain_metadata && @domain.domain_metadata.heartbeat_interval_minutes do %>
-            <div class="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-              <.link
-                navigate={~p"/uptime/#{@domain.id}"}
-                class="flex items-center gap-2 text-xs text-neutral-500 hover:text-neutral-700 transition-colors dark:hover:text-neutral-300"
-              >
-                <.icon name="hero-chart-bar" class="w-3.5 h-3.5" /> View uptime monitoring detail
-              </.link>
-            </div>
-          <% end %>
-        </div>
+          a11y_scannable?={@a11y_scannable?}
+          a11y_running?={@a11y_running?}
+          a11y_scan={@a11y_scan}
+          lighthouse_running?={@lighthouse_running?}
+          lighthouse_scan={@lighthouse_scan}
+        >
+          <.live_component
+            module={RavnerWeb.DomainLive.SecurityPostureComponent}
+            id="security-posture"
+            domain={@domain}
+            current_scope={@current_scope}
+            scanning={@scanning}
+            running_security_scan={@running_security_scan}
+            latest_security_scan={@latest_security_scan}
+            latest_breach_scan={@latest_breach_scan}
+            latest_failed_security_scan={@latest_failed_security_scan}
+          />
+        </.live_component>
 
         <div class="card-line">
           <h2 class="text-sm font-normal tracking-wide uppercase mb-6">Tags</h2>
@@ -1308,4 +245,13 @@
       </div>
     </div>
   </div>
+
+  <%= if @show_contacts_modal do %>
+    <.live_component
+      module={RavnerWeb.DomainLive.ContactsModal}
+      id="contacts-modal-component"
+      domain={@domain}
+      current_scope={@current_scope}
+    />
+  <% end %>
 </Layouts.app>

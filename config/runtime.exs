@@ -124,6 +124,7 @@ if config_env() == :prod do
   # Uptime SMS adapter
   sms_adapter =
     case System.get_env("UPTIME_SMS_ADAPTER", "log") do
+      "aws_sns" -> Ravner.Uptime.SmsAdapters.AwsSns
       "twilio" -> Ravner.Uptime.SmsAdapters.Twilio
       _ -> Ravner.Uptime.SmsAdapters.Log
     end
@@ -142,6 +143,9 @@ end
 
 config :ravner,
   chaos_api_key: System.get_env("CHAOS_API_KEY"),
+  metrics_bearer_token: System.get_env("METRICS_BEARER_TOKEN"),
+  mcp_api_key: System.get_env("RAVNER_MCP_API_KEY"),
+  mcp_actor_email: System.get_env("RAVNER_MCP_ACTOR_EMAIL"),
   scan_max_concurrency:
     System.get_env("SCAN_MAX_CONCURRENCY", "5")
     |> String.to_integer()

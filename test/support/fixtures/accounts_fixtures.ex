@@ -28,17 +28,15 @@ defmodule Ravner.AccountsFixtures do
   end
 
   def user_fixture(attrs \\ %{}) do
-    user = unconfirmed_user_fixture(attrs)
+    attrs =
+      attrs
+      |> valid_user_attributes()
+      |> Map.put_new(:role, :viewer)
 
-    token =
-      extract_user_token(fn url ->
-        Accounts.deliver_login_instructions(user, url)
-      end)
-
-    {:ok, {user, _expired_tokens}} =
-      Accounts.login_user_by_magic_link(token)
-
-    user
+    %Accounts.User{}
+    |> Accounts.User.admin_changeset(attrs)
+    |> Ecto.Changeset.change(confirmed_at: DateTime.utc_now(:second))
+    |> Ravner.Repo.insert!()
   end
 
   def user_scope_fixture do

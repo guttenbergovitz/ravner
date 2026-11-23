@@ -7,7 +7,57 @@
           Global overview of monitored encryption certificates
         </p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <button
+            phx-click="scan_expired"
+            id="scan-expired-certs"
+            class={[
+              "inline-flex items-center gap-1.5 text-xs font-light uppercase tracking-wider px-3 py-2 border transition-colors",
+              @expired_count > 0 &&
+                "border-red-300 text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 cursor-pointer",
+              @expired_count == 0 &&
+                "border-neutral-200 text-neutral-400 opacity-60 cursor-not-allowed"
+            ]}
+            disabled={@expired_count == 0}
+            title={
+              if @expired_count > 0,
+                do: "Queue SSL check for all expired certificates",
+                else: "No expired certificates"
+            }
+          >
+            <.icon name="hero-arrow-path" class="w-3.5 h-3.5" />
+            <span>Scan Expired</span>
+            <span class="ml-0.5 px-1.5 py-0.2 rounded-full bg-red-100 text-red-800 text-[10px] font-medium">
+              {@expired_count}
+            </span>
+          </button>
+
+          <button
+            phx-click="scan_expiring_30d"
+            id="scan-expiring-30d-certs"
+            class={[
+              "inline-flex items-center gap-1.5 text-xs font-light uppercase tracking-wider px-3 py-2 border transition-colors",
+              @expiring_30d_count > 0 &&
+                "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 cursor-pointer",
+              @expiring_30d_count == 0 &&
+                "border-neutral-200 text-neutral-400 opacity-60 cursor-not-allowed"
+            ]}
+            disabled={@expiring_30d_count == 0}
+            title={
+              if @expiring_30d_count > 0,
+                do: "Queue SSL check for certificates expiring within 30 days",
+                else: "No certificates expiring within 30 days"
+            }
+          >
+            <.icon name="hero-arrow-path" class="w-3.5 h-3.5" />
+            <span>Scan Expiring ≤ 30d</span>
+            <span class="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium">
+              {@expiring_30d_count}
+            </span>
+          </button>
+        </div>
+
         <div class="flex items-center gap-1">
           <button
             phx-click="bulk_scan"
@@ -91,16 +141,20 @@
                   expiring_soon && !expired && "text-amber-600",
                   !expiring_soon && "text-neutral-500"
                 ]}>
-                  {Calendar.strftime(cert.valid_until, "%Y-%m-%d")}
+                  {if cert.valid_until,
+                    do: Calendar.strftime(cert.valid_until, "%Y-%m-%d"),
+                    else: "—"}
                 </td>
                 <td
                   class="px-6 py-4 text-neutral-500 font-light truncate max-w-[250px]"
                   title={cert.issuer}
                 >
-                  {cert.issuer}
+                  {cert.issuer || "—"}
                 </td>
                 <td class="px-6 py-4 text-neutral-400 font-light whitespace-nowrap">
-                  {Calendar.strftime(cert.valid_from, "%Y-%m-%d")}
+                  {if cert.valid_from,
+                    do: Calendar.strftime(cert.valid_from, "%Y-%m-%d"),
+                    else: "—"}
                 </td>
               </tr>
             <% end %>

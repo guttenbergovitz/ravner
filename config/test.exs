@@ -36,9 +36,9 @@ config :logger, level: :warning
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 
-# Enable helpful, but potentially expensive runtime checks
+# Disable expensive runtime checks in tests for high performance
 config :phoenix_live_view,
-  enable_expensive_runtime_checks: true
+  enable_expensive_runtime_checks: false
 
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
@@ -49,3 +49,9 @@ config :ravner, Oban, testing: :inline
 
 # Ash testing configuration
 config :ash, :disable_async?, true
+
+# Allow local webhook endpoints in tests
+config :ravner, :allow_private_webhooks, true
+
+# MCP testing secret
+config :ravner, :mcp_api_key, "test-mcp-secret-token"

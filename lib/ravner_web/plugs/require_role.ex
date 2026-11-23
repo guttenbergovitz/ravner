@@ -31,6 +31,19 @@ defmodule RavnerWeb.Plugs.RequireRole do
 
   def authorized?(nil, _required), do: false
 
+  def authorized?(user, :editor) do
+    user.role in [
+      :admin,
+      :editor,
+      :brand_manager,
+      :organization_manager,
+      :product_owner,
+      :delivery_head,
+      :pm_supervisor,
+      :project_manager
+    ]
+  end
+
   def authorized?(user, required_role) do
     Map.get(@role_rank, user.role, 0) >= Map.get(@role_rank, required_role, 99)
   end

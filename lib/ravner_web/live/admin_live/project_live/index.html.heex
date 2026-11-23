@@ -73,6 +73,32 @@
             options={Enum.map(@orgs, &{&1.name, &1.id})}
             prompt="Select organization"
           />
+          <.input
+            field={@form[:project_manager_id]}
+            type="select"
+            label="Project Manager (Delivery Lead)"
+            options={
+              Enum.map(
+                @people,
+                &{"#{&1.first_name} #{&1.last_name}#{if &1.email, do: " (#{&1.email})", else: ""}",
+                 &1.id}
+              )
+            }
+            prompt="Select Project Manager"
+          />
+          <.input
+            field={@form[:product_owner_id]}
+            type="select"
+            label="Product Owner (Client Lead)"
+            options={
+              Enum.map(
+                @people,
+                &{"#{&1.first_name} #{&1.last_name}#{if &1.email, do: " (#{&1.email})", else: ""}",
+                 &1.id}
+              )
+            }
+            prompt="Select Product Owner"
+          />
           <.input field={@form[:notes]} type="textarea" label="Notes" />
 
           <div class="flex items-center gap-3 pt-4">
@@ -159,15 +185,19 @@
                 class="w-full px-3 py-2 border border-neutral-200 bg-transparent text-sm font-light focus:outline-none focus:border-neutral-500 transition-colors"
               >
                 <option value="">Select role…</option>
-                <option value="owner">Owner</option>
-                <option value="manager">Manager</option>
-                <option value="technician">Technician</option>
-                <option value="developer">Developer</option>
-                <option value="security">Security</option>
-                <option value="devops">DevOps</option>
-                <option value="qa">QA</option>
-                <option value="design">Design</option>
-                <option value="admin">Admin</option>
+                <optgroup label="Technical Roster">
+                  <option value="developer">Developer</option>
+                  <option value="devops">DevOps</option>
+                  <option value="qa">QA</option>
+                  <option value="security">Security</option>
+                  <option value="architect">Architect / Tech Lead</option>
+                  <option value="design">Design / UX</option>
+                  <option value="technician">Technician</option>
+                </optgroup>
+                <optgroup label="Legacy / Other">
+                  <option value="manager">Manager</option>
+                  <option value="owner">Owner</option>
+                </optgroup>
               </select>
             </div>
             <div class="flex-1">

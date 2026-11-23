@@ -57,7 +57,7 @@
           <button
             phx-click="export_csv"
             id="export-csv-btn"
-            phx-hook=".CsvDownload"
+            phx-hook="CsvDownload"
             class="px-3 py-1.5 text-xs font-medium border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer flex items-center gap-1.5"
           >
             <.icon name="hero-arrow-down-tray" class="w-3.5 h-3.5" /> CSV
@@ -497,7 +497,7 @@
             <input
               type="url"
               name="check[url]"
-              placeholder="https://shop.josera.com/hu-hu"
+              placeholder="https://example.com/page"
               required
               class="block w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 dark:border-neutral-700 dark:bg-neutral-800"
             />

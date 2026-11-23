@@ -40,4 +40,16 @@ defmodule Ravner.SystemCommandTest do
                50
              )
   end
+
+  test "run_with_timeout passes custom environment variables via :env option" do
+    assert {output, 0} =
+             SystemCommand.run_with_timeout(
+               "elixir",
+               ["-e", "IO.write(System.get_env(\"RAVNER_TEST_ENV_VAR\"))"],
+               5_000,
+               env: [{"RAVNER_TEST_ENV_VAR", "custom_value_123"}]
+             )
+
+    assert output == "custom_value_123"
+  end
 end

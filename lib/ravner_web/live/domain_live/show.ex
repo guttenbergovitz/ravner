@@ -1,20 +1,24 @@
 defmodule RavnerWeb.DomainLive.Show do
   @moduledoc """
   LiveView for the domain details page.
-  Displays metadata, scan results, and allows triggering individual or bulk scans.
+  Coordinates metadata display, governance lifecycle transitions, tab navigation,
+  and delegates domain scanning, repository VCS management, and contact assignment
+  to dedicated LiveComponents and coordinator modules.
   """
   use RavnerWeb, :live_view
 
   require Logger
 
   import RavnerWeb.DomainComponents
+  import RavnerWeb.DomainLive.ShowGovernanceTab
+  import RavnerWeb.DomainLive.ShowTechnicalTab
 
   alias Ravner.A11y
   alias Ravner.Domains
   alias Ravner.Inventory
   alias Ravner.Lighthouse
-  alias Ravner.Scans
   alias Ravner.SecurityScans
+  alias RavnerWeb.DomainLive.ScanCoordinator
 
   # Two-part TLDs for root domain extraction (same logic as Balebos)
   @two_part_tlds ~w(co.uk com.au co.nz co.za com.br co.in org.uk me.uk net.uk co.jp)
@@ -23,392 +27,314 @@ defmodule RavnerWeb.DomainLive.Show do
   def mount(_params, _session, socket) do
     {:ok,
      socket
+     |> assign(:active_tab, :technical)
      |> assign(:scanning, false)
      |> assign(:active_scan_kind, nil)
      |> assign(:pending_scans, 0)
      |> assign(:lifecycle_menu_open, false)
      |> assign(:show_findings_modal, false)
-     |> assign(:projects, Inventory.list_projects())
-     |> assign(:brands, Inventory.list_brands())
-     |> assign(:orgs, Inventory.list_organizations())
+     |> assign(:projects, [])
+     |> assign(:brands, [])
+     |> assign(:orgs, [])
+     |> assign(:versions, [])
      |> assign(:latest_security_scan, nil)
+     |> assign(:latest_breach_scan, nil)
      |> assign(:running_security_scan, nil)
      |> assign(:latest_failed_security_scan, nil)
      |> assign(:severity_counts, %{critical: 0, high: 0, medium: 0, low: 0})
+     |> assign(:show_contacts_modal, false)
+     |> assign(:contacts_pm_email, "")
+     |> assign(:contacts_po_email, "")
+     |> assign(:pm_candidates, [])
+     |> assign(:po_candidates, [])
+     |> assign(:filtered_pm_candidates, [])
+     |> assign(:filtered_po_candidates, [])
+     |> assign(:pm_search_query, "")
+     |> assign(:po_search_query, "")
+     |> assign(:project_team, %{pm: [], po: [], all: []})
+     |> assign(:pm_person, nil)
+     |> assign(:po_person, nil)
+     |> assign(:escalation_chain, %{
+       level_1_project: %{
+         project: nil,
+         pm_email: nil,
+         pm_person: nil,
+         po_email: nil,
+         po_person: nil
+       },
+       level_2_organization: %{organization: nil, manager: nil},
+       level_3_brand: %{brand: nil, brand_manager: nil}
+     })
      |> assign(:a11y_scan, nil)
      |> assign(:a11y_running?, false)
      |> assign(:a11y_scannable?, false)
      |> assign(:lighthouse_scan, nil)
-     |> assign(:lighthouse_running?, false)}
+     |> assign(:lighthouse_running?, false)
+     |> assign(:primary_repo, nil)
+     |> assign(:domain_repos, [])
+     |> assign(:project_repos, [])
+     |> assign(:can_scan?, false)
+     |> assign(:can_manage?, false)
+     |> assign(:scan_results, nil)}
   end
 
   @impl true
-  def handle_params(%{"id" => id}, _, socket) do
-    # Ensure no hanging "running" scans clutter the UI
-    SecurityScans.cleanup_stale_scans()
+  def handle_params(%{"id" => id} = params, _, socket) do
+    tab =
+      case params["tab"] do
+        "governance" -> :governance
+        "audit" -> :audit
+        _ -> :technical
+      end
 
-    domain = Domains.get_domain_with_preloads!(id)
+    if socket.assigns[:domain] && to_string(socket.assigns.domain.id) == to_string(id) do
+      {:noreply, assign(socket, :active_tab, tab)}
+    else
+      # Ensure no hanging "running" scans clutter the UI
+      SecurityScans.cleanup_stale_scans()
+      Lighthouse.cleanup_stale_scans()
 
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(Ravner.PubSub, "a11y_scan:domain:#{domain.id}")
-      Phoenix.PubSub.subscribe(Ravner.PubSub, "lighthouse_scan:domain:#{domain.id}")
-    end
+      domain = Domains.get_domain_with_preloads!(id)
 
-    {:noreply,
-     socket
-     |> assign(:page_title, domain.name)
-     |> assign(:domain, domain)
-     |> assign(:scan_results, nil)
-     |> assign(:scanning, false)
-     |> assign(:active_scan_kind, nil)
-     |> assign(:pending_scans, 0)
-     |> assign(:domain_class, compute_domain_class(domain))
-     |> assign(:a11y_scannable?, A11y.scannable?(domain))
-     |> assign(:a11y_scan, A11y.latest_scan(domain.id))
-     |> assign(:a11y_running?, A11y.running_scan(domain.id) != nil)
-     |> assign(:lighthouse_scan, Lighthouse.latest_scan(domain.id))
-     |> assign(:lighthouse_running?, Lighthouse.running_scan(domain.id) != nil)
-     |> refresh_security_scan_assigns()}
-  end
+      if Ravner.Accounts.ScopeResolver.can_view_domain?(socket.assigns[:current_scope], domain) do
+        if connected?(socket) do
+          Phoenix.PubSub.subscribe(Ravner.PubSub, "a11y_scan:domain:#{domain.id}")
+          Phoenix.PubSub.subscribe(Ravner.PubSub, "lighthouse_scan:domain:#{domain.id}")
+          Phoenix.PubSub.subscribe(Ravner.PubSub, "subdomain_scans:domain:#{domain.id}")
+        end
 
-  # ---------------------------------------------------------------------------
-  # Scan & Update events (handle_event/3)
-  # ---------------------------------------------------------------------------
+        can_scan? =
+          Ravner.Accounts.ScopeResolver.can_scan_domain?(socket.assigns[:current_scope], domain)
 
-  @impl true
-  def handle_event("scan_all", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_all", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    socket =
-      socket
-      |> assign(:scanning, true)
-      |> assign(:active_scan_kind, :all)
-      |> assign(:pending_scans, 4)
-
-    start_scan_tasks(liveview_pid, domain_id, user_id)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("scan_all_subdomains", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_all_subdomains", _, socket) do
-    domain = socket.assigns.domain
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    case domain.subdomains do
-      [] ->
-        {:noreply, socket}
-
-      subdomains ->
-        subdomain_count = length(subdomains)
-
-        socket =
-          socket
-          |> assign(:scanning, true)
-          |> assign(:active_scan_kind, :all_subdomains)
-          |> assign(:pending_scans, subdomain_count * 4)
-
-        Enum.each(subdomains, &start_scan_tasks(liveview_pid, &1.id, user_id))
-
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("scan_subdomains", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_subdomains", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    socket =
-      socket
-      |> assign(:scanning, true)
-      |> assign(:active_scan_kind, :subdomains)
-
-    start_background_scan(user_id, fn ->
-      result = Scans.run_subdomain_scan(domain_id)
-      send(liveview_pid, {:scan_done, :subdomains, result})
-    end)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("scan_httpx", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_httpx", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    socket =
-      socket
-      |> assign(:scanning, true)
-      |> assign(:active_scan_kind, :httpx)
-
-    start_background_scan(user_id, fn ->
-      result = Scans.Http.run_httpx_scan(domain_id)
-      send(liveview_pid, {:scan_done, :httpx, result})
-    end)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("scan_deep_tech", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_deep_tech", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    socket =
-      socket
-      |> assign(:scanning, true)
-      |> assign(:active_scan_kind, :deep_tech)
-
-    start_background_scan(user_id, fn ->
-      result = Scans.Http.run_deep_tech_scan(domain_id)
-      send(liveview_pid, {:scan_done, :deep_tech, result})
-    end)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("scan_dnsx", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_dnsx", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    socket =
-      socket
-      |> assign(:scanning, true)
-      |> assign(:active_scan_kind, :dnsx)
-
-    start_background_scan(user_id, fn ->
-      result = Scans.Dns.run(domain_id)
-      send(liveview_pid, {:scan_done, :dnsx, result})
-    end)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("scan_rdap", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("scan_rdap", _, socket) do
-    domain_id = socket.assigns.domain.id
-    liveview_pid = self()
-    user_id = socket.assigns.current_scope.user.id
-
-    socket =
-      socket
-      |> assign(:scanning, true)
-      |> assign(:active_scan_kind, :rdap)
-
-    start_background_scan(user_id, fn ->
-      result = Scans.Whois.run_rdap_scan(domain_id)
-      send(liveview_pid, {:scan_done, :rdap, result})
-    end)
-
-    {:noreply, socket}
-  end
-
-  # ─── Security scan events have been moved to SecurityPostureComponent ─────
-
-  def handle_event("update_scheduling", _params, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("update_scheduling", params, socket) do
-    domain = socket.assigns.domain
-
-    attrs = %{
-      scan_interval_days: parse_interval(params["scan_interval_days"]),
-      heartbeat_interval_minutes: parse_interval(params["heartbeat_interval_minutes"]),
-      http_scan_interval_days: parse_interval(params["http_scan_interval_days"]),
-      dns_scan_interval_days: parse_interval(params["dns_scan_interval_days"]),
-      a11y_scan_interval_days: parse_interval(params["a11y_scan_interval_days"]),
-      lighthouse_scan_interval_days: parse_interval(params["lighthouse_scan_interval_days"])
-    }
-
-    case Domains.upsert_domain_metadata(domain.id, attrs) do
-      {:ok, _metadata} ->
-        domain = Domains.get_domain_with_preloads!(domain.id)
-        {:noreply, assign(socket, :domain, domain) |> put_flash(:info, "Scheduling updated")}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update scheduling")}
-    end
-  end
-
-  def handle_event("set_lifecycle", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
-
-  def handle_event("set_lifecycle", %{"state" => state}, socket) do
-    domain = socket.assigns.domain
-    actor = socket.assigns.current_scope.user
-
-    case Domains.set_domain_lifecycle(domain, state, actor: actor) do
-      {:ok, _} ->
-        domain = Domains.get_domain_with_preloads!(domain.id)
+        can_manage? =
+          Ravner.Accounts.ScopeResolver.can_manage_domain?(socket.assigns[:current_scope], domain)
 
         {:noreply,
          socket
-         |> assign(:domain, domain)
-         |> assign(:lifecycle_menu_open, false)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
+         |> assign(:page_title, domain.name)
+         |> assign(:active_tab, tab)
+         |> assign(:projects, Inventory.list_projects(scope: socket.assigns[:current_scope]))
+         |> assign(:brands, Inventory.list_brands(scope: socket.assigns[:current_scope]))
+         |> assign(:orgs, Inventory.list_organizations(scope: socket.assigns[:current_scope]))
+         |> assign(:can_scan?, can_scan?)
+         |> assign(:can_manage?, can_manage?)
+         |> assign_domain_and_governance(domain)
+         |> assign(:scan_results, nil)
+         |> assign(:scanning, false)
+         |> assign(:active_scan_kind, nil)
+         |> assign(:pending_scans, 0)
+         |> assign(:domain_class, compute_domain_class(domain))
+         |> assign(:a11y_scannable?, A11y.scannable?(domain))
+         |> assign(:a11y_scan, A11y.latest_scan(domain.id))
+         |> assign(:a11y_running?, A11y.running_scan(domain.id) != nil)
+         |> assign(:lighthouse_scan, Lighthouse.latest_scan(domain.id))
+         |> assign(:lighthouse_running?, Lighthouse.running_scan(domain.id) != nil)
+         |> refresh_security_scan_assigns()}
+      else
+        {:noreply,
+         socket
+         |> put_flash(:error, "You do not have permission to view this domain.")
+         |> push_navigate(to: ~p"/domains")}
+      end
     end
   end
 
-  def handle_event("set_project", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission.")}
+  # ---------------------------------------------------------------------------
+  # Tab & Risk Events
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("set_tab", %{"tab" => tab}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/domains/#{socket.assigns.domain.id}?tab=#{tab}")}
   end
 
+  @impl true
+  def handle_event("recalculate_risk", _, socket) do
+    domain = socket.assigns.domain
+
+    case Ravner.Domains.recalculate_risk_score(domain.id) do
+      {:ok, result} ->
+        updated_domain = Domains.get_domain_with_preloads!(domain.id)
+
+        flash_msg =
+          if is_integer(result.overall_score) do
+            "Cyber risk score recalculated: #{result.overall_score}/100 (#{result.grade})."
+          else
+            "Cyber risk scoring updated: Pending initial scans (#{result.grade})."
+          end
+
+        {:noreply,
+         socket
+         |> assign_domain_and_governance(updated_domain)
+         |> put_flash(:info, flash_msg)}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(socket, :error, "Failed to recalculate risk score: #{inspect(reason)}")}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Governance Assignments (Project, Brand, Organization)
+  # ---------------------------------------------------------------------------
+
+  @impl true
   def handle_event("set_project", %{"project_id" => pid}, socket) do
-    domain = socket.assigns.domain
-    pid = if pid == "", do: nil, else: String.to_integer(pid)
-    actor = socket.assigns.current_scope.user
+    if can_manage?(socket) do
+      domain = socket.assigns.domain
+      pid = if pid == "", do: nil, else: String.to_integer(pid)
+      actor = socket.assigns.current_scope.user
 
-    case Domains.assign_domain_project(domain, pid, actor: actor) do
-      {:ok, _} ->
-        domain = Domains.get_domain_with_preloads!(domain.id)
+      case Domains.assign_domain_project(domain, pid, actor: actor) do
+        {:ok, _} ->
+          domain = Domains.get_domain_with_preloads!(domain.id)
+          {:noreply, assign_domain_and_governance(socket, domain)}
 
-        {:noreply,
-         socket
-         |> assign(:domain, domain)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update project")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update project")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission.")}
     end
   end
 
-  def handle_event("set_brand", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission.")}
-  end
-
+  @impl true
   def handle_event("set_brand", %{"brand_id" => bid}, socket) do
-    domain = socket.assigns.domain
-    bid = if bid == "", do: nil, else: String.to_integer(bid)
-    actor = socket.assigns.current_scope.user
+    if can_manage?(socket) do
+      domain = socket.assigns.domain
+      bid = if bid == "", do: nil, else: String.to_integer(bid)
+      actor = socket.assigns.current_scope.user
 
-    case Domains.assign_domain_brand(domain, bid, actor: actor) do
-      {:ok, _} ->
-        {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
+      case Domains.assign_domain_brand(domain, bid, actor: actor) do
+        {:ok, _} ->
+          {:noreply,
+           assign_domain_and_governance(socket, Domains.get_domain_with_preloads!(domain.id))}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update brand")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update brand")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission.")}
     end
   end
 
-  def handle_event("set_organization", _, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission.")}
-  end
-
+  @impl true
   def handle_event("set_organization", %{"organization_id" => oid}, socket) do
-    domain = socket.assigns.domain
-    oid = if oid == "", do: nil, else: String.to_integer(oid)
-    actor = socket.assigns.current_scope.user
+    if can_manage?(socket) do
+      domain = socket.assigns.domain
+      oid = if oid == "", do: nil, else: String.to_integer(oid)
+      actor = socket.assigns.current_scope.user
 
-    case Domains.assign_domain_organization(domain, oid, actor: actor) do
-      {:ok, _} ->
-        {:noreply, assign(socket, :domain, Domains.get_domain_with_preloads!(domain.id))}
+      case Domains.assign_domain_organization(domain, oid, actor: actor) do
+        {:ok, _} ->
+          {:noreply,
+           assign_domain_and_governance(socket, Domains.get_domain_with_preloads!(domain.id))}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update organization")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update organization")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "You don't have permission.")}
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Lifecycle Transitions (Delegated to LifecycleDropdown, with fallback)
+  # ---------------------------------------------------------------------------
+
+  @impl true
   def handle_event("toggle_lifecycle_menu", _, socket) do
     {:noreply, assign(socket, :lifecycle_menu_open, !socket.assigns.lifecycle_menu_open)}
   end
 
+  @impl true
   def handle_event("close_lifecycle_menu", _, socket) do
     {:noreply, assign(socket, :lifecycle_menu_open, false)}
   end
 
-  def handle_event("scan_a11y", _params, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
+  @impl true
+  def handle_event("set_lifecycle", %{"state" => state}, socket) do
+    if can_manage?(socket) do
+      domain = socket.assigns.domain
+      actor = socket.assigns.current_scope.user
 
-  def handle_event("scan_a11y", _params, socket) do
-    domain = socket.assigns.domain
+      case Domains.set_domain_lifecycle(domain, state, actor: actor) do
+        {:ok, _} ->
+          domain = Domains.get_domain_with_preloads!(domain.id)
 
-    if A11y.scannable?(domain) do
-      %{domain_id: domain.id}
-      |> Ravner.Workers.A11yScanWorker.new()
-      |> Oban.insert()
+          {:noreply,
+           socket
+           |> assign_domain_and_governance(domain)
+           |> assign(:lifecycle_menu_open, false)}
 
-      {:noreply,
-       socket
-       |> assign(:a11y_running?, true)
-       |> put_flash(:info, "Accessibility scan queued.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update lifecycle")}
+      end
     else
-      {:noreply, put_flash(socket, :error, "Domain is not eligible for accessibility scan.")}
+      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
     end
   end
 
-  def handle_event("scan_lighthouse", _params, %{assigns: %{current_scope: scope}} = socket)
-      when is_nil(scope) or scope.user.role not in [:admin, :editor] do
-    {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
-  end
+  # ---------------------------------------------------------------------------
+  # Contacts Modal Controls
+  # ---------------------------------------------------------------------------
 
-  def handle_event("scan_lighthouse", _params, socket) do
-    domain = socket.assigns.domain
-
-    if Lighthouse.scannable?(domain) do
-      %{domain_id: domain.id}
-      |> Ravner.Workers.LighthouseScanWorker.new()
-      |> Oban.insert()
-
-      {:noreply,
-       socket
-       |> assign(:lighthouse_running?, true)
-       |> put_flash(:info, "Lighthouse scan queued.")}
+  @impl true
+  def handle_event("open_contacts_modal", _params, socket) do
+    if can_manage?(socket) do
+      {:noreply, assign(socket, :show_contacts_modal, true)}
     else
-      {:noreply, put_flash(socket, :error, "Domain is not eligible for Lighthouse scan.")}
+      {:noreply, put_flash(socket, :error, "You don't have permission to perform this action.")}
     end
   end
+
+  @impl true
+  def handle_event("close_contacts_modal", _, socket) do
+    {:noreply, assign(socket, :show_contacts_modal, false)}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Scan & Scheduling Events (Delegated to ScanCoordinator)
+  # Most scan events are handled by ScanPanel LiveComponent.
+  # scan_all_subdomains is used by domain_components.ex for subdomain bulk scan.
+  # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_event("scan_all_subdomains", _, socket),
+    do: ScanCoordinator.handle_scan_all_subdomains(socket)
 
   # ---------------------------------------------------------------------------
   # Info handlers (handle_info/2)
   # ---------------------------------------------------------------------------
+
+  @impl true
+  def handle_info({:put_flash, kind, msg}, socket) do
+    {:noreply, put_flash(socket, kind, msg)}
+  end
+
+  @impl true
+  def handle_info({:domain_updated, updated_domain}, socket) do
+    {:noreply, assign_domain_and_governance(socket, updated_domain)}
+  end
+
+  @impl true
+  def handle_info({:vcs_repo_changed, _domain_id}, socket) do
+    reloaded = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+    {:noreply, assign_domain_and_governance(socket, reloaded)}
+  end
+
+  @impl true
+  def handle_info({:contacts_saved, updated_domain}, socket) do
+    {:noreply,
+     socket
+     |> assign_domain_and_governance(updated_domain)
+     |> assign(:show_contacts_modal, false)}
+  end
+
+  @impl true
+  def handle_info(:close_contacts_modal, socket) do
+    {:noreply, assign(socket, :show_contacts_modal, false)}
+  end
 
   @impl true
   def handle_info(:refresh_security_scans, socket) do
@@ -420,234 +346,98 @@ defmodule RavnerWeb.DomainLive.Show do
   end
 
   @impl true
-  def handle_info({:scan_done, :subdomains, {:ok, results}}, socket) do
-    {:noreply,
-     socket
-     |> reload_domain([])
-     |> finish_scan()
-     |> assign(:scan_results, results)
-     |> put_flash(:info, "Found #{results.found} subdomains (#{results.new} new)")}
-  end
-
-  def handle_info({:scan_done, :httpx, {:ok, %{error: kind}}}, socket) do
-    label =
-      case kind do
-        :nxdomain -> "DNS resolution failed (NXDOMAIN)"
-        :timeout -> "Connection timed out"
-        :tls_error -> "TLS/SSL error"
-        :connection_refused -> "Connection refused"
-        :connection_closed -> "Connection closed"
-        _ -> "Unreachable"
-      end
-
-    {:noreply,
-     socket
-     |> reload_domain([])
-     |> finish_scan()
-     |> put_flash(:error, "HTTP scan error: #{label}")}
-  end
-
-  def handle_info({:scan_done, :httpx, {:ok, _}}, socket) do
-    {:noreply,
-     socket
-     |> reload_domain([])
-     |> finish_scan()
-     |> put_flash(:info, "HTTP scan completed")}
-  end
-
-  def handle_info({:scan_done, :deep_tech, {:ok, results}}, socket) do
-    suffix =
-      if results.errors == [] do
-        ""
-      else
-        " (#{length(results.errors)} tool warnings)"
-      end
-
-    {:noreply,
-     socket
-     |> reload_domain([])
-     |> finish_scan()
-     |> put_flash(
-       :info,
-       "Deep tech scan completed: #{results.evidence} findings, #{results.urls} URLs#{suffix}"
-     )}
-  end
-
-  def handle_info({:scan_done, :dnsx, {:ok, _}}, socket) do
-    {:noreply,
-     socket
-     |> reload_domain([])
-     |> finish_scan()
-     |> put_flash(:info, "DNS scan completed")}
-  end
-
-  def handle_info({:scan_done, :rdap, {:ok, %{source: source}}}, socket) do
-    source_label =
-      %{
-        "rdap" => "RDAP",
-        "whois" => "WHOIS",
-        "ns_heuristics" => "NS heuristics",
-        "none" => "no data found"
-      }[source] || source
-
-    {:noreply,
-     socket
-     |> reload_domain([])
-     |> finish_scan()
-     |> put_flash(:info, "Registration scan completed via #{source_label}")}
-  end
-
-  def handle_info({:scan_done, :subdomains, {:error, reason}}, socket) do
-    # Subdomain scan failures are informational — no data found, not a crash
-    Logger.info("Subdomain scan returned no results: #{reason}")
-
-    {:noreply,
-     socket
-     |> finish_scan()
-     |> put_flash(:info, "No subdomains found")}
-  end
-
-  # ─── Security scan progress & results ─────────────────────────────────────
-
   def handle_info({:scan_progress, _scan_id, _progress}, socket) do
     # Re-load running scan to surface latest progress in the UI.
     {:noreply, refresh_security_scan_assigns(socket)}
   end
 
-  def handle_info({:scan_done, :security_scan, {:ok, scan}}, socket) do
+  @impl true
+  def handle_info({:scan_done, kind, result}, socket) do
+    ScanCoordinator.handle_scan_done(socket, kind, result, &reload_domain(&1, []))
+  end
+
+  @impl true
+  def handle_info({:bulk_scan_done, _subdomain_id, "quick", _status}, socket) do
     {:noreply,
      socket
      |> reload_domain([])
-     |> refresh_security_scan_assigns()
-     |> put_flash(:info, "Security scan completed — #{scan.summary}")}
-  end
-
-  def handle_info({:scan_done, :security_scan, {:error, reason}}, socket) do
-    {:noreply,
-     socket
-     |> refresh_security_scan_assigns()
-     |> put_flash(:error, "Security scan failed: #{reason}")}
-  end
-
-  def handle_info({:scan_done, _kind, {:error, reason}}, socket) when is_binary(reason) do
-    {:noreply,
-     socket
-     |> finish_scan()
-     |> put_flash(:error, reason)}
-  end
-
-  def handle_info({:scan_done, kind, result}, socket) do
-    Logger.warning("Unhandled scan_done message for #{kind}: #{inspect(result)}")
-
-    {:noreply,
-     socket
-     |> finish_scan()
-     |> put_flash(:error, "Scan #{kind} failed or returned unexpected data.")}
+     |> ScanCoordinator.finish_scan()}
   end
 
   @impl true
   def handle_info({:a11y_scan_completed, scan}, socket) do
-    {:noreply,
-     socket
-     |> assign(:a11y_scan, scan)
-     |> assign(:a11y_running?, false)}
+    ScanCoordinator.handle_a11y_completed(socket, scan)
   end
 
   @impl true
   def handle_info({:lighthouse_scan_completed, scan}, socket) do
-    {:noreply,
-     socket
-     |> assign(:lighthouse_scan, scan)
-     |> assign(:lighthouse_running?, false)}
+    ScanCoordinator.handle_lighthouse_completed(socket, scan)
   end
 
   # ---------------------------------------------------------------------------
-  # Private helpers
+  # Private Helpers
   # ---------------------------------------------------------------------------
 
-  defp infrastructure_metadata?(domain) do
-    metadata = domain.domain_metadata
-
-    (metadata &&
-       (metadata.hosting_platform || metadata.asn_org ||
-          populated?(metadata.tech_stack) ||
-          populated?(metadata.js_assets) ||
-          populated?(metadata.open_ports))) ||
-      populated?(domain.tech_evidence) ||
-      populated?(domain.discovered_urls)
+  defp reload_domain(socket, []) do
+    domain = Domains.get_domain_with_preloads!(socket.assigns.domain.id)
+    assign_domain_and_governance(socket, domain)
   end
 
-  defp populated?(value), do: is_list(value) && value != []
-
-  defp start_scan_tasks(pid, id, user_id) do
-    start_background_scan(user_id, fn ->
-      results = Scans.run_quick_scan(id)
-
-      send(pid, {:scan_done, :dnsx, Map.fetch!(results, :dnsx)})
-      send(pid, {:scan_done, :httpx, Map.fetch!(results, :httpx)})
-      send(pid, {:scan_done, :rdap, Map.fetch!(results, :rdap)})
-      send(pid, {:scan_done, :subdomains, Map.fetch!(results, :subdomains)})
-    end)
-  end
-
-  defp start_background_scan(user_id, fun) when is_function(fun, 0) do
-    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
-      if user_id, do: Ravner.ActivityLog.set_user(user_id)
-      fun.()
-    end)
-  end
-
-  # Decrements the pending scan counter; sets scanning: false when all done
-  defp finish_scan(socket) do
-    pending = max(0, socket.assigns.pending_scans - 1)
-    socket = assign(socket, :pending_scans, pending)
-
-    if pending == 0 do
-      socket
-      |> assign(:scanning, false)
-      |> assign(:active_scan_kind, nil)
-    else
-      socket
-    end
-  end
-
-  # Reloads domain with template-required associations
   defp reload_domain(socket, extra_preloads) do
-    preloads =
-      [
-        :parent_domain,
-        :domain_metadata,
-        :domain_tags,
-        :project,
-        :brand,
-        :organization,
-        :dns_records,
-        :tech_evidence,
-        :discovered_urls,
-        subdomains: [:domain_metadata]
-      ] ++ extra_preloads
-
     domain =
-      Domains.get_domain!(socket.assigns.domain.id)
-      |> Ash.load!(preloads)
+      socket.assigns.domain.id
+      |> Domains.get_domain_with_preloads!()
+      |> Ash.load!(extra_preloads, authorize?: false)
+
+    assign_domain_and_governance(socket, domain)
+  end
+
+  defp assign_domain_and_governance(socket, domain) do
+    primary_repo = Inventory.get_primary_repository_for_domain(domain)
+    domain_repos = Inventory.list_all_repositories_for_domain(domain)
+
+    project_repos =
+      if domain.project_id, do: Inventory.list_project_repositories(domain.project_id), else: []
+
+    candidates = Domains.contact_candidates(domain)
 
     socket
     |> assign(:domain, domain)
+    |> assign(:primary_repo, primary_repo)
+    |> assign(:domain_repos, domain_repos)
+    |> assign(:project_repos, project_repos)
+    |> assign(:versions, Domains.list_domain_versions(domain.id))
+    |> assign(:project_team, Domains.project_team_candidates(domain))
+    |> assign(:pm_candidates, candidates.pm_candidates)
+    |> assign(:po_candidates, candidates.po_candidates)
+    |> assign(:filtered_pm_candidates, candidates.pm_candidates |> Enum.take(8))
+    |> assign(:filtered_po_candidates, candidates.po_candidates |> Enum.take(8))
+    |> assign(:pm_person, Domains.find_person_by_email(domain.pm_email))
+    |> assign(:po_person, Domains.find_person_by_email(domain.po_email))
+    |> assign(:escalation_chain, Domains.domain_escalation_chain(domain))
     |> assign(:domain_class, compute_domain_class(domain))
   end
 
-  defp parse_interval(""), do: nil
+  defp refresh_security_scan_assigns(socket) do
+    domain_id = socket.assigns.domain.id
 
-  defp parse_interval(val) when is_binary(val) do
-    case Integer.parse(val) do
-      {int, ""} -> int
-      _ -> nil
-    end
+    latest_sec = SecurityScans.latest_security_scan(domain_id)
+    latest_breach = SecurityScans.latest_breach_scan(domain_id)
+    running = SecurityScans.running_scan(domain_id)
+
+    failed =
+      if latest_sec == nil and latest_breach == nil and running == nil do
+        SecurityScans.latest_failed_scan(domain_id)
+      end
+
+    socket
+    |> assign(:latest_security_scan, latest_sec)
+    |> assign(:latest_breach_scan, latest_breach)
+    |> assign(:running_security_scan, running)
+    |> assign(:latest_failed_security_scan, failed)
+    |> assign(:severity_counts, SecurityScans.severity_counts_for_domain(domain_id))
   end
 
-  defp parse_interval(_), do: nil
-
-  # Compute domain classification from stored metadata (Balebos-style)
   defp compute_domain_class(domain) do
     classify_by_metadata(domain, domain.domain_metadata)
   end
@@ -680,7 +470,6 @@ defmodule RavnerWeb.DomainLive.Show do
     {:other, status}
   end
 
-  # Returns the external redirect target domain if final_url points outside the current root domain
   defp external_redirect_target(_domain_name, nil), do: nil
 
   defp external_redirect_target(domain_name, final_url) do
@@ -723,25 +512,9 @@ defmodule RavnerWeb.DomainLive.Show do
 
   defp two_part_tld?(tld), do: tld in @two_part_tlds
 
-  # Loads the current security-scan related assigns (latest completed,
-  # currently running, latest failure when no completed exists, severity
-  # counts) from the database. Called from mount, after every scan event,
-  # and after manual delete/clear actions.
-  defp refresh_security_scan_assigns(socket) do
-    domain_id = socket.assigns.domain.id
-
-    latest = SecurityScans.latest_completed_scan(domain_id)
-    running = SecurityScans.running_scan(domain_id)
-
-    failed =
-      if latest == nil and running == nil do
-        SecurityScans.latest_failed_scan(domain_id)
-      end
-
-    socket
-    |> assign(:latest_security_scan, latest)
-    |> assign(:running_security_scan, running)
-    |> assign(:latest_failed_security_scan, failed)
-    |> assign(:severity_counts, SecurityScans.severity_counts_for_domain(domain_id))
+  defp can_manage?(socket) do
+    scope = socket.assigns[:current_scope]
+    domain = socket.assigns[:domain]
+    Ravner.Accounts.ScopeResolver.can_manage_domain?(scope, domain)
   end
 end

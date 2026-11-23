@@ -12,18 +12,26 @@ defmodule Ravner.ScanConfig do
   @valid_tags ~w(cves misconfig exposure panel network dns file token default-login)
 
   schema "scan_config" do
-    field :nuclei_severities, {:array, :string}, default: ["critical", "high", "medium"]
+    field :nuclei_severities, {:array, :string}, default: ["critical", "high"]
     field :nuclei_tags, {:array, :string}, default: []
     field :nuclei_exclude_tags, {:array, :string}, default: []
     field :security_scanner, :string, default: "nuclei"
+    field :security_scan_mode, :string, default: "light"
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(config, attrs) do
     config
-    |> cast(attrs, [:nuclei_severities, :nuclei_tags, :nuclei_exclude_tags, :security_scanner])
+    |> cast(attrs, [
+      :nuclei_severities,
+      :nuclei_tags,
+      :nuclei_exclude_tags,
+      :security_scanner,
+      :security_scan_mode
+    ])
     |> validate_inclusion(:security_scanner, ["nuclei", "lonkero"])
+    |> validate_inclusion(:security_scan_mode, ["light", "heavy"])
     |> validate_values_in(:nuclei_severities, @valid_severities)
     |> validate_values_in(:nuclei_tags, @valid_tags)
     |> validate_values_in(:nuclei_exclude_tags, @valid_tags)

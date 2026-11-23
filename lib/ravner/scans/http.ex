@@ -1,6 +1,7 @@
 defmodule Ravner.Scans.Http do
   @moduledoc """
-  HTTP/Deep scanning using Req, Katana and Webanalyze.
+  HTTP/Deep scanning using Req, Katana and native Wappalyzer fingerprinting
+  (`Ravner.Scans.TechFingerprint`).
   """
 
   require Logger
@@ -9,7 +10,7 @@ defmodule Ravner.Scans.Http do
   alias Ravner.SystemCommand
 
   @katana_timeout 180_000
-  @webanalyze_timeout 120_000
+  @tech_fingerprint_timeout 30_000
   @deep_url_limit 100
   @deep_js_limit 50
   @deep_evidence_limit 80
@@ -77,16 +78,24 @@ defmodule Ravner.Scans.Http do
           end
 
         Domains.upsert_domain_metadata(domain_id, meta)
+        Ravner.Governance.RiskScore.recalculate_for_domain(domain_id)
         maybe_update_domain_url(domain, data.final_url)
         record_technical_status_from_http(domain, data)
         Ravner.ActivityLog.emit(:done, "HTTP done — #{domain.name} → status #{data.http_status}")
         {:ok, data}
 
       {:error, reason} ->
+        Ravner.ActivityLog.emit(
+          :error,
+          "HTTP probe failed for #{domain.name}: #{inspect(reason)}"
+        )
+
         Domains.upsert_domain_metadata(domain_id, %{
           http_status: 0,
           http_scanned_at: DateTime.utc_now()
         })
+
+        Ravner.Governance.RiskScore.recalculate_for_domain(domain_id)
 
         Domains.record_technical_status(domain, :error)
 
@@ -101,11 +110,11 @@ defmodule Ravner.Scans.Http do
   @doc """
   Runs a deeper technology scan using the already stored/fresh landing URL.
 
-  This scan is deliberately additive: `httpx` refreshes the canonical URL and
-  lightweight fingerprints, `katana` contributes crawled URLs/assets, and
-  `webanalyze` contributes Wappalyzer-style technology evidence when available.
-  Missing optional CLIs are recorded in metadata instead of making the whole
-  scan fail.
+  This scan is deliberately additive: the Req-based HTTP probe refreshes the
+  canonical URL and lightweight fingerprints, `katana` contributes crawled
+  URLs/assets, and `Ravner.Scans.TechFingerprint` contributes
+  Wappalyzer-style technology evidence when available. Missing optional tools
+  are recorded in metadata instead of making the whole scan fail.
   """
   @spec run_deep_tech_scan(integer()) :: {:ok, map()} | {:error, term()}
   def run_deep_tech_scan(domain_id) do
@@ -116,7 +125,7 @@ defmodule Ravner.Scans.Http do
     target_url = deep_scan_target_url(domain_id, domain)
     Ravner.ActivityLog.emit(:step, "Deep tech scan — crawling #{target_url}…")
 
-    {crawl_data, crawl_errors, tech_evidence, webanalyze_errors} =
+    {crawl_data, crawl_errors, tech_evidence, fingerprint_errors} =
       if deep_http_allows_tools?(http_result) do
         Ravner.ActivityLog.emit(:step, "Running katana crawler on #{target_url}…")
 
@@ -126,15 +135,15 @@ defmodule Ravner.Scans.Http do
             {:error, reason} -> {%{urls: [], js_assets: [], forms: []}, [to_string(reason)]}
           end
 
-        Ravner.ActivityLog.emit(:step, "Fingerprinting technologies via webanalyze…")
+        Ravner.ActivityLog.emit(:step, "Fingerprinting technologies via Wappalyzer…")
 
-        {tech_evidence, webanalyze_errors} =
-          case run_webanalyze(target_url) do
+        {tech_evidence, fingerprint_errors} =
+          case run_tech_fingerprint(target_url) do
             {:ok, evidence} -> {evidence, []}
             {:error, reason} -> {[], [to_string(reason)]}
           end
 
-        {crawl_data, crawl_errors, tech_evidence, webanalyze_errors}
+        {crawl_data, crawl_errors, tech_evidence, fingerprint_errors}
       else
         {%{urls: [], js_assets: [], forms: []}, ["HTTP probe failed; skipped deep tools"], [], []}
       end
@@ -151,7 +160,7 @@ defmodule Ravner.Scans.Http do
       |> Enum.sort()
 
     duration_ms = System.monotonic_time(:millisecond) - started_at
-    errors = crawl_errors ++ webanalyze_errors
+    errors = crawl_errors ++ fingerprint_errors
 
     metadata = %{
       tech_stack: tech_stack,
@@ -220,41 +229,25 @@ defmodule Ravner.Scans.Http do
     end
   end
 
-  defp run_webanalyze(target_url) do
-    args =
-      ["-host", target_url, "-crawl", "1", "-output", "json", "-silent"]
-      |> maybe_add_webanalyze_apps_path()
+  # The target URL is already the canonical landing URL, so no redirect
+  # following is needed here — katana handles crawling separately.
+  defp run_tech_fingerprint(target_url) do
+    case Req.get(target_url,
+           redirect: false,
+           retry: false,
+           decode_body: false,
+           receive_timeout: @tech_fingerprint_timeout
+         ) do
+      {:ok, response} ->
+        case Ravner.Scans.TechFingerprint.analyze(target_url, response) do
+          {:ok, evidence} -> {:ok, evidence}
+          {:error, :fingerprints_not_found} -> {:error, "technologies database not found"}
+          {:error, reason} -> {:error, reason}
+        end
 
-    case SystemCommand.run_with_timeout("webanalyze", args, @webanalyze_timeout) do
-      {output, 0} ->
-        {:ok, parse_webanalyze_output(output)}
-
-      {:error, :timeout} ->
-        {:error, "webanalyze timed out after #{@webanalyze_timeout}ms"}
-
-      {:error, reason} ->
-        {:error, reason}
-
-      {output, code} ->
-        {:error, "webanalyze failed (exit #{code}): #{String.slice(output, 0, 200)}"}
+      {:error, exception} ->
+        {:error, "tech fingerprint fetch failed: #{inspect(exception)}"}
     end
-  end
-
-  defp maybe_add_webanalyze_apps_path(args) do
-    case webanalyze_apps_path() do
-      nil -> args
-      path -> args ++ ["-apps", path]
-    end
-  end
-
-  defp webanalyze_apps_path do
-    env_path = System.get_env("WEBANALYZE_APPS_PATH")
-    app_path = Application.get_env(:ravner, :webanalyze_apps_path)
-
-    Enum.find([env_path, app_path, "/usr/local/share/webanalyze/technologies.json"], fn
-      path when is_binary(path) -> File.exists?(path)
-      _ -> false
-    end)
   end
 
   @doc false
@@ -298,28 +291,6 @@ defmodule Ravner.Scans.Http do
       |> dedupe_maps_by("url")
 
     %{urls: urls, js_assets: js_assets, forms: forms}
-  end
-
-  @doc false
-  @spec parse_webanalyze_output(String.t()) :: [map()]
-  def parse_webanalyze_output(output) when is_binary(output) do
-    output
-    |> String.split("\n", trim: true)
-    |> Enum.flat_map(fn line ->
-      case Jason.decode(line) do
-        {:ok, %{"hostname" => hostname, "matches" => matches}} when is_list(matches) ->
-          Enum.map(matches, &webanalyze_match_to_evidence(&1, hostname))
-
-        {:ok, data} ->
-          extract_webanalyze_evidence(data, nil)
-
-        _ ->
-          []
-      end
-    end)
-    |> Enum.reject(&is_nil(&1["name"]))
-    |> dedupe_maps_by("name")
-    |> Enum.take(@deep_evidence_limit)
   end
 
   defp katana_url_entries(data) do
@@ -377,38 +348,6 @@ defmodule Ravner.Scans.Http do
 
   defp js_asset_url?(_), do: false
 
-  defp webanalyze_match_to_evidence(match, hostname) when is_map(match) do
-    name = match["app_name"] || match["appName"] || match["name"] || match["app"]
-
-    %{
-      "name" => name,
-      "version" => match["version"],
-      "categories" => match["cat_names"] || match["catNames"] || match["categories"] || [],
-      "confidence" => match["confidence"],
-      "source" => "webanalyze",
-      "url" => hostname
-    }
-  end
-
-  defp extract_webanalyze_evidence(value, hostname) when is_list(value) do
-    Enum.flat_map(value, &extract_webanalyze_evidence(&1, hostname))
-  end
-
-  defp extract_webanalyze_evidence(%{"hostname" => hostname, "matches" => matches}, _)
-       when is_list(matches) do
-    Enum.map(matches, &webanalyze_match_to_evidence(&1, hostname))
-  end
-
-  defp extract_webanalyze_evidence(value, hostname) when is_map(value) do
-    if value["app_name"] || value["appName"] do
-      [webanalyze_match_to_evidence(value, hostname)]
-    else
-      Enum.flat_map(value, fn {_key, nested} -> extract_webanalyze_evidence(nested, hostname) end)
-    end
-  end
-
-  defp extract_webanalyze_evidence(_, _), do: []
-
   defp dedupe_maps_by(maps, key) do
     maps
     |> Enum.reject(&(Map.get(&1, key) in [nil, ""]))
@@ -429,9 +368,11 @@ defmodule Ravner.Scans.Http do
   end
 
   defp record_technical_status_from_http(domain, data) do
+    is_redirect = external_redirect?(domain.name, data.final_url)
+
     status =
       cond do
-        external_redirect?(domain.name, data.final_url) -> :redirect
+        is_redirect -> :redirect
         data.http_status >= 400 -> :error
         String.starts_with?(data.final_url, "http://") -> :insecure
         data.http_status == 200 -> :reachable
@@ -440,6 +381,11 @@ defmodule Ravner.Scans.Http do
 
     if status != :unknown do
       Domains.record_technical_status(domain, status)
+    end
+
+    # Auto-detect redirect lifecycle state
+    if is_redirect do
+      Domains.record_redirect_lifecycle(domain, data.final_url)
     end
   end
 
@@ -537,7 +483,15 @@ defmodule Ravner.Scans.Http do
               follow_redirects(next_url, [hop | chain], hops_left - 1)
           end
         else
-          {:ok, {Enum.reverse([hop | chain]), response, url}}
+          # Check for client-side redirects (meta refresh or immediate JS redirects)
+          # in lightweight stub pages (e.g. <= 5_000 bytes)
+          case maybe_extract_client_redirect(response, url, chain) do
+            {:ok, next_url} ->
+              follow_redirects(next_url, [hop | chain], hops_left - 1)
+
+            :none ->
+              {:ok, {Enum.reverse([hop | chain]), response, url}}
+          end
         end
 
       {:error, %Req.TransportError{reason: reason}} ->
@@ -548,6 +502,64 @@ defmodule Ravner.Scans.Http do
     end
   end
 
+  @max_redirect_stub_bytes 5_000
+
+  defp maybe_extract_client_redirect(response, current_url, chain) do
+    if response.status in 200..299 and is_binary(response.body) and
+         byte_size(response.body) <= @max_redirect_stub_bytes do
+      case extract_client_redirect_target(response.body) do
+        nil ->
+          :none
+
+        target ->
+          next_url = resolve_redirect_url(current_url, target)
+          already_visited? = Enum.any?(chain, fn hop -> hop.url == next_url end)
+
+          if next_url != current_url and not already_visited? do
+            {:ok, next_url}
+          else
+            :none
+          end
+      end
+    else
+      :none
+    end
+  end
+
+  defp extract_client_redirect_target(body) do
+    # 1. Meta refresh: <meta http-equiv="refresh" content="0; url=...">
+    meta_target =
+      case Regex.run(
+             ~r/<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["']?[^"'>]*url=([^"'>\s]+)/i,
+             body
+           ) do
+        [_, url] -> String.trim(url, "\"'")
+        _ -> nil
+      end
+
+    # 2. Immediate JS redirect or window.onload redirect
+    js_target =
+      if is_nil(meta_target) do
+        patterns = [
+          ~r/window\.onload\s*=\s*(?:function\s*\([^)]*\)\s*\{|\([^)]*\)\s*=>\s*\{)?\s*(?:window\.|document\.)?location(?:\.href|\.replace)?\s*=\s*['"]([^'"]+)['"]/i,
+          ~r/window\.onload\s*=\s*(?:function\s*\([^)]*\)\s*\{|\([^)]*\)\s*=>\s*\{)?\s*(?:window\.|document\.)?location\.replace\(['"]([^'"]+)['"]\)/i,
+          ~r/<script[^>]*>\s*(?:window\.|document\.)?location(?:\.href|\.replace)?\s*=\s*['"]([^'"]+)['"]/i,
+          ~r/<script[^>]*>\s*(?:window\.|document\.)?location\.replace\(['"]([^'"]+)['"]\)/i
+        ]
+
+        Enum.find_value(patterns, fn regex ->
+          case Regex.run(regex, body) do
+            [_, url] -> String.trim(url)
+            _ -> nil
+          end
+        end)
+      else
+        nil
+      end
+
+    meta_target || js_target
+  end
+
   defp classify_transport_error(:nxdomain), do: :nxdomain
   defp classify_transport_error(:timeout), do: :timeout
   defp classify_transport_error(:econnrefused), do: :connection_refused
@@ -556,11 +568,28 @@ defmodule Ravner.Scans.Http do
   defp classify_transport_error(_), do: :connection_error
 
   defp resolve_redirect_url(base_url, location) do
-    if String.starts_with?(location, "http://") || String.starts_with?(location, "https://") do
-      location
-    else
-      uri = URI.parse(base_url)
-      "#{uri.scheme}://#{uri.host}#{location}"
+    location = String.trim(location)
+
+    cond do
+      String.starts_with?(location, "http://") or String.starts_with?(location, "https://") ->
+        location
+
+      String.starts_with?(location, "//") ->
+        uri = URI.parse(base_url)
+        "#{uri.scheme || "https"}:#{location}"
+
+      String.starts_with?(location, "/") ->
+        uri = URI.parse(base_url)
+        port_suffix = if uri.port && uri.port not in [80, 443], do: ":#{uri.port}", else: ""
+        "#{uri.scheme || "https"}://#{uri.host}#{port_suffix}#{location}"
+
+      true ->
+        uri = URI.parse(base_url)
+        port_suffix = if uri.port && uri.port not in [80, 443], do: ":#{uri.port}", else: ""
+        base_path = uri.path || "/"
+        dir = Path.dirname(base_path)
+        new_path = if dir in ["/", "."], do: "/#{location}", else: "#{dir}/#{location}"
+        "#{uri.scheme || "https"}://#{uri.host}#{port_suffix}#{new_path}"
     end
   end
 

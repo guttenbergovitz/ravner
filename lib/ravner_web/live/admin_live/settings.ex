@@ -3,6 +3,8 @@ defmodule RavnerWeb.AdminLive.Settings do
 
   alias Ravner.ApiKeys
   alias Ravner.ApiKeys.ApiKey
+  alias Ravner.Integrations.VCS
+  alias Ravner.Integrations.VcsIntegration
   alias Ravner.Repo
   alias Ravner.SystemCommand
 
@@ -15,6 +17,8 @@ defmodule RavnerWeb.AdminLive.Settings do
       nuclei_status = check_nuclei_status()
       lonkero_status = check_lonkero_status()
       scan_config = Ravner.ScanConfig.get()
+      vcs_status = VCS.status("bitbucket")
+      wappalyzer_status = check_wappalyzer_status()
 
       last_security_scan = last_scan_time("security_scans")
       last_a11y_scan = last_scan_time("a11y_scans")
@@ -28,6 +32,10 @@ defmodule RavnerWeb.AdminLive.Settings do
        |> assign(:known_keys, ApiKeys.list_known_keys())
        |> assign(:editing_key, nil)
        |> assign(:form, nil)
+       |> assign(:vcs_status, vcs_status)
+       |> assign(:vcs_editing?, false)
+       |> assign(:vcs_form, nil)
+       |> assign(:wappalyzer_status, wappalyzer_status)
        |> assign(:pa11y_available?, pa11y_available?)
        |> assign(:pa11y_version, pa11y_version)
        |> assign(:nuclei_status, nuclei_status)
@@ -203,6 +211,20 @@ defmodule RavnerWeb.AdminLive.Settings do
   end
 
   @impl true
+  def handle_event("set_security_scan_mode", %{"mode" => mode}, socket) do
+    case Ravner.ScanConfig.update(%{security_scan_mode: mode}) do
+      {:ok, new_config} ->
+        {:noreply,
+         socket
+         |> assign(:scan_config, new_config)
+         |> put_flash(:info, "Default security scan mode updated to #{mode}")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to update security scan mode")}
+    end
+  end
+
+  @impl true
   def handle_event("update_nuclei_templates", _params, socket) do
     liveview_pid = self()
 
@@ -211,6 +233,178 @@ defmodule RavnerWeb.AdminLive.Settings do
     end)
 
     {:noreply, put_flash(socket, :info, "Nuclei template update started")}
+  end
+
+  @impl true
+  def handle_event("toggle_fallback_tag", %{"tag" => tag}, socket) do
+    config = socket.assigns.scan_config
+    current = config.nuclei_tags || []
+
+    updated =
+      if tag in current,
+        do: List.delete(current, tag),
+        else: current ++ [tag]
+
+    case Ravner.ScanConfig.update(%{nuclei_tags: updated}) do
+      {:ok, new_config} -> {:noreply, assign(socket, :scan_config, new_config)}
+      {:error, _} -> {:noreply, put_flash(socket, :error, "Failed to update config")}
+    end
+  end
+
+  @impl true
+  def handle_event("update_wappalyzer_technologies", _params, socket) do
+    liveview_pid = self()
+
+    Task.Supervisor.start_child(Ravner.ScanTaskSupervisor, fn ->
+      result = Ravner.Workers.TechnologiesUpdateWorker.perform(%Oban.Job{})
+      send(liveview_pid, {:wappalyzer_technologies_updated, result})
+    end)
+
+    {:noreply, put_flash(socket, :info, "Technology definitions update started")}
+  end
+
+  @impl true
+  def handle_event("edit_vcs", params, socket) do
+    provider = params["provider"] || "bitbucket"
+    status = VCS.status(provider)
+
+    form =
+      if status.active_integration do
+        # Clear token in the form so plaintext credentials never enter LiveView socket assigns
+        to_form(VCS.change_integration(%{status.active_integration | token: nil}))
+      else
+        to_form(
+          VCS.change_integration(%VcsIntegration{
+            name: "#{String.capitalize(provider)} Integration",
+            provider: provider,
+            active: true
+          })
+        )
+      end
+
+    {:noreply,
+     socket
+     |> assign(:vcs_editing_provider, provider)
+     |> assign(:vcs_editing?, true)
+     |> assign(:vcs_form, form)}
+  end
+
+  @impl true
+  def handle_event("cancel_edit_vcs", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:vcs_editing?, false)
+     |> assign(:vcs_form, nil)}
+  end
+
+  @impl true
+  def handle_event("validate_vcs", %{"vcs_integration" => attrs}, socket) do
+    status = socket.assigns.vcs_status
+
+    integration =
+      if status.active_integration && status.active_integration.id do
+        %{status.active_integration | token: nil}
+      else
+        %VcsIntegration{
+          name: "Bitbucket Integration",
+          provider: "bitbucket",
+          active: true
+        }
+      end
+
+    changeset =
+      integration
+      |> VCS.change_integration(attrs)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :vcs_form, to_form(changeset))}
+  end
+
+  @impl true
+  def handle_event("save_vcs", %{"vcs_integration" => attrs}, socket) do
+    provider = attrs["provider"] || socket.assigns[:vcs_editing_provider] || "bitbucket"
+    status = VCS.status(provider)
+    attrs = Map.merge(attrs, %{"provider" => provider, "active" => true})
+
+    attrs =
+      if is_nil(attrs["name"]) or attrs["name"] == "" do
+        Map.put(attrs, "name", "#{String.capitalize(provider)} Integration")
+      else
+        attrs
+      end
+
+    result =
+      if status.active_integration && status.active_integration.id do
+        integration = Ravner.Repo.get!(VcsIntegration, status.active_integration.id)
+        VCS.update_integration(integration, attrs)
+      else
+        VCS.create_integration(attrs)
+      end
+
+    case result do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:vcs_status, VCS.status("bitbucket"))
+         |> assign(:vcs_editing?, false)
+         |> assign(:vcs_form, nil)
+         |> put_flash(:info, "VCS credentials saved successfully")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :vcs_form, to_form(changeset))}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_vcs", params, socket) do
+    provider = params["provider"] || "bitbucket"
+    status = VCS.status(provider)
+
+    if status.active_integration && status.active_integration.id do
+      integration = Ravner.Repo.get!(VcsIntegration, status.active_integration.id)
+      {:ok, _} = VCS.delete_integration(integration)
+
+      {:noreply,
+       socket
+       |> assign(:vcs_status, VCS.status("bitbucket"))
+       |> put_flash(:info, "#{String.capitalize(provider)} integration removed from database")}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("test_vcs", params, socket) do
+    provider = params["provider"] || "bitbucket"
+
+    case VCS.resolve_credentials(provider) do
+      nil ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "No #{String.capitalize(provider)} credentials configured to test"
+         )}
+
+      creds ->
+        case VCS.test_connection(provider, creds) do
+          :ok ->
+            {:noreply,
+             put_flash(
+               socket,
+               :info,
+               "#{String.capitalize(provider)} connection successful (workspace: #{creds.workspace})"
+             )}
+
+          {:error, reason} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               "#{String.capitalize(provider)} connection failed: #{reason}"
+             )}
+        end
+    end
   end
 
   @impl true
@@ -235,6 +429,22 @@ defmodule RavnerWeb.AdminLive.Settings do
         {:noreply,
          socket
          |> put_flash(:error, "Nuclei template update failed: #{String.slice(output, 0, 200)}")}
+    end
+  end
+
+  @impl true
+  def handle_info({:wappalyzer_technologies_updated, result}, socket) do
+    case result do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(:wappalyzer_status, check_wappalyzer_status())
+         |> put_flash(:info, "Wappalyzer technology definitions updated successfully")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Technology definitions update failed: #{reason}")}
     end
   end
 
@@ -266,12 +476,10 @@ defmodule RavnerWeb.AdminLive.Settings do
     {templates_count, templates_date} =
       if templates_path do
         count =
-          case System.cmd("find", [templates_path, "-name", "*.yaml", "-type", "f"],
-                 stderr_to_stdout: true
-               ) do
-            {output, 0} -> output |> String.split("\n", trim: true) |> length()
-            _ -> 0
-          end
+          templates_path
+          |> Path.join("**/*.yaml")
+          |> Path.wildcard()
+          |> length()
 
         date =
           case File.stat(templates_path) do
@@ -300,7 +508,7 @@ defmodule RavnerWeb.AdminLive.Settings do
 
     version =
       if available? do
-        case System.cmd("lonkero", ["version"], stderr_to_stdout: true) do
+        case SystemCommand.run_with_timeout("lonkero", ["version"], 5_000) do
           {out, 0} ->
             out |> String.trim() |> String.split("\n") |> List.first() || "unknown"
 
@@ -323,7 +531,7 @@ defmodule RavnerWeb.AdminLive.Settings do
         {false, nil}
 
       _path ->
-        case System.cmd("pa11y", ["--version"], stderr_to_stdout: true) do
+        case SystemCommand.run_with_timeout("pa11y", ["--version"], 5_000) do
           {version, 0} -> {true, String.trim(version)}
           _ -> {true, "unknown"}
         end
@@ -333,5 +541,30 @@ defmodule RavnerWeb.AdminLive.Settings do
   defp last_scan_time(table) do
     import Ecto.Query
     Repo.one(from(s in table, where: s.status == "completed", select: max(s.completed_at)))
+  end
+
+  defp check_wappalyzer_status do
+    case Ravner.Scans.TechFingerprint.technologies_path() do
+      nil ->
+        %{
+          available?: false,
+          path: Ravner.Scans.TechFingerprint.storage_path(),
+          updated_at: nil
+        }
+
+      path ->
+        updated_at =
+          case File.stat(path) do
+            {:ok, %{mtime: mtime}} ->
+              mtime
+              |> NaiveDateTime.from_erl!()
+              |> DateTime.from_naive!("Etc/UTC")
+
+            _ ->
+              nil
+          end
+
+        %{available?: true, path: path, updated_at: updated_at}
+    end
   end
 end

@@ -2,425 +2,30 @@
   <div class="max-w-[1600px] mx-auto px-6 py-8">
     <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-10 items-start">
       <%!-- Sidebar: Faceted Search & Navigation --%>
-      <aside class="space-y-8 sticky top-8">
-        <div>
-          <h1 class="text-2xl font-light tracking-tight mb-1">Domains</h1>
-          <div class="space-y-2">
-            <p class="text-[10px] font-normal uppercase tracking-widest text-neutral-400">
-              {if @total == 0 && @search == "" && @lifecycle_filter == [] &&
-                    @technical_status_filter == [] && @brand_filter == [] && @org_filter == [] &&
-                    @project_filter == [],
-                  do: "No domains yet",
-                  else: "#{@total} domain#{if @total != 1, do: "s", else: ""}"}
-            </p>
-            <div class="flex flex-col items-start gap-1.5">
-              <button
-                phx-click="toggle_filter_subdomains"
-                aria-pressed={@include_subdomains}
-                class={[
-                  "inline-flex items-center gap-1.5 text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
-                  if(@include_subdomains,
-                    do:
-                      "bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100",
-                    else:
-                      "text-neutral-400 border-neutral-200 hover:border-neutral-400 dark:text-neutral-500 dark:border-neutral-700 dark:hover:border-neutral-500"
-                  )
-                ]}
-                title="Include subdomains in search and filters"
-              >
-                <.icon name="hero-square-2-stack" class="w-3 h-3" /> Subdomains
-              </button>
-              <button
-                phx-click="toggle_empty_facets"
-                class={[
-                  "text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
-                  if(@show_empty_facets,
-                    do:
-                      "bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100",
-                    else:
-                      "text-neutral-400 border-neutral-200 hover:border-neutral-400 dark:text-neutral-500 dark:border-neutral-700 dark:hover:border-neutral-500"
-                  )
-                ]}
-                title="Show filters with zero results"
-              >
-                Show empty
-              </button>
-              <button
-                phx-click="toggle_monitored_only"
-                aria-pressed={@monitored_only}
-                class={[
-                  "inline-flex items-center gap-1.5 text-[9px] uppercase tracking-tighter transition-colors px-1.5 py-0.5 border",
-                  if(@monitored_only,
-                    do:
-                      "bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100",
-                    else:
-                      "text-neutral-400 border-neutral-200 hover:border-neutral-400 dark:text-neutral-500 dark:border-neutral-700 dark:hover:border-neutral-500"
-                  )
-                ]}
-                title="Show only domains with uptime monitoring enabled"
-              >
-                <.icon name="hero-heart" class="w-3 h-3" /> Monitored
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <%!-- Facets --%>
-        <nav class="space-y-4 pt-4">
-          <%!-- Lifecycle Facet --%>
-          <div>
-            <button
-              phx-click="toggle_facet_group"
-              phx-value-group="lifecycle"
-              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group dark:text-neutral-500 dark:border-neutral-800 dark:hover:text-neutral-100"
-            >
-              <span>Status</span>
-              <.icon
-                name={
-                  if MapSet.member?(@expanded_facets, "lifecycle"),
-                    do: "hero-chevron-up",
-                    else: "hero-chevron-down"
-                }
-                class="w-3 h-3 opacity-50 group-hover:opacity-100"
-              />
-            </button>
-
-            <%= if MapSet.member?(@expanded_facets, "lifecycle") do %>
-              <div class="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                <%= for {state, label, color} <- lifecycle_options() do %>
-                  <% count =
-                    Enum.find_value(@facets.lifecycle, 0, fn {s, c} -> if s == state, do: c end) %>
-                  <% active = state in @lifecycle_filter %>
-                  <%= if @show_empty_facets || count > 0 || active do %>
-                    <button
-                      phx-click="toggle_facet"
-                      phx-value-type="lifecycle"
-                      phx-value-id={state}
-                      class={[
-                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group",
-                        if(active,
-                          do:
-                            "bg-neutral-100 text-neutral-900 font-normal dark:bg-neutral-800 dark:text-neutral-100",
-                          else:
-                            "text-neutral-500 hover:bg-neutral-50 font-light dark:text-neutral-400 dark:hover:bg-neutral-800"
-                        ),
-                        count == 0 && !active && "opacity-30"
-                      ]}
-                    >
-                      <div class="flex items-center gap-2">
-                        <div class={[
-                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
-                          if(active,
-                            do:
-                              "bg-neutral-900 border-neutral-900 dark:bg-neutral-100 dark:border-neutral-100",
-                            else:
-                              "border-neutral-300 group-hover:border-neutral-400 dark:border-neutral-600 dark:group-hover:border-neutral-500"
-                          )
-                        ]}>
-                          <%= if active do %>
-                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                          <% end %>
-                        </div>
-                        <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
-                        <span>{label}</span>
-                      </div>
-                      <span class="text-[10px] opacity-60">{count}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-
-          <%!-- Technical Status Facet --%>
-          <div>
-            <button
-              phx-click="toggle_facet_group"
-              phx-value-group="technical_status"
-              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group dark:text-neutral-500 dark:border-neutral-800 dark:hover:text-neutral-100"
-            >
-              <span>Technical</span>
-              <.icon
-                name={
-                  if MapSet.member?(@expanded_facets, "technical_status"),
-                    do: "hero-chevron-up",
-                    else: "hero-chevron-down"
-                }
-                class="w-3 h-3 opacity-50 group-hover:opacity-100"
-              />
-            </button>
-
-            <%= if MapSet.member?(@expanded_facets, "technical_status") do %>
-              <div class="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                <%= for {status, label, _icon} <- technical_status_options() do %>
-                  <% count =
-                    Enum.find_value(@facets.technical_status, 0, fn {s, c} ->
-                      if s == status, do: c
-                    end) %>
-                  <% active = status in @technical_status_filter %>
-                  <%= if @show_empty_facets || count > 0 || active do %>
-                    <button
-                      phx-click="toggle_facet"
-                      phx-value-type="technical_status"
-                      phx-value-id={status}
-                      class={[
-                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group",
-                        if(active,
-                          do:
-                            "bg-neutral-100 text-neutral-900 font-normal dark:bg-neutral-800 dark:text-neutral-100",
-                          else:
-                            "text-neutral-500 hover:bg-neutral-50 font-light dark:text-neutral-400 dark:hover:bg-neutral-800"
-                        ),
-                        count == 0 && !active && "opacity-30"
-                      ]}
-                    >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <div class={[
-                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
-                          if(active,
-                            do:
-                              "bg-neutral-900 border-neutral-900 dark:bg-neutral-100 dark:border-neutral-100",
-                            else:
-                              "border-neutral-300 group-hover:border-neutral-400 dark:border-neutral-600 dark:group-hover:border-neutral-500"
-                          )
-                        ]}>
-                          <%= if active do %>
-                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                          <% end %>
-                        </div>
-                        <.technical_status_indicator
-                          status={status}
-                          variant={:icon}
-                          class="size-3.5"
-                        />
-                        <span>{label}</span>
-                      </div>
-                      <span class="text-[10px] opacity-60 shrink-0 ml-2">{count}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-
-          <%!-- Brands Facet --%>
-          <div>
-            <button
-              phx-click="toggle_facet_group"
-              phx-value-group="brand"
-              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group dark:text-neutral-500 dark:border-neutral-800 dark:hover:text-neutral-100"
-            >
-              <span>Brands</span>
-              <.icon
-                name={
-                  if MapSet.member?(@expanded_facets, "brand"),
-                    do: "hero-chevron-up",
-                    else: "hero-chevron-down"
-                }
-                class="w-3 h-3 opacity-50 group-hover:opacity-100"
-              />
-            </button>
-
-            <%= if MapSet.member?(@expanded_facets, "brand") do %>
-              <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin animate-in fade-in slide-in-from-top-1 duration-200">
-                <% visible_brands =
-                  Enum.filter(@facets.brands, fn {id, _, count} ->
-                    @show_empty_facets || count > 0 || id in @brand_filter
-                  end) %>
-                <%= if visible_brands == [] do %>
-                  <div class="px-2 py-3 text-[10px] font-light text-neutral-400 italic">
-                    None available
-                  </div>
-                <% else %>
-                  <%= for {id, name, count} <- visible_brands do %>
-                    <% active = id in @brand_filter %>
-                    <button
-                      phx-click="toggle_facet"
-                      phx-value-type="brand"
-                      phx-value-id={id}
-                      class={[
-                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group text-left",
-                        if(active,
-                          do:
-                            "bg-neutral-100 text-neutral-900 font-normal dark:bg-neutral-800 dark:text-neutral-100",
-                          else:
-                            "text-neutral-500 hover:bg-neutral-50 font-light dark:text-neutral-400 dark:hover:bg-neutral-800"
-                        ),
-                        count == 0 && !active && "opacity-30"
-                      ]}
-                    >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <div class={[
-                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
-                          if(active,
-                            do:
-                              "bg-neutral-900 border-neutral-900 dark:bg-neutral-100 dark:border-neutral-100",
-                            else:
-                              "border-neutral-300 group-hover:border-neutral-400 dark:border-neutral-600 dark:group-hover:border-neutral-500"
-                          )
-                        ]}>
-                          <%= if active do %>
-                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                          <% end %>
-                        </div>
-                        <span class="truncate">{name}</span>
-                      </div>
-                      <span class="text-[10px] opacity-60 shrink-0 ml-2">{count}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-
-          <%!-- Organizations Facet --%>
-          <div>
-            <button
-              phx-click="toggle_facet_group"
-              phx-value-group="org"
-              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group dark:text-neutral-500 dark:border-neutral-800 dark:hover:text-neutral-100"
-            >
-              <span>Organizations</span>
-              <.icon
-                name={
-                  if MapSet.member?(@expanded_facets, "org"),
-                    do: "hero-chevron-up",
-                    else: "hero-chevron-down"
-                }
-                class="w-3 h-3 opacity-50 group-hover:opacity-100"
-              />
-            </button>
-
-            <%= if MapSet.member?(@expanded_facets, "org") do %>
-              <div class="space-y-1 max-h-48 overflow-y-auto pr-2 scrollbar-thin animate-in fade-in slide-in-from-top-1 duration-200">
-                <% visible_orgs =
-                  Enum.filter(@facets.organizations, fn {id, _, count} ->
-                    @show_empty_facets || count > 0 || id in @org_filter
-                  end) %>
-                <%= if visible_orgs == [] do %>
-                  <div class="px-2 py-3 text-[10px] font-light text-neutral-400 italic">
-                    None available
-                  </div>
-                <% else %>
-                  <%= for {id, name, count} <- visible_orgs do %>
-                    <% active = id in @org_filter %>
-                    <button
-                      phx-click="toggle_facet"
-                      phx-value-type="org"
-                      phx-value-id={id}
-                      class={[
-                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group text-left",
-                        if(active,
-                          do:
-                            "bg-neutral-100 text-neutral-900 font-normal dark:bg-neutral-800 dark:text-neutral-100",
-                          else:
-                            "text-neutral-500 hover:bg-neutral-50 font-light dark:text-neutral-400 dark:hover:bg-neutral-800"
-                        ),
-                        count == 0 && !active && "opacity-30"
-                      ]}
-                    >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <div class={[
-                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
-                          if(active,
-                            do:
-                              "bg-neutral-900 border-neutral-900 dark:bg-neutral-100 dark:border-neutral-100",
-                            else:
-                              "border-neutral-300 group-hover:border-neutral-400 dark:border-neutral-600 dark:group-hover:border-neutral-500"
-                          )
-                        ]}>
-                          <%= if active do %>
-                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                          <% end %>
-                        </div>
-                        <span class="truncate">{name}</span>
-                      </div>
-                      <span class="text-[10px] opacity-60 shrink-0 ml-2">{count}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-
-          <%!-- Projects Facet --%>
-          <div>
-            <button
-              phx-click="toggle_facet_group"
-              phx-value-group="project"
-              class="w-full flex items-center justify-between text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-2 border-b border-neutral-100 pb-2 hover:text-neutral-900 transition-colors group dark:text-neutral-500 dark:border-neutral-800 dark:hover:text-neutral-100"
-            >
-              <span>Projects</span>
-              <.icon
-                name={
-                  if MapSet.member?(@expanded_facets, "project"),
-                    do: "hero-chevron-up",
-                    else: "hero-chevron-down"
-                }
-                class="w-3 h-3 opacity-50 group-hover:opacity-100"
-              />
-            </button>
-
-            <%= if MapSet.member?(@expanded_facets, "project") do %>
-              <div class="space-y-1 max-h-64 overflow-y-auto pr-2 scrollbar-thin animate-in fade-in slide-in-from-top-1 duration-200">
-                <% visible_projects =
-                  Enum.filter(@facets.projects, fn {id, _, count} ->
-                    @show_empty_facets || count > 0 || id in @project_filter
-                  end) %>
-                <%= if visible_projects == [] do %>
-                  <div class="px-2 py-3 text-[10px] font-light text-neutral-400 italic">
-                    None available
-                  </div>
-                <% else %>
-                  <%= for {id, name, count} <- visible_projects do %>
-                    <% active = id in @project_filter %>
-                    <button
-                      phx-click="toggle_facet"
-                      phx-value-type="project"
-                      phx-value-id={id}
-                      class={[
-                        "w-full flex items-center justify-between px-2 py-1.5 text-xs transition-colors rounded group text-left",
-                        if(active,
-                          do:
-                            "bg-neutral-100 text-neutral-900 font-normal dark:bg-neutral-800 dark:text-neutral-100",
-                          else:
-                            "text-neutral-500 hover:bg-neutral-50 font-light dark:text-neutral-400 dark:hover:bg-neutral-800"
-                        ),
-                        count == 0 && !active && "opacity-30"
-                      ]}
-                    >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <div class={[
-                          "w-3 h-3 border flex items-center justify-center shrink-0 transition-colors",
-                          if(active,
-                            do:
-                              "bg-neutral-900 border-neutral-900 dark:bg-neutral-100 dark:border-neutral-100",
-                            else:
-                              "border-neutral-300 group-hover:border-neutral-400 dark:border-neutral-600 dark:group-hover:border-neutral-500"
-                          )
-                        ]}>
-                          <%= if active do %>
-                            <.icon name="hero-check" class="w-2.5 h-2.5 text-white" />
-                          <% end %>
-                        </div>
-                        <span class="truncate">{name}</span>
-                      </div>
-                      <span class="text-[10px] opacity-60 shrink-0 ml-2">{count}</span>
-                    </button>
-                  <% end %>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-        </nav>
-      </aside>
+      <.domain_facets_sidebar
+        total={@total}
+        search={@search}
+        lifecycle_filter={@lifecycle_filter}
+        technical_status_filter={@technical_status_filter}
+        brand_filter={@brand_filter}
+        org_filter={@org_filter}
+        project_filter={@project_filter}
+        technology_filter={@technology_filter}
+        include_subdomains={@include_subdomains}
+        show_empty_facets={@show_empty_facets}
+        monitored_only={@monitored_only}
+        show_archived={@show_archived}
+        hide_placeholders={@hide_placeholders}
+        expanded_facets={@expanded_facets}
+        facets={@facets}
+      />
 
       <%!-- Main Content Area --%>
       <main class="min-w-0">
         <%!-- Search & IP (Moved from sidebar) --%>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div class="relative" id="search-wrapper">
-            <form phx-submit="search" phx-change="suggest" id="search-form">
+          <div class="relative" id="search-wrapper" phx-click-away="dismiss_suggestions">
+            <form phx-submit="search" phx-change="suggest" id="search-form" class="relative">
               <.icon
                 name="hero-magnifying-glass"
                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none"
@@ -430,20 +35,39 @@
                 name="search"
                 id="search-input"
                 value={@search}
-                placeholder="Search domain name…"
+                placeholder={
+                  if @include_subdomains,
+                    do: "Search domain or subdomain name…",
+                    else: "Search domain name…"
+                }
                 phx-debounce="150"
-                phx-blur="dismiss_suggestions"
+                phx-keydown="dismiss_suggestions"
+                phx-key="Escape"
                 autocomplete="off"
-                class="w-full pl-9 pr-4 py-2.5 border border-neutral-200 bg-neutral-50 text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:bg-white transition-all dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300 dark:focus:bg-neutral-900"
+                class="w-full pl-9 pr-28 py-2.5 border border-neutral-200 bg-neutral-50 text-sm font-light text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:bg-white transition-all dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:border-neutral-300 dark:focus:bg-neutral-900"
               />
+              <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <.toggle_badge
+                  active={@include_subdomains}
+                  phx-click="toggle_filter_subdomains"
+                  aria-pressed={@include_subdomains}
+                  title="Toggle search and filter across subdomains"
+                  class="cursor-pointer font-mono"
+                  id="search-subdomains-toggle"
+                >
+                  <.icon name="hero-square-2-stack" class="w-3 h-3" />
+                  <span>Subdomains</span>
+                </.toggle_badge>
+              </div>
             </form>
             <%= if @suggestions != [] do %>
               <div class="absolute left-0 right-0 top-full z-30 bg-white border border-neutral-200 border-t-0 divide-y divide-neutral-100 shadow-xl dark:bg-neutral-800 dark:border-neutral-700 dark:divide-neutral-700">
                 <%= for name <- @suggestions do %>
                   <button
-                    phx-mousedown="select_suggestion"
+                    type="button"
+                    phx-click="select_suggestion"
                     phx-value-name={name}
-                    class="w-full text-left px-4 py-2.5 text-sm font-light text-neutral-700 hover:bg-neutral-50 transition-colors flex items-center gap-2 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                    class="w-full text-left px-4 py-2.5 text-sm font-light text-neutral-700 hover:bg-neutral-50 transition-colors flex items-center gap-2 cursor-pointer dark:text-neutral-200 dark:hover:bg-neutral-700"
                   >
                     <.icon name="hero-globe-alt" class="w-3.5 h-3.5 text-neutral-300 shrink-0" />
                     {name}
@@ -472,216 +96,110 @@
           </div>
         </div>
 
-        <%!-- Selection Mode Action Bar (Nordic Zen Design) --%>
-        <%= if @selection_mode do %>
-          <div class="flex items-center justify-between p-4 bg-white border border-neutral-900 mb-8 animate-in slide-in-from-top-4 duration-300 dark:bg-neutral-800 dark:border-neutral-100">
-            <div class="flex items-center gap-6">
-              <%!-- Selection Group --%>
-              <div class="flex items-center border border-neutral-200 divide-x divide-neutral-200 dark:border-neutral-700 dark:divide-neutral-700">
-                <button
-                  phx-click="select_all_matching"
-                  class="flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors min-w-[140px] dark:hover:bg-neutral-700"
-                >
-                  <.icon name="hero-square-3-stack-3d" class="w-4 h-4" /> All ({@total})
-                </button>
-                <button
-                  phx-click="select_visible"
-                  class="flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 transition-colors min-w-[140px] dark:hover:bg-neutral-700"
-                >
-                  <.icon name="hero-eye" class="w-4 h-4" /> Visible ({length(@domains)})
-                </button>
-                <button
-                  phx-click="clear_selection"
-                  disabled={MapSet.size(@selected_ids) == 0}
-                  class="flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-50 disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-red-600 min-w-[140px] dark:hover:bg-neutral-700"
-                >
-                  <.icon name="hero-x-circle" class="w-4 h-4" /> Clear
-                </button>
-              </div>
+        <%!-- Always-Ready Selection Bar (appears when items selected) --%>
+        <.selection_bar
+          selected_count={MapSet.size(@selected_ids)}
+          total={@total}
+          visible_count={length(@domains)}
+        >
+          <:actions>
+            <%!-- Quick Actions (flat, no nesting) --%>
+            <div class="flex items-center gap-2">
+              <button
+                phx-click="bulk_action_confirm"
+                phx-value-action="scan"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-neutral-200 hover:border-neutral-400 transition-colors dark:border-neutral-700"
+                title="Run scan on selected"
+              >
+                <.icon name="hero-bolt" class="w-3.5 h-3.5 text-amber-600" /> Scan
+              </button>
+              <button
+                phx-click="bulk_action_confirm"
+                phx-value-action="security_scan"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-neutral-200 hover:border-neutral-400 transition-colors dark:border-neutral-700"
+                title="Run security scan on selected"
+              >
+                <.icon name="hero-shield-check" class="w-3.5 h-3.5 text-emerald-600" /> Security
+              </button>
 
-              <div class="flex flex-col leading-none gap-1 border-l border-neutral-100 pl-6 dark:border-neutral-700">
-                <span class="text-xl font-light text-neutral-900 leading-none">
-                  {MapSet.size(@selected_ids)}
-                </span>
-                <span class="text-[9px] font-normal uppercase tracking-widest text-neutral-400">
-                  Selected
-                </span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <%!-- Actions Dropdown --%>
-              <div class="relative" id="bulk-actions-wrapper">
+              <%!-- Status dropdown --%>
+              <div class="relative" id="bulk-status-dropdown">
                 <button
                   phx-click="toggle_bulk_actions_menu"
-                  disabled={MapSet.size(@selected_ids) == 0}
-                  class={[
-                    "flex items-center gap-3 px-8 py-2.5 border border-neutral-900 text-[10px] font-normal uppercase tracking-[0.2em] transition-all",
-                    if(@bulk_actions_menu_open,
-                      do: "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
-                      else:
-                        "bg-white text-neutral-900 hover:bg-neutral-50 disabled:opacity-30 disabled:border-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 dark:disabled:border-neutral-700"
-                    )
-                  ]}
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-neutral-200 hover:border-neutral-400 transition-colors dark:border-neutral-700"
                 >
-                  Actions
-                  <.icon
-                    name={
-                      if @bulk_actions_menu_open, do: "hero-chevron-up", else: "hero-chevron-down"
-                    }
-                    class="w-3.5 h-3.5"
-                  />
+                  Status <.icon name="hero-chevron-down" class="w-3 h-3" />
                 </button>
-
-                <%= if @bulk_actions_menu_open do %>
-                  <div
-                    class="absolute right-0 top-full mt-2 z-50 bg-white border border-neutral-900 shadow-2xl min-w-[240px] divide-y divide-neutral-100 animate-in fade-in zoom-in-95 duration-150 dark:bg-neutral-800 dark:border-neutral-100 dark:divide-neutral-700"
-                    phx-click-away="close_bulk_actions_menu"
-                  >
-                    <%!-- Section: Status --%>
-                    <div class="py-2">
-                      <div class="px-4 py-1 text-[9px] font-normal uppercase tracking-widest text-neutral-400">
-                        Set Status
-                      </div>
-                      <div class="grid grid-cols-2 px-2 gap-1 py-1">
-                        <%= for {state, label, color} <- lifecycle_options() do %>
-                          <button
-                            phx-click="bulk_action_confirm"
-                            phx-value-lifecycle={state}
-                            class="flex items-center gap-2 px-2 py-1.5 text-[10px] font-light hover:bg-neutral-50 transition-colors text-left dark:hover:bg-neutral-700"
-                          >
-                            <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
-                            {label}
-                          </button>
-                        <% end %>
-                      </div>
-                    </div>
-
-                    <%!-- Section: Assignment --%>
-                    <div class="py-2">
-                      <div class="px-4 py-1 text-[9px] font-normal uppercase tracking-widest text-neutral-400">
-                        Assign To
-                      </div>
-                      <%!-- We use sub-headers for cleaner look --%>
-                      <div class="space-y-1 mt-1 px-2">
-                        <details class="group">
-                          <summary class="flex items-center justify-between px-2 py-1.5 text-[10px] font-light cursor-pointer hover:bg-neutral-50 list-none dark:hover:bg-neutral-700">
-                            <span class="flex items-center gap-2">
-                              <.icon name="hero-bookmark" class="w-3.5 h-3.5 opacity-40" /> Brand
-                            </span>
-                            <.icon
-                              name="hero-chevron-right"
-                              class="w-3 h-3 opacity-30 group-open:rotate-90 transition-transform"
-                            />
-                          </summary>
-                          <div class="pl-4 pr-1 py-1 space-y-0.5 max-h-32 overflow-y-auto scrollbar-thin">
-                            <%= for b <- @brands do %>
-                              <button
-                                phx-click="bulk_action_confirm"
-                                phx-value-brand_id={b.id}
-                                class="w-full text-left px-2 py-1 text-[10px] font-light hover:bg-neutral-50 truncate dark:hover:bg-neutral-700"
-                              >
-                                {b.display_name || b.name}
-                              </button>
-                            <% end %>
-                          </div>
-                        </details>
-
-                        <details class="group">
-                          <summary class="flex items-center justify-between px-2 py-1.5 text-[10px] font-light cursor-pointer hover:bg-neutral-50 list-none dark:hover:bg-neutral-700">
-                            <span class="flex items-center gap-2">
-                              <.icon name="hero-building-office" class="w-3.5 h-3.5 opacity-40" />
-                              Organization
-                            </span>
-                            <.icon
-                              name="hero-chevron-right"
-                              class="w-3 h-3 opacity-30 group-open:rotate-90 transition-transform"
-                            />
-                          </summary>
-                          <div class="pl-4 pr-1 py-1 space-y-0.5 max-h-32 overflow-y-auto scrollbar-thin">
-                            <%= for o <- @orgs do %>
-                              <button
-                                phx-click="bulk_action_confirm"
-                                phx-value-org_id={o.id}
-                                class="w-full text-left px-2 py-1 text-[10px] font-light hover:bg-neutral-50 truncate dark:hover:bg-neutral-700"
-                              >
-                                {o.display_name || o.name}
-                              </button>
-                            <% end %>
-                          </div>
-                        </details>
-
-                        <details class="group">
-                          <summary class="flex items-center justify-between px-2 py-1.5 text-[10px] font-light cursor-pointer hover:bg-neutral-50 list-none dark:hover:bg-neutral-700">
-                            <span class="flex items-center gap-2">
-                              <.icon name="hero-rocket-launch" class="w-3.5 h-3.5 opacity-40" />
-                              Project
-                            </span>
-                            <.icon
-                              name="hero-chevron-right"
-                              class="w-3 h-3 opacity-30 group-open:rotate-90 transition-transform"
-                            />
-                          </summary>
-                          <div class="pl-4 pr-1 py-1 space-y-0.5 max-h-32 overflow-y-auto scrollbar-thin">
-                            <%= for p <- @projects do %>
-                              <button
-                                phx-click="bulk_action_confirm"
-                                phx-value-project_id={p.id}
-                                class="w-full text-left px-2 py-1 text-[10px] font-light hover:bg-neutral-50 truncate dark:hover:bg-neutral-700"
-                              >
-                                {p.display_name || p.name}
-                              </button>
-                            <% end %>
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-
-                    <%!-- Section: Operations --%>
-                    <div class="py-2 bg-neutral-50/50 dark:bg-neutral-800/50">
-                      <button
-                        phx-click="bulk_action_confirm"
-                        phx-value-action="scan"
-                        class="w-full flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-neutral-100 transition-colors dark:hover:bg-neutral-700"
-                      >
-                        <.icon name="hero-bolt" class="w-4 h-4 text-amber-600" /> Run Scan
-                      </button>
-                      <button
-                        phx-click="bulk_action_confirm"
-                        phx-value-action="delete"
-                        class="w-full flex items-center gap-2 px-4 py-2 text-[10px] font-normal uppercase tracking-widest hover:bg-red-50 text-red-600 transition-colors"
-                      >
-                        <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                      </button>
-                    </div>
-                  </div>
-                <% end %>
+                <div
+                  :if={@bulk_actions_menu_open}
+                  class="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 shadow-lg min-w-[140px] py-1 dark:bg-neutral-800 dark:border-neutral-700"
+                  phx-click-away="close_bulk_actions_menu"
+                >
+                  <%= for {state, label, color} <- lifecycle_options() do %>
+                    <button
+                      phx-click="bulk_action_confirm"
+                      phx-value-lifecycle={state}
+                      class="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-light hover:bg-neutral-50 text-left dark:hover:bg-neutral-700"
+                    >
+                      <span class={["w-1.5 h-1.5 rounded-full shrink-0", color]}></span>
+                      {label}
+                    </button>
+                  <% end %>
+                </div>
               </div>
 
-              <button
-                phx-click="exit_selection_mode"
-                class="text-neutral-400 hover:text-neutral-900 transition-colors ml-2"
-                title="Cancel selection mode"
-              >
-                <.icon name="hero-x-mark" class="w-6 h-6 font-light" />
-              </button>
+              <%!-- More actions --%>
+              <div class="relative" id="bulk-more-dropdown">
+                <button
+                  phx-click="toggle_more_menu"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-neutral-200 hover:border-neutral-400 transition-colors dark:border-neutral-700"
+                >
+                  More <.icon name="hero-ellipsis-horizontal" class="w-3.5 h-3.5" />
+                </button>
+                <div
+                  :if={@more_menu_open}
+                  class="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 shadow-lg min-w-[160px] py-1 dark:bg-neutral-800 dark:border-neutral-700"
+                  phx-click-away="close_more_menu"
+                >
+                  <div class="px-3 py-1 text-[9px] uppercase tracking-widest text-neutral-400">
+                    Assign to
+                  </div>
+                  <%= for b <- Enum.take(@brands, 5) do %>
+                    <button
+                      phx-click="bulk_action_confirm"
+                      phx-value-brand_id={b.id}
+                      class="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-light hover:bg-neutral-50 text-left dark:hover:bg-neutral-700"
+                    >
+                      <.icon name="hero-bookmark" class="w-3 h-3 opacity-40" /> {b.display_name ||
+                        b.name}
+                    </button>
+                  <% end %>
+                  <div class="border-t border-neutral-100 my-1 dark:border-neutral-700"></div>
+                  <button
+                    phx-click="bulk_action_confirm"
+                    phx-value-action="delete"
+                    class="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 text-left"
+                  >
+                    <.icon name="hero-trash" class="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        <% else %>
-          <%!-- Regular Toolbar (Minimal) --%>
-          <div class="flex items-center justify-between mb-6">
-            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
-              Page {@page} of {@total_pages}
-            </div>
+          </:actions>
+        </.selection_bar>
 
-            <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
-              {@total} results
-            </div>
+        <%!-- Regular Toolbar (always visible) --%>
+        <div :if={MapSet.size(@selected_ids) == 0} class="flex items-center justify-between mb-6">
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
+            Page {@page} of {@total_pages}
           </div>
-        <% end %>
+          <div class="text-[10px] font-normal uppercase tracking-wider text-neutral-400">
+            {@total} results
+          </div>
+        </div>
 
         <%!-- Active Filter Chips --%>
-        <%= if @search != "" || @ip_filter != "" || @lifecycle_filter != [] || @technical_status_filter != [] || @project_filter != [] || @org_filter != [] || @brand_filter != [] do %>
+        <%= if @include_subdomains || @search != "" || @ip_filter != "" || @lifecycle_filter != [] || @technical_status_filter != [] || @project_filter != [] || @org_filter != [] || @brand_filter != [] do %>
           <div class="flex items-center gap-2 mb-6 flex-wrap animate-in fade-in duration-500">
             <span class="text-[10px] font-normal text-neutral-400 uppercase tracking-widest mr-1">
               Active:
@@ -693,6 +211,20 @@
                 <button
                   phx-click="clear_search"
                   class="text-neutral-400 hover:text-neutral-900 transition-colors"
+                >
+                  <.icon name="hero-x-mark" class="w-3 h-3" />
+                </button>
+              </span>
+            <% end %>
+
+            <%= if @include_subdomains do %>
+              <span class="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-neutral-900 text-white border border-neutral-900 text-[10px] font-normal uppercase tracking-wide dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100">
+                <.icon name="hero-square-2-stack" class="w-3 h-3" />
+                <span>+ Subdomains</span>
+                <button
+                  phx-click="toggle_filter_subdomains"
+                  class="text-neutral-300 hover:text-white dark:text-neutral-600 dark:hover:text-black transition-colors"
+                  title="Exclude subdomains"
                 >
                   <.icon name="hero-x-mark" class="w-3 h-3" />
                 </button>
@@ -804,7 +336,7 @@
 
         <%!-- Results List --%>
         <div class="border border-neutral-200 divide-y divide-neutral-100 dark:border-neutral-700 dark:divide-neutral-700">
-          <%= if @domains == [] do %>
+          <%= if @domains_empty? do %>
             <div class="text-center py-32">
               <.icon name="hero-magnifying-glass" class="w-10 h-10 text-neutral-200 mx-auto mb-4" />
               <h3 class="text-sm font-light text-neutral-500 uppercase tracking-widest mb-1">
@@ -812,502 +344,26 @@
               </h3>
               <p class="text-xs text-neutral-400">Try adjusting your filters or search terms.</p>
             </div>
-          <% else %>
-            <%= for domain <- @domains do %>
-              <% selected = MapSet.member?(@selected_ids, "#{domain.id}") %>
-              <% scanning = MapSet.member?(@scanning_ids, "#{domain.id}") %>
-              <div
-                id={"domain-#{domain.id}"}
-                class={[
-                  selected && "bg-neutral-50 dark:bg-neutral-800",
-                  scanning && "opacity-50"
-                ]}
-              >
-                <div
-                  class="flex items-center justify-between py-4 px-6 hover:bg-neutral-50 transition-colors cursor-pointer dark:hover:bg-neutral-800"
-                  phx-click="toggle_expand"
-                  phx-value-id={domain.id}
-                >
-                  <div class="flex items-center gap-4">
-                    <%= if @selection_mode do %>
-                      <span
-                        phx-click="toggle_select"
-                        phx-value-id={domain.id}
-                        phx-stop
-                        class={[
-                          "w-4 h-4 border flex items-center justify-center shrink-0 transition-colors cursor-pointer",
-                          if(selected,
-                            do:
-                              "border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100",
-                            else:
-                              "border-neutral-300 hover:border-neutral-600 dark:border-neutral-600 dark:hover:border-neutral-400"
-                          )
-                        ]}
-                      >
-                        <%= if selected do %>
-                          <.icon name="hero-check" class="w-3 h-3 text-white" />
-                        <% end %>
-                      </span>
-                    <% end %>
-
-                    <div class="relative" id={"lifecycle-menu-#{domain.id}"}>
-                      <button
-                        phx-click="open_lifecycle_menu"
-                        phx-value-id={domain.id}
-                        phx-stop
-                        class={[
-                          "transition-transform hover:scale-125 cursor-pointer",
-                          lifecycle_dot_class(domain.lifecycle_state)
-                        ]}
-                        title={domain.lifecycle_state}
-                      >
-                      </button>
-                      <%= if @lifecycle_menu_open == "#{domain.id}" do %>
-                        <div
-                          class="absolute left-0 top-5 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
-                          phx-click-away="close_lifecycle_menu"
-                        >
-                          <%= for {state, label, _color} <- lifecycle_options() do %>
-                            <button
-                              phx-click="set_lifecycle"
-                              phx-value-id={domain.id}
-                              phx-value-state={state}
-                              class={[
-                                "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700",
-                                domain.lifecycle_state == state && "font-medium"
-                              ]}
-                            >
-                              <span class={lifecycle_dot_class(state, :sm)}></span>
-                              {label}
-                            </button>
-                          <% end %>
-                        </div>
-                      <% end %>
-                    </div>
-
-                    <.technical_status_indicator
-                      status={domain.technical_status}
-                      variant={:icon}
-                      class="shrink-0"
-                    />
-
-                    <%!-- A11y compliance indicator --%>
-                    <%= case Map.get(@a11y_violations, domain.id) do %>
-                      <% nil -> %>
-                        <%!-- no scan --%>
-                      <% 0 -> %>
-                        <span
-                          title="EAA Compliant (0 WCAG violations)"
-                          class="text-green-500 shrink-0"
-                        >
-                          <.icon name="hero-check-badge" class="w-4 h-4" />
-                        </span>
-                      <% count -> %>
-                        <span
-                          title={"EAA Non-Compliant (#{count} violations)"}
-                          class="text-red-400 shrink-0"
-                        >
-                          <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
-                        </span>
-                    <% end %>
-
-                    <%!-- Lighthouse performance indicator --%>
-                    <%= case Map.get(@lighthouse_scores, domain.id) do %>
-                      <% nil -> %>
-                        <%!-- no scan --%>
-                      <% score when score >= 90 -> %>
-                        <span
-                          title={"Performance: #{score}"}
-                          class="text-green-500 shrink-0 text-[10px] font-medium"
-                        >
-                          {score}
-                        </span>
-                      <% score when score >= 50 -> %>
-                        <span
-                          title={"Performance: #{score}"}
-                          class="text-amber-500 shrink-0 text-[10px] font-medium"
-                        >
-                          {score}
-                        </span>
-                      <% score -> %>
-                        <span
-                          title={"Performance: #{score}"}
-                          class="text-red-500 shrink-0 text-[10px] font-medium"
-                        >
-                          {score}
-                        </span>
-                    <% end %>
-
-                    <%!-- Uptime heartbeat indicator --%>
-                    <%= if domain.domain_metadata && domain.domain_metadata.heartbeat_interval_minutes do %>
-                      <% stale =
-                        domain.domain_metadata.last_heartbeat_at &&
-                          DateTime.diff(
-                            DateTime.utc_now(),
-                            domain.domain_metadata.last_heartbeat_at,
-                            :minute
-                          ) >
-                            domain.domain_metadata.heartbeat_interval_minutes * 3 %>
-                      <span
-                        title={"Heartbeat: every #{domain.domain_metadata.heartbeat_interval_minutes}min — #{cond do
-                          stale -> "STALE (no recent checks)"
-                          domain.domain_metadata.is_up -> "UP"
-                          true -> "DOWN"
-                        end}"}
-                        class={[
-                          "shrink-0 flex items-center gap-0.5",
-                          !stale && domain.domain_metadata.is_up && "text-green-500",
-                          !stale && domain.domain_metadata.is_up == false && "text-red-500",
-                          stale && "text-neutral-400"
-                        ]}
-                      >
-                        <.icon name="hero-heart" class="w-3.5 h-3.5" />
-                        <span class="text-[9px] font-medium">
-                          {domain.domain_metadata.heartbeat_interval_minutes}m
-                        </span>
-                      </span>
-                    <% end %>
-
-                    <div class="flex items-center gap-3">
-                      <.link
-                        navigate={~p"/domains/#{domain.id}"}
-                        class="text-sm font-normal hover:underline"
-                        phx-stop
-                      >
-                        {domain.name}
-                      </.link>
-                      <%= if domain.subdomains != [] do %>
-                        <span class="text-xs font-light text-neutral-400">
-                          {length(domain.subdomains)} sub
-                        </span>
-                      <% end %>
-                    </div>
-                  </div>
-
-                  <div class="flex items-center gap-5 text-xs font-light text-neutral-500 shrink-0">
-                    <%!-- HTTP status / redirect --%>
-                    <%= if meta = domain.domain_metadata do %>
-                      <%= cond do %>
-                        <% meta.final_url &&
-                             (meta.http_status in [301, 302, 303, 307, 308] ||
-                                external_redirect?(domain.name, meta.final_url)) -> %>
-                          <% target = URI.parse(meta.final_url).host || meta.final_url %>
-                          <span class="flex items-center gap-1 text-amber-600">
-                            <span class="font-normal">{meta.http_status}</span>
-                            <.icon name="hero-arrow-right" class="w-3 h-3" />
-                            <a
-                              href={meta.final_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              phx-stop
-                              class="max-w-[120px] truncate hover:underline"
-                            >
-                              {target}
-                            </a>
-                          </span>
-                        <% meta.http_status == 200 -> %>
-                          <span class="flex items-center gap-1 text-green-600">
-                            <span class="font-normal">200</span>
-                            <.icon name="hero-arrow-right" class="w-3 h-3" />
-                            <a
-                              href={open_url(domain, meta)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              phx-stop
-                              class="max-w-[120px] truncate hover:underline"
-                            >
-                              {landing_label(domain, meta)}
-                            </a>
-                          </span>
-                        <% meta.http_status && meta.http_status > 0 -> %>
-                          <span class="text-red-500 font-normal">{meta.http_status}</span>
-                        <% meta.http_scanned_at != nil -> %>
-                          <span
-                            class="text-red-400 font-normal"
-                            title="Unreachable or scan failed"
-                          >
-                            ERR
-                          </span>
-                        <% true -> %>
-                          <span class="text-neutral-300">–</span>
-                      <% end %>
-
-                      <%!-- IP --%>
-                      <%= if meta.ip_v4 && meta.ip_v4 != [] do %>
-                        <span
-                          class="hidden xl:inline text-neutral-400 font-mono text-[10px] tracking-tighter"
-                          title={Enum.join(meta.ip_v4, ", ")}
-                        >
-                          {List.first(meta.ip_v4)}
-                        </span>
-                      <% end %>
-
-                      <%!-- SSL --%>
-                      <%= if meta.ssl_valid_until do %>
-                        <% expiring_soon =
-                          meta.ssl_days_remaining != nil && meta.ssl_days_remaining <= 14 %>
-                        <% expired = meta.ssl_days_remaining != nil && meta.ssl_days_remaining < 0 %>
-                        <span
-                          class={[
-                            "flex items-center gap-1.5 shrink-0",
-                            expired && "text-red-600 font-medium",
-                            expiring_soon && !expired && "text-amber-600 font-medium",
-                            !expiring_soon && "text-neutral-400"
-                          ]}
-                          title={"SSL expires on #{Calendar.strftime(meta.ssl_valid_until, "%d-%m-%Y")}"}
-                        >
-                          <.icon
-                            name={
-                              if expired or expiring_soon,
-                                do: "hero-shield-exclamation",
-                                else: "hero-shield-check"
-                            }
-                            class="w-3.5 h-3.5"
-                          />
-                          <span class="text-[10px] whitespace-nowrap">
-                            {Calendar.strftime(meta.ssl_valid_until, "%d-%m-%Y")}
-                          </span>
-                        </span>
-                      <% end %>
-
-                      <%!-- Last scanned --%>
-                      <%= if meta.scanned_at do %>
-                        <span class="hidden 2xl:inline text-neutral-300 text-[10px]">
-                          {Ravner.Formatting.time_ago(meta.scanned_at)}
-                        </span>
-                      <% end %>
-                    <% else %>
-                      <span class="text-neutral-300 italic text-[10px]">never scanned</span>
-                    <% end %>
-
-                    <%= if not @selection_mode do %>
-                      <div class="flex items-center gap-2">
-                        <a
-                          href={open_url(domain, domain.domain_metadata)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          phx-stop
-                          class="text-neutral-400 hover:text-neutral-700 transition-colors"
-                          title="Open in new window"
-                        >
-                          <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
-                        </a>
-                        <button
-                          phx-click="quick_scan"
-                          phx-value-id={domain.id}
-                          phx-stop
-                          disabled={scanning}
-                          class="text-neutral-400 hover:text-neutral-700 transition-colors disabled:cursor-not-allowed"
-                          title={if scanning, do: "Scanning...", else: "Quick scan"}
-                        >
-                          <.icon
-                            name="hero-arrow-path"
-                            class={["w-4 h-4", scanning && "animate-spin"]}
-                          />
-                        </button>
-                        <button
-                          phx-click="delete"
-                          phx-value-id={domain.id}
-                          data-confirm="Delete this domain?"
-                          class="text-neutral-400 hover:text-red-600 transition-colors"
-                          phx-stop
-                        >
-                          <.icon name="hero-trash" class="w-4 h-4" />
-                        </button>
-                      </div>
-                    <% end %>
-                  </div>
-                </div>
-
-                <%!-- Subdomains --%>
-                <%= if MapSet.member?(@expanded_domains, "#{domain.id}") && domain.subdomains != [] do %>
-                  <div class="bg-neutral-50 border-t border-neutral-100 divide-y divide-neutral-100 dark:bg-neutral-800/50 dark:border-neutral-700 dark:divide-neutral-700">
-                    <%= for sub <- domain.subdomains do %>
-                      <% sub_scanning = MapSet.member?(@scanning_ids, "#{sub.id}") %>
-                      <div class={[
-                        "flex items-center justify-between py-3 px-6 pl-12 hover:bg-neutral-100 transition-colors dark:hover:bg-neutral-700",
-                        sub_scanning && "opacity-50"
-                      ]}>
-                        <div class="flex items-center gap-3">
-                          <div class="relative" id={"lifecycle-menu-#{sub.id}"}>
-                            <button
-                              phx-click="open_lifecycle_menu"
-                              phx-value-id={sub.id}
-                              phx-stop
-                              class={[
-                                "transition-transform hover:scale-125 cursor-pointer",
-                                lifecycle_dot_class(sub.lifecycle_state, :sm)
-                              ]}
-                              title={sub.lifecycle_state}
-                            >
-                            </button>
-                            <%= if @lifecycle_menu_open == "#{sub.id}" do %>
-                              <div
-                                class="absolute left-0 top-5 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[160px]"
-                                phx-click-away="close_lifecycle_menu"
-                              >
-                                <%= for {state, label, _color} <- lifecycle_options() do %>
-                                  <button
-                                    phx-click="set_lifecycle"
-                                    phx-value-id={sub.id}
-                                    phx-value-state={state}
-                                    class={[
-                                      "w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-neutral-50 transition-colors dark:hover:bg-neutral-700",
-                                      sub.lifecycle_state == state && "font-medium"
-                                    ]}
-                                  >
-                                    <span class={lifecycle_dot_class(state, :sm)}></span>
-                                    {label}
-                                  </button>
-                                <% end %>
-                              </div>
-                            <% end %>
-                          </div>
-                          <.technical_status_indicator
-                            status={sub.technical_status}
-                            variant={:icon}
-                            class="size-5 shrink-0"
-                          />
-                          <.link
-                            navigate={~p"/domains/#{sub.id}"}
-                            class="text-sm font-light hover:underline"
-                          >
-                            {sub.name}
-                          </.link>
-                        </div>
-                        <div class="flex items-center gap-4 text-xs font-light text-neutral-500 shrink-0">
-                          <%= if sub_meta = sub.domain_metadata do %>
-                            <%!-- HTTP status / redirect --%>
-                            <%= cond do %>
-                              <% sub_meta.final_url &&
-                                   (sub_meta.http_status in [301, 302, 303, 307, 308] ||
-                                      external_redirect?(sub.name, sub_meta.final_url)) -> %>
-                                <% target =
-                                  URI.parse(sub_meta.final_url).host || sub_meta.final_url %>
-                                <span class="flex items-center gap-1 text-amber-600">
-                                  <span class="font-normal">{sub_meta.http_status}</span>
-                                  <.icon name="hero-arrow-right" class="w-3 h-3" />
-                                  <a
-                                    href={sub_meta.final_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    phx-stop
-                                    class="max-w-[100px] truncate hover:underline"
-                                  >
-                                    {target}
-                                  </a>
-                                </span>
-                              <% sub_meta.http_status == 200 -> %>
-                                <span class="flex items-center gap-1 text-green-600">
-                                  <span class="font-normal">200</span>
-                                  <.icon name="hero-arrow-right" class="w-3 h-3" />
-                                  <a
-                                    href={open_url(sub, sub_meta)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    phx-stop
-                                    class="max-w-[100px] truncate hover:underline"
-                                  >
-                                    {landing_label(sub, sub_meta)}
-                                  </a>
-                                </span>
-                              <% sub_meta.http_status && sub_meta.http_status > 0 -> %>
-                                <span class="text-red-500 font-normal">
-                                  {sub_meta.http_status}
-                                </span>
-                              <% sub_meta.http_scanned_at != nil -> %>
-                                <span
-                                  class="text-red-400 font-normal"
-                                  title="Unreachable or scan failed"
-                                >
-                                  ERR
-                                </span>
-                              <% true -> %>
-                                <span class="text-neutral-300">–</span>
-                            <% end %>
-
-                            <%!-- IP --%>
-                            <%= if sub_meta.ip_v4 && sub_meta.ip_v4 != [] do %>
-                              <span
-                                class="hidden xl:inline text-neutral-400 font-mono text-[10px] tracking-tighter"
-                                title={Enum.join(sub_meta.ip_v4, ", ")}
-                              >
-                                {List.first(sub_meta.ip_v4)}
-                              </span>
-                            <% end %>
-
-                            <%!-- SSL --%>
-                            <%= if sub_meta.ssl_valid_until do %>
-                              <% expiring_soon =
-                                sub_meta.ssl_days_remaining != nil &&
-                                  sub_meta.ssl_days_remaining <= 14 %>
-                              <% expired =
-                                sub_meta.ssl_days_remaining != nil &&
-                                  sub_meta.ssl_days_remaining < 0 %>
-                              <span
-                                class={[
-                                  "flex items-center gap-1.5 shrink-0",
-                                  expired && "text-red-600 font-medium",
-                                  expiring_soon && !expired && "text-amber-600 font-medium",
-                                  !expiring_soon && "text-neutral-400"
-                                ]}
-                                title={"SSL expires on #{Calendar.strftime(sub_meta.ssl_valid_until, "%d-%m-%Y")}"}
-                              >
-                                <.icon
-                                  name={
-                                    if expired or expiring_soon,
-                                      do: "hero-shield-exclamation",
-                                      else: "hero-shield-check"
-                                  }
-                                  class="w-3 h-3"
-                                />
-                                <span class="text-[10px] whitespace-nowrap">
-                                  {Calendar.strftime(sub_meta.ssl_valid_until, "%d-%m-%Y")}
-                                </span>
-                              </span>
-                            <% end %>
-
-                            <%!-- Last scanned --%>
-                            <%= if sub_meta.scanned_at do %>
-                              <span class="hidden 2xl:inline text-neutral-300 text-[10px]">
-                                {Ravner.Formatting.time_ago(sub_meta.scanned_at)}
-                              </span>
-                            <% end %>
-                          <% else %>
-                            <span class="text-neutral-300 italic text-[10px]">never scanned</span>
-                          <% end %>
-
-                          <a
-                            href={open_url(sub, sub.domain_metadata)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            phx-stop
-                            class="text-neutral-400 hover:text-neutral-700 transition-colors"
-                            title="Open in new window"
-                          >
-                            <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
-                          </a>
-                          <button
-                            phx-click="quick_scan"
-                            phx-value-id={sub.id}
-                            phx-stop
-                            disabled={sub_scanning}
-                            class="text-neutral-400 hover:text-neutral-700 transition-colors disabled:cursor-not-allowed"
-                            title={if sub_scanning, do: "Scanning...", else: "Quick scan"}
-                          >
-                            <.icon
-                              name="hero-arrow-path"
-                              class={["w-3 h-3", sub_scanning && "animate-spin"]}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                    <% end %>
-                  </div>
-                <% end %>
-              </div>
-            <% end %>
           <% end %>
+          <div
+            id="domains-list"
+            phx-update="stream"
+            class="divide-y divide-neutral-100 dark:divide-neutral-700"
+          >
+            <%= for {dom_id, domain} <- @streams.domains do %>
+              <.domain_index_row
+                dom_id={dom_id}
+                domain={domain}
+                current_scope={@current_scope}
+                selected_ids={@selected_ids}
+                scanning_ids={@scanning_ids}
+                expanded_domains={@expanded_domains}
+                lifecycle_menu_open={@lifecycle_menu_open}
+                a11y_violations={@a11y_violations}
+                lighthouse_scores={@lighthouse_scores}
+              />
+            <% end %>
+          </div>
         </div>
 
         <%!-- Pagination --%>
@@ -1357,132 +413,87 @@
           </div>
         <% end %>
 
-        <%!-- Bottom Actions & Export --%>
-        <div class="flex flex-col lg:flex-row items-center justify-between mt-12 pt-8 border-t border-neutral-100 gap-8 dark:border-neutral-800">
-          <%!-- Primary Actions --%>
-          <div class="flex items-center gap-3">
-            <.link
-              :if={@current_scope && @current_scope.user.role in [:admin, :editor]}
-              patch={~p"/domains/new"}
-              class="btn-line text-xs flex items-center gap-1.5 py-2"
-            >
-              <.icon name="hero-plus" class="w-4 h-4" /> Add domain
-            </.link>
-            <.link
-              :if={@current_scope && @current_scope.user.role in [:admin, :editor]}
-              patch={~p"/domains/import"}
-              class="btn-line text-xs flex items-center gap-1.5 py-2"
-            >
-              <.icon name="hero-arrow-up-tray" class="w-4 h-4" /> Import CSV
-            </.link>
+        <%!-- Bottom Actions (simplified two-tier layout) --%>
+        <div class="mt-12 pt-8 border-t border-neutral-100 dark:border-neutral-800">
+          <%!-- Primary row: Add/Import + Export --%>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <.link
+                :if={@current_scope && @current_scope.editor?}
+                patch={~p"/domains/new"}
+                class="btn-line text-xs flex items-center gap-1.5 py-2"
+              >
+                <.icon name="hero-plus" class="w-4 h-4" /> Add domain
+              </.link>
+              <.link
+                :if={@current_scope && @current_scope.editor?}
+                patch={~p"/domains/import"}
+                class="btn-line text-xs flex items-center gap-1.5 py-2"
+              >
+                <.icon name="hero-arrow-up-tray" class="w-4 h-4" /> Import
+              </.link>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <% export_q =
+                [
+                  search: @search,
+                  ip: @ip_filter,
+                  lifecycle: @lifecycle_filter |> Enum.map(&to_string/1) |> Enum.join(","),
+                  brand_id: @brand_filter |> Enum.map(&to_string/1) |> Enum.join(","),
+                  organization_id: @org_filter |> Enum.map(&to_string/1) |> Enum.join(","),
+                  project_id: @project_filter |> Enum.map(&to_string/1) |> Enum.join(","),
+                  include_subdomains: if(@export_include_subs, do: "true", else: "")
+                ]
+                |> Enum.reject(fn {_, v} -> v in ["", nil] end) %>
+              <.toggle_badge
+                active={@export_include_subs}
+                phx-click="toggle_export_subs"
+                title="Include subdomains in export"
+              >
+                <.checkbox_indicator active={@export_include_subs} size={:sm} /> Subs
+              </.toggle_badge>
+              <a
+                href={~p"/domains/export?#{export_q}"}
+                class="btn-line text-xs flex items-center gap-1.5 py-2"
+              >
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Export CSV
+              </a>
+            </div>
           </div>
 
-          <%!-- Bulk Discovery Tools (Moved to bottom) --%>
+          <%!-- Secondary row: Bulk tools (less prominent) --%>
           <div
-            :if={@current_scope && @current_scope.user.role in [:admin, :editor]}
-            class="flex items-center gap-4 border-l border-r border-neutral-100 px-6 dark:border-neutral-800"
+            :if={@current_scope && not @current_scope.viewer?}
+            class="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-neutral-50 dark:border-neutral-800"
           >
             <button
               phx-click="scan_visible"
-              class="btn-line text-xs flex items-center gap-1.5 py-2"
+              class="text-xs text-neutral-500 hover:text-neutral-900 flex items-center gap-1.5 transition-colors dark:hover:text-neutral-100"
               data-confirm={
                 if @bulk_include_subdomains,
                   do: "Scan all visible domains AND their subdomains?",
                   else: "Scan all visible domains?"
               }
             >
-              <.icon name="hero-bolt" class="w-4 h-4" /> Scan visible
-              <%= if @bulk_include_subdomains do %>
-                <span class="text-[9px] bg-neutral-100 px-1 rounded text-neutral-500 font-normal dark:bg-neutral-700 dark:text-neutral-400">
-                  + subdomains
-                </span>
-              <% end %>
+              <.icon name="hero-bolt" class="w-3.5 h-3.5" /> Scan visible ({length(@domains)})
             </button>
-
+            <span class="text-neutral-200 dark:text-neutral-700">·</span>
             <button
               phx-click="toggle_include_subdomains"
               class={[
-                "flex items-center gap-1.5 px-2.5 py-2 border text-[10px] font-light transition-colors uppercase tracking-tight",
+                "text-xs flex items-center gap-1.5 transition-colors",
                 if(@bulk_include_subdomains,
-                  do:
-                    "border-neutral-900 text-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:text-neutral-100 dark:bg-neutral-800",
-                  else:
-                    "border-neutral-200 text-neutral-400 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-500 dark:hover:border-neutral-500"
+                  do: "text-neutral-900 dark:text-neutral-100",
+                  else: "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                 )
               ]}
             >
-              <span class={[
-                "w-3 h-3 border flex items-center justify-center shrink-0",
-                if(@bulk_include_subdomains,
-                  do:
-                    "border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100",
-                  else: "border-neutral-300 dark:border-neutral-600"
-                )
-              ]}>
-                <%= if @bulk_include_subdomains do %>
-                  <.icon name="hero-check" class="w-2 h-2 text-white" />
-                <% end %>
-              </span>
+              <.checkbox_indicator active={@bulk_include_subdomains} size={:sm} />
               Include subdomains
             </button>
-
-            <div class="h-4 w-px bg-neutral-100 mx-1 dark:bg-neutral-700"></div>
-
-            <button
-              phx-click="enter_selection_mode"
-              class="btn-line text-xs flex items-center gap-1.5 py-2"
-            >
-              <.icon name="hero-square-2-stack" class="w-4 h-4" /> Select mode
-            </button>
-          </div>
-
-          <%!-- Export --%>
-          <div class="flex items-center gap-3">
-            <% export_q =
-              [
-                search: @search,
-                ip: @ip_filter,
-                lifecycle: @lifecycle_filter |> Enum.map(&to_string/1) |> Enum.join(","),
-                brand_id: @brand_filter |> Enum.map(&to_string/1) |> Enum.join(","),
-                organization_id: @org_filter |> Enum.map(&to_string/1) |> Enum.join(","),
-                project_id: @project_filter |> Enum.map(&to_string/1) |> Enum.join(","),
-                include_subdomains: if(@export_include_subs, do: "true", else: "")
-              ]
-              |> Enum.reject(fn {_, v} -> v in ["", nil] end) %>
-            <div class="flex items-center border border-neutral-200 rounded overflow-hidden dark:border-neutral-700">
-              <button
-                phx-click="toggle_export_subs"
-                class={[
-                  "px-3 py-1.5 text-[10px] transition-colors uppercase tracking-wider",
-                  if(!@export_include_subs,
-                    do: "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
-                    else:
-                      "text-neutral-500 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                  )
-                ]}
-              >
-                Apex only
-              </button>
-              <button
-                phx-click="toggle_export_subs"
-                class={[
-                  "px-3 py-1.5 text-[10px] transition-colors uppercase tracking-wider",
-                  if(@export_include_subs,
-                    do: "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
-                    else:
-                      "text-neutral-500 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                  )
-                ]}
-              >
-                With Subs
-              </button>
-            </div>
-            <a
-              href={~p"/domains/export?#{export_q}"}
-              class="btn-line text-xs flex items-center gap-1.5 py-2"
-            >
-              <.icon name="hero-arrow-down-tray" class="w-4 h-4" /> Export CSV
-            </a>
+            <span class="text-neutral-200 dark:text-neutral-700">·</span>
+            <span class="text-xs text-neutral-400">Click rows to select for bulk actions</span>
           </div>
         </div>
       </main>
@@ -1490,138 +501,15 @@
   </div>
 
   <%!-- Modals --%>
-  <%= if @bulk_action != nil do %>
-    <% selected_count = MapSet.size(@selected_ids) %>
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" phx-click="bulk_action_cancel">
-    </div>
-    <div class="fixed inset-x-0 top-24 mx-auto max-w-md bg-white border border-neutral-200 z-50 p-8 shadow-2xl animate-in zoom-in-95 duration-200 dark:bg-neutral-800 dark:border-neutral-700">
-      <h2 class="text-xl font-light tracking-tight mb-4">
-        <%= case @bulk_action do %>
-          <% :delete -> %>
-            Delete {selected_count} domains?
-          <% :scan -> %>
-            Scan {selected_count} domains?
-          <% {:lifecycle, state} -> %>
-            Set {selected_count} domains to {state}?
-          <% {:brand, id} -> %>
-            <% {_, name, _} =
-              Enum.find(@facets.brands, fn {bid, _, _} -> bid == id end) || {0, "Brand", 0} %> Assign {selected_count} domains to {name}?
-          <% {:org, id} -> %>
-            <% {_, name, _} =
-              Enum.find(@facets.organizations, fn {oid, _, _} -> oid == id end) || {0, "Org", 0} %> Assign {selected_count} domains to {name}?
-          <% {:project, id} -> %>
-            <% {_, name, _} =
-              Enum.find(@facets.projects, fn {pid, _, _} -> pid == id end) || {0, "Project", 0} %> Assign {selected_count} domains to {name}?
-        <% end %>
-      </h2>
-      <p class="text-sm font-light text-neutral-500 mb-8">
-        <%= case @bulk_action do %>
-          <% :delete -> %>
-            This action cannot be undone.
-          <% :scan -> %>
-            All scans will run in parallel background tasks.
-          <% _ -> %>
-            This will update the selected metadata for all target domains.
-        <% end %>
-        <%= if @bulk_include_subdomains && @bulk_action in [:delete, :scan] do %>
-          <br />
-          <span class="text-neutral-900 font-normal">
-            This will also include all their subdomains.
-          </span>
-        <% end %>
-      </p>
-      <div class="flex items-center gap-3">
-        <button
-          phx-click="bulk_action_execute"
-          class={[
-            "btn-line-filled flex-1 justify-center text-xs py-2.5",
-            @bulk_action == :delete && "!bg-red-600 !border-red-600"
-          ]}
-        >
-          Confirm
-        </button>
-        <button
-          phx-click="bulk_action_cancel"
-          class="btn-line flex-1 justify-center text-xs py-2.5"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  <% end %>
-
-  <%= if @live_action in [:new, :import] do %>
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" phx-click="close_modal"></div>
-    <div class="fixed inset-x-0 top-20 bottom-8 mx-auto max-w-lg bg-white border border-neutral-200 z-50 p-10 overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 dark:bg-neutral-800 dark:border-neutral-700">
-      <%= case @live_action do %>
-        <% :new -> %>
-          <h2 class="text-2xl font-light tracking-tight mb-8">Add Domain</h2>
-          <.form
-            for={@form}
-            phx-change="validate"
-            phx-submit="save"
-            id="domain-form"
-            class="space-y-6"
-          >
-            <.input field={@form[:type]} type="hidden" value="domain" />
-            <.input
-              field={@form[:name]}
-              type="text"
-              label="Domain name"
-              placeholder="example.com"
-              required
-            />
-            <div class="grid grid-cols-2 gap-4 pt-4">
-              <button type="submit" class="btn-line-filled justify-center py-2.5 text-xs">
-                Add domain
-              </button>
-              <.link patch={~p"/domains"} class="btn-line justify-center py-2.5 text-xs">
-                Cancel
-              </.link>
-            </div>
-          </.form>
-        <% :import -> %>
-          <h2 class="text-2xl font-light tracking-tight mb-1">Import Domains</h2>
-          <p class="text-sm font-light text-neutral-400 mb-8">Apex domains only, one per line.</p>
-
-          <%= if @import_results do %>
-            <%!-- Simplified results view for brevity in this refactor --%>
-            <div class="p-6 bg-neutral-50 border border-neutral-200 text-sm font-light mb-8 dark:bg-neutral-800 dark:border-neutral-700">
-              Added: {length(@import_results.added)} | Skipped: {length(@import_results.skipped)} |
-              Ignored: {length(@import_results.ignored)}
-            </div>
-            <button
-              phx-click="close_modal"
-              class="btn-line-filled w-full justify-center py-2.5 text-xs"
-            >
-              Done
-            </button>
-          <% else %>
-            <.form
-              for={%{}}
-              as={:import}
-              phx-submit="import"
-              id="import-paste-form"
-              class="space-y-6"
-            >
-              <textarea
-                name="import[domains]"
-                rows="10"
-                class="w-full p-4 border border-neutral-200 bg-transparent text-sm font-light font-mono resize-none focus:outline-none focus:border-neutral-900 dark:border-neutral-700 dark:focus:border-neutral-300"
-                placeholder="example.com\nexample.co.uk"
-                required
-              ></textarea>
-              <button type="submit" class="btn-line-filled w-full justify-center py-2.5 text-xs">
-                Import pasted
-              </button>
-            </.form>
-            <.link patch={~p"/domains"} class="btn-line w-full justify-center py-2.5 text-xs mt-3">
-              Cancel
-            </.link>
-          <% end %>
-      <% end %>
-    </div>
-  <% end %>
+  <.domain_index_modals
+    bulk_action={@bulk_action}
+    selected_ids={@selected_ids}
+    facets={@facets}
+    bulk_include_subdomains={@bulk_include_subdomains}
+    live_action={@live_action}
+    form={@form}
+    import_results={@import_results}
+  />
 
   <script :type={Phoenix.LiveView.ColocatedHook} name=".Copy">
     export default {

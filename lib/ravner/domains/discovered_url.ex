@@ -4,13 +4,25 @@ defmodule Ravner.Domains.DiscoveredUrl do
   """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
 
   postgres do
     table("domain_discovered_urls")
     repo(Ravner.Repo)
+  end
+
+  policies do
+    policy action_type(:read) do
+      authorize_if({Ravner.Accounts.ScopeReadCheck, []})
+    end
+
+    policy action_type([:create, :update, :destroy]) do
+      authorize_if(actor_attribute_equals(:role, :admin))
+      authorize_if(actor_attribute_equals(:role, :editor))
+    end
   end
 
   actions do

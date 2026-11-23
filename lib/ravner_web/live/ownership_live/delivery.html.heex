@@ -1,0 +1,505 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <%!-- Breadcrumbs --%>
+    <nav class="text-xs font-light text-neutral-400 mb-6 flex items-center gap-2">
+      <.link navigate={~p"/ownership"} class="hover:text-neutral-600 transition-colors">
+        Ownership
+      </.link>
+      <.icon name="hero-chevron-right" class="w-3 h-3" />
+      <span class="text-neutral-600 dark:text-neutral-300">
+        Delivery & PM Hierarchy
+      </span>
+    </nav>
+
+    <%!-- Header --%>
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8 border-b border-neutral-100 pb-8 dark:border-neutral-800">
+      <div>
+        <div class="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            Delivery Management
+          </h1>
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+            Internal Tree
+          </span>
+          <%= if @can_delegate_delivery? do %>
+            <button
+              type="button"
+              phx-click="open_invite_delivery"
+              id="invite-delivery-btn"
+              class="text-[10px] uppercase tracking-widest text-emerald-600 hover:text-emerald-800 border border-emerald-200 px-2 py-1 transition-colors dark:border-emerald-800 dark:text-emerald-400"
+            >
+              + Invite PM / Supervisor
+            </button>
+          <% end %>
+        </div>
+        <p class="text-xs font-light text-neutral-500 uppercase tracking-widest">
+          Delivery Head &rarr; PM Supervisors &rarr; Cross-Company Project Managers
+        </p>
+      </div>
+
+      <%!-- Stats Counters --%>
+      <div class="flex gap-6 sm:gap-8 shrink-0">
+        <div>
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Delivery Heads
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@delivery_heads)}
+          </div>
+        </div>
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Supervisors
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@supervisors)}
+          </div>
+        </div>
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Project Managers
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@pms)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Top Navigation Tabs --%>
+    <div class="flex items-center gap-6 border-b border-neutral-100 mb-8 pb-px dark:border-neutral-800">
+      <.link
+        navigate={~p"/ownership"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-all duration-200"
+      >
+        Brands & Organizations
+      </.link>
+      <.link
+        navigate={~p"/ownership/delivery"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100 transition-all duration-200"
+      >
+        Delivery & PM Hierarchy
+      </.link>
+      <.link
+        navigate={~p"/ownership/landscape"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-all duration-200 flex items-center gap-1.5"
+      >
+        <.icon name="hero-squares-plus" class="w-3.5 h-3.5" /> Digital Landscape
+      </.link>
+    </div>
+
+    <%!-- Structure Architecture Explanation Card --%>
+    <div class="mb-10 border border-neutral-200 bg-neutral-50/50 p-6 dark:border-neutral-700 dark:bg-neutral-800/50">
+      <div class="flex items-start gap-4">
+        <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+          <.icon name="hero-user-group" class="w-4 h-4" />
+        </div>
+        <div>
+          <h2 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-1">
+            Dual-Tree Delivery Hierarchy
+          </h2>
+          <p class="text-xs font-light text-neutral-500 leading-relaxed max-w-3xl">
+            While clients and organizations own digital inventory, Project Managers operate under our delivery leadership structure.
+            Supervisors manage pools of cross-company PMs, providing administrative and technical support across client borders.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Delivery Heads Section --%>
+    <%= if @delivery_heads != [] do %>
+      <div class="mb-10">
+        <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-500 mb-4 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+          Delivery Leadership (Delivery Heads)
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <%= for head <- @delivery_heads do %>
+            <div class="border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    {head.name || head.email}
+                  </h3>
+                  <p class="text-xs text-neutral-400 font-light mt-0.5">{head.email}</p>
+                </div>
+                <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                  Head
+                </span>
+              </div>
+              <%= if @can_manage_delivery? do %>
+                <div class="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-700 flex justify-end">
+                  <button
+                    type="button"
+                    phx-click="generate_one_time_login"
+                    phx-value-user_id={head.id}
+                    class="text-[11px] text-amber-600 hover:text-amber-800 inline-flex items-center gap-1 transition-colors"
+                  >
+                    <.icon name="hero-key" class="w-3.5 h-3.5" /> Login Link (48h)
+                  </button>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Supervisors & PMs Section --%>
+    <div class="space-y-8">
+      <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-blue-500"></span> PM Supervisors & Supervised Teams
+      </h2>
+
+      <%= if @supervisors == [] do %>
+        <div class="py-12 text-center border border-dashed border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/50">
+          <p class="text-sm text-neutral-400 font-light">No PM Supervisors configured yet.</p>
+        </div>
+      <% else %>
+        <%= for supervisor <- @supervisors do %>
+          <% supervised_pms = Enum.filter(@pms, &(&1.supervisor_id == supervisor.id)) %>
+          <div class="border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 shadow-xs">
+            <%!-- Supervisor Header Bar --%>
+            <div class="p-5 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-neutral-50/50 dark:bg-neutral-800/40">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-medium text-xs flex items-center justify-center shrink-0 border border-blue-200 dark:border-blue-800">
+                  {String.first(supervisor.name || supervisor.email)}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {supervisor.name || supervisor.email}
+                    </span>
+                    <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                      Supervisor
+                    </span>
+                  </div>
+                  <span class="text-xs text-neutral-400 font-light">{supervisor.email}</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <span class="text-xs font-light text-neutral-500">
+                  {length(supervised_pms)} {if length(supervised_pms) == 1,
+                    do: "PM supervised",
+                    else: "PMs supervised"}
+                </span>
+                <%= if @can_manage_delivery? do %>
+                  <button
+                    type="button"
+                    phx-click="generate_one_time_login"
+                    phx-value-user_id={supervisor.id}
+                    class="btn-line text-[11px] py-1 px-2.5 inline-flex items-center gap-1 text-amber-700 dark:text-amber-400"
+                  >
+                    <.icon name="hero-key" class="w-3.5 h-3.5" /> Login Link (48h)
+                  </button>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Supervised PMs Grid --%>
+            <div class="p-6">
+              <%= if supervised_pms == [] do %>
+                <p class="text-xs text-neutral-400 font-light italic">
+                  No Project Managers currently assigned to this supervisor.
+                </p>
+              <% else %>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <%= for pm <- supervised_pms do %>
+                    <% projects = Map.get(pm, :assigned_projects) || [] %>
+                    <div class="border border-neutral-100 bg-neutral-50/30 p-4 dark:border-neutral-800 dark:bg-neutral-800/20">
+                      <div class="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 class="text-xs font-medium text-neutral-900 dark:text-neutral-100">
+                            {pm.name || pm.email}
+                          </h4>
+                          <p class="text-[11px] text-neutral-400 font-light">{pm.email}</p>
+                        </div>
+                        <span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                          PM
+                        </span>
+                      </div>
+
+                      <%!-- Assigned Projects --%>
+                      <div class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                        <span class="text-[10px] font-normal uppercase tracking-wider text-neutral-400 block mb-1.5">
+                          Assigned Projects ({length(projects)})
+                        </span>
+                        <%= if projects == [] do %>
+                          <span class="text-[11px] text-neutral-400 font-light italic">
+                            No projects linked
+                          </span>
+                        <% else %>
+                          <div class="flex flex-wrap gap-1.5">
+                            <%= for proj <- projects do %>
+                              <.link
+                                navigate={~p"/ownership/projects/#{proj.id}"}
+                                class="text-[10px] px-2 py-0.5 rounded border border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 transition-colors"
+                              >
+                                {proj.display_name || proj.name}
+                              </.link>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      </div>
+
+                      <%!-- PM Action Buttons --%>
+                      <div class="mt-4 pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                        <button
+                          type="button"
+                          phx-click="generate_one_time_login"
+                          phx-value-user_id={pm.id}
+                          class="text-[10px] text-amber-600 hover:text-amber-800 inline-flex items-center gap-1 transition-colors"
+                        >
+                          <.icon name="hero-key" class="w-3 h-3" /> Login Link
+                        </button>
+
+                        <%= if @can_manage_delivery? do %>
+                          <form phx-change="reassign_supervisor" class="inline">
+                            <input type="hidden" name="pm_id" value={pm.id} />
+                            <select
+                              name="supervisor_id"
+                              class="text-[10px] border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-1.5 py-0.5 rounded"
+                            >
+                              <option value="none">Reassign Supervisor</option>
+                              <%= for s <- @supervisors do %>
+                                <option value={s.id} selected={s.id == supervisor.id}>
+                                  {s.name || s.email}
+                                </option>
+                              <% end %>
+                            </select>
+                          </form>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <%!-- Unassigned PMs Section (if any) --%>
+    <%= if @unassigned_pms != [] do %>
+      <div class="mt-10 border border-amber-200 bg-amber-50/20 p-6 dark:border-amber-900/40 dark:bg-amber-950/10">
+        <h2 class="text-xs font-medium uppercase tracking-widest text-amber-900 dark:text-amber-300 mb-4 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          Unassigned Project Managers ({length(@unassigned_pms)})
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <%= for pm <- @unassigned_pms do %>
+            <div class="border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+              <div class="flex items-start justify-between mb-2">
+                <div>
+                  <h4 class="text-xs font-medium text-neutral-900 dark:text-neutral-100">
+                    {pm.name || pm.email}
+                  </h4>
+                  <p class="text-[11px] text-neutral-400 font-light">{pm.email}</p>
+                </div>
+                <span class="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                  Unassigned
+                </span>
+              </div>
+              <div class="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 flex items-center justify-between">
+                <button
+                  type="button"
+                  phx-click="generate_one_time_login"
+                  phx-value-user_id={pm.id}
+                  class="text-[10px] text-amber-600 hover:text-amber-800 inline-flex items-center gap-1"
+                >
+                  <.icon name="hero-key" class="w-3 h-3" /> Login Link
+                </button>
+                <%= if @can_manage_delivery? do %>
+                  <form phx-change="reassign_supervisor" class="inline">
+                    <input type="hidden" name="pm_id" value={pm.id} />
+                    <select
+                      name="supervisor_id"
+                      class="text-[10px] border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-1.5 py-0.5 rounded"
+                    >
+                      <option value="none">Assign to Supervisor...</option>
+                      <%= for s <- @supervisors do %>
+                        <option value={s.id}>{s.name || s.email}</option>
+                      <% end %>
+                    </select>
+                  </form>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Invite Delivery Modal --%>
+    <%= if @inviting_delivery? do %>
+      <div
+        class="fixed inset-0 bg-black/40 z-50 backdrop-blur-xs flex items-center justify-center p-4"
+        phx-click="close_invite_delivery"
+        id="invite-delivery-modal"
+      >
+        <div
+          class="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 max-w-lg w-full p-6 shadow-xl"
+          phx-click-stop
+        >
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <.icon name="hero-user-plus" class="w-4 h-4" />
+              </span>
+              <div>
+                <h3 class="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                  Invite to Delivery Team
+                </h3>
+                <p class="text-xs text-neutral-500">
+                  Invite a new Project Manager or PM Supervisor to the internal delivery organization.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              phx-click="close_invite_delivery"
+              class="text-neutral-400 hover:text-neutral-600"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <%= if @generated_invite_link do %>
+            <div class="mb-4 p-4 border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30">
+              <p class="text-xs font-medium text-blue-900 dark:text-blue-200 mb-2">
+                Invitation link created successfully!
+              </p>
+              <input
+                type="text"
+                id="generated-delivery-invite-url"
+                value={@generated_invite_link}
+                readonly
+                class="w-full text-xs font-mono px-3 py-2 border border-blue-300 dark:border-blue-700 bg-white dark:bg-neutral-900 rounded select-all"
+              />
+            </div>
+            <div class="flex justify-end pt-2">
+              <button
+                type="button"
+                phx-click="close_invite_delivery"
+                class="btn-line text-xs py-2 px-4"
+              >
+                Done
+              </button>
+            </div>
+          <% else %>
+            <.form
+              for={@delivery_invite_form}
+              id="delivery-invite-form"
+              phx-submit="send_delivery_invite"
+              class="space-y-4"
+            >
+              <.input
+                field={@delivery_invite_form[:email]}
+                type="email"
+                label="Email Address"
+                required
+                placeholder="pm@company.com"
+              />
+              <.input
+                field={@delivery_invite_form[:name]}
+                type="text"
+                label="Full Name (Optional)"
+                placeholder="Alex PM"
+              />
+              <%= if @can_manage_delivery? do %>
+                <.input
+                  field={@delivery_invite_form[:role]}
+                  type="select"
+                  label="Role"
+                  options={[
+                    {"Project Manager", "project_manager"},
+                    {"PM Supervisor", "pm_supervisor"}
+                  ]}
+                />
+              <% else %>
+                <input type="hidden" name="invite[role]" value="project_manager" />
+              <% end %>
+              <div class="flex justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-700">
+                <button
+                  type="button"
+                  phx-click="close_invite_delivery"
+                  class="btn-line text-xs py-2 px-4"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="btn-line-filled text-xs py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Send Invitation
+                </button>
+              </div>
+            </.form>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- One-Time Login Link Modal --%>
+    <%= if @one_time_login_link do %>
+      <div
+        class="fixed inset-0 bg-black/40 z-50 backdrop-blur-xs flex items-center justify-center p-4"
+        phx-click="close_one_time_login"
+        id="one-time-login-modal"
+      >
+        <div
+          class="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 max-w-lg w-full p-6 shadow-xl"
+          phx-click-stop
+        >
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <.icon name="hero-key" class="w-4 h-4" />
+              </span>
+              <div>
+                <h3 class="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                  One-Time Login Link Generated
+                </h3>
+                <p class="text-xs text-neutral-500">
+                  Valid for 48 hours. Allows single login to update password.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              phx-click="close_one_time_login"
+              class="text-neutral-400 hover:text-neutral-600"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1.5 font-mono">
+              Login URL for {@one_time_login_user.email}
+            </label>
+            <input
+              type="text"
+              id="one-time-login-url-input"
+              value={@one_time_login_link}
+              readonly
+              class="w-full text-xs font-mono px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 rounded select-all"
+            />
+          </div>
+
+          <div class="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              phx-click="close_one_time_login"
+              class="btn-line text-xs py-2 px-4"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</Layouts.app>

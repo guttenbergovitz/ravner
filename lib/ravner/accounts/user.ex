@@ -1,6 +1,69 @@
 defmodule Ravner.Accounts.User do
+  @moduledoc """
+  Ecto schema representing a system user account.
+
+  Serves as the primary authentication identity for Phoenix session plugs,
+  password hashing, and scope resolution (`Ravner.Accounts.Scope`).
+  """
   use Ecto.Schema
   import Ecto.Changeset
+
+  @roles [
+    :admin,
+    :editor,
+    :viewer,
+    :brand_manager,
+    :organization_manager,
+    :product_owner,
+    :delivery_head,
+    :pm_supervisor,
+    :project_manager
+  ]
+
+  @doc "Returns all supported user roles."
+  def roles, do: @roles
+
+  @doc "Returns a human-readable label for a given role."
+  def role_label(role) do
+    case role do
+      :admin -> "Administrator"
+      :editor -> "Editor"
+      :viewer -> "Viewer"
+      :brand_manager -> "Brand Manager"
+      :organization_manager -> "Company Manager"
+      :product_owner -> "Product Owner"
+      :delivery_head -> "Delivery Head"
+      :pm_supervisor -> "PM Supervisor"
+      :project_manager -> "Project Manager"
+      other -> other |> to_string() |> String.replace("_", " ") |> String.capitalize()
+    end
+  end
+
+  @type role ::
+          :admin
+          | :editor
+          | :viewer
+          | :brand_manager
+          | :organization_manager
+          | :product_owner
+          | :delivery_head
+          | :pm_supervisor
+          | :project_manager
+
+  @type t :: %__MODULE__{
+          id: integer() | nil,
+          email: String.t() | nil,
+          password: String.t() | nil,
+          hashed_password: String.t() | nil,
+          confirmed_at: DateTime.t() | nil,
+          authenticated_at: DateTime.t() | nil,
+          role: role(),
+          name: String.t() | nil,
+          active: boolean(),
+          supervisor_id: integer() | nil,
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
+        }
 
   schema "users" do
     field(:email, :string)
@@ -8,9 +71,14 @@ defmodule Ravner.Accounts.User do
     field(:hashed_password, :string, redact: true)
     field(:confirmed_at, :utc_datetime)
     field(:authenticated_at, :utc_datetime, virtual: true)
-    field(:role, Ecto.Enum, values: [:admin, :editor, :viewer], default: :viewer)
+    field(:role, Ecto.Enum, values: @roles, default: :viewer)
     field(:name, :string)
     field(:active, :boolean, default: true)
+
+    belongs_to(:supervisor, Ravner.Accounts.User, foreign_key: :supervisor_id)
+    has_many(:supervised_users, Ravner.Accounts.User, foreign_key: :supervisor_id)
+    has_many(:subordinates, Ravner.Accounts.User, foreign_key: :supervisor_id)
+    has_one(:person, Ravner.Inventory.Person, foreign_key: :user_id)
 
     timestamps(type: :utc_datetime)
   end
@@ -138,19 +206,19 @@ defmodule Ravner.Accounts.User do
   """
   def admin_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :name, :role, :active])
+    |> cast(attrs, [:email, :name, :role, :active, :supervisor_id])
     |> validate_required([:email, :role])
-    |> validate_inclusion(:role, [:admin, :editor, :viewer])
+    |> validate_inclusion(:role, @roles)
     |> validate_email(opts)
   end
 
   @doc """
-  Changeset for admin updating only role/name/active.
+  Changeset for admin updating only role/name/active/supervisor.
   """
   def role_changeset(user, attrs) do
     user
-    |> cast(attrs, [:name, :role, :active])
+    |> cast(attrs, [:name, :role, :active, :supervisor_id])
     |> validate_required([:role])
-    |> validate_inclusion(:role, [:admin, :editor, :viewer])
+    |> validate_inclusion(:role, @roles)
   end
 end

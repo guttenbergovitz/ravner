@@ -1,6 +1,24 @@
 defmodule Ravner.Uptime.DomainCheck do
+  @moduledoc """
+  Ecto schema representing a monitored URL endpoint check for a domain.
+  """
   use Ecto.Schema
   import Ecto.Changeset
+
+  @type t :: %__MODULE__{
+          id: integer() | nil,
+          url: String.t() | nil,
+          label: String.t() | nil,
+          check_interval_minutes: integer(),
+          failure_threshold: integer(),
+          enabled: boolean(),
+          is_up: boolean() | nil,
+          last_checked_at: DateTime.t() | nil,
+          domain_id: integer() | nil,
+          domain: Ravner.Domains.Domain.t() | term(),
+          inserted_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
+        }
 
   schema "domain_checks" do
     field :url, :string

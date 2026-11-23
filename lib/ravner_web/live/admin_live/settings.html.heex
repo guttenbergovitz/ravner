@@ -146,6 +146,257 @@
       </div>
     </div>
 
+    <div
+      class="border border-neutral-200 p-6 mb-8 dark:border-neutral-700"
+      id="vcs-integration-card"
+    >
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-light tracking-tight mb-1">
+            Version Control Systems (Bitbucket)
+          </h2>
+          <p class="text-sm font-light text-neutral-500">
+            Connect Bitbucket Cloud to browse repositories, track commit history, and scan software dependencies (`mix.lock`, `package.json`, `composer.json`) for known CVEs.
+          </p>
+        </div>
+      </div>
+
+      <div class="border border-neutral-200 dark:border-neutral-800 p-4">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="font-normal">Bitbucket Cloud</h3>
+              <%= if @vcs_status.configured? do %>
+                <span class="text-xs text-green-600 flex items-center gap-1">
+                  <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> Configured
+                </span>
+              <% else %>
+                <span class="text-xs text-neutral-400 flex items-center gap-1">
+                  <.icon name="hero-x-circle" class="w-3.5 h-3.5" /> Not configured
+                </span>
+              <% end %>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs text-neutral-500 mb-2">
+              <%= case @vcs_status.source do %>
+                <% :database -> %>
+                  <span class="flex items-center gap-1 text-green-600">
+                    <.icon name="hero-cog-6-tooth" class="w-3.5 h-3.5" /> From database
+                  </span>
+                <% :env -> %>
+                  <span class="flex items-center gap-1 text-blue-600">
+                    <.icon name="hero-server" class="w-3.5 h-3.5" /> From environment
+                  </span>
+                <% :none -> %>
+                  <span class="text-neutral-400">
+                    Add credentials below or set BITBUCKET_WORKSPACE and BITBUCKET_TOKEN
+                  </span>
+              <% end %>
+
+              <%= if @vcs_status.workspace do %>
+                <span class="text-neutral-300">·</span>
+                <span>
+                  Workspace:
+                  <strong class="font-mono text-neutral-800 dark:text-neutral-200">
+                    {@vcs_status.workspace}
+                  </strong>
+                </span>
+              <% end %>
+
+              <%= if @vcs_status[:token_type] do %>
+                <span class="text-neutral-300">·</span>
+                <span>
+                  Scope:
+                  <strong class="font-mono text-neutral-800 dark:text-neutral-200">
+                    {@vcs_status.token_type}
+                  </strong>
+                </span>
+              <% end %>
+
+              <%= if @vcs_status[:repo_slug] do %>
+                <span class="text-neutral-300">·</span>
+                <span>
+                  Repo:
+                  <strong class="font-mono text-neutral-800 dark:text-neutral-200">
+                    {@vcs_status.repo_slug}
+                  </strong>
+                </span>
+              <% end %>
+
+              <%= if @vcs_status[:token_preview] do %>
+                <span class="text-neutral-300">·</span>
+                <span>
+                  Token:
+                  <strong class="font-mono text-neutral-800 dark:text-neutral-200">
+                    {@vcs_status.token_preview}
+                  </strong>
+                </span>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <%= if @vcs_status.configured? do %>
+              <button
+                type="button"
+                phx-click="test_vcs"
+                id="btn-test-vcs"
+                class="btn-line text-xs flex items-center gap-1"
+              >
+                <.icon name="hero-shield-check" class="w-3.5 h-3.5" /> Test
+              </button>
+            <% end %>
+
+            <button
+              type="button"
+              phx-click="edit_vcs"
+              id="btn-edit-vcs"
+              class="btn-line text-xs flex items-center gap-1"
+            >
+              <%= if @vcs_status.configured? && @vcs_status.source == :database do %>
+                <.icon name="hero-pencil" class="w-3.5 h-3.5" /> Edit
+              <% else %>
+                <.icon name="hero-plus" class="w-3.5 h-3.5" /> Configure
+              <% end %>
+            </button>
+
+            <%= if @vcs_status.active_integration do %>
+              <button
+                type="button"
+                phx-click="delete_vcs"
+                data-confirm="Remove database VCS credentials? (Environment variables will become active if set)"
+                class="text-neutral-400 hover:text-red-600 transition-colors"
+                title="Remove database integration"
+              >
+                <.icon name="hero-trash" class="w-4 h-4" />
+              </button>
+            <% end %>
+          </div>
+        </div>
+
+        <%= if @vcs_editing? && @vcs_form do %>
+          <div class="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <.form
+              for={@vcs_form}
+              phx-submit="save_vcs"
+              phx-change="validate_vcs"
+              id="vcs-integration-form"
+              class="space-y-4"
+            >
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                    Workspace Slug *
+                  </label>
+                  <input
+                    type="text"
+                    name="vcs_integration[workspace]"
+                    value={@vcs_form[:workspace].value}
+                    placeholder="e.g. my-workspace"
+                    required
+                    class="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-transparent text-sm font-light text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors"
+                  />
+                  <%= if @vcs_form[:workspace].errors != [] do %>
+                    <p class="text-xs text-red-500 mt-1">
+                      {elem(hd(@vcs_form[:workspace].errors), 0)}
+                    </p>
+                  <% end %>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                    Token Scope *
+                  </label>
+                  <select
+                    name="vcs_integration[token_type]"
+                    class="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-transparent text-sm font-light text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 transition-colors"
+                  >
+                    <option
+                      value="workspace"
+                      selected={@vcs_form[:token_type].value in [nil, "workspace"]}
+                    >
+                      Workspace Access Token (premium)
+                    </option>
+                    <option
+                      value="repository"
+                      selected={@vcs_form[:token_type].value == "repository"}
+                    >
+                      Repository Access Token (single repo)
+                    </option>
+                  </select>
+                  <p class="text-[11px] text-neutral-400 mt-1">
+                    Workspace tokens access all repos. Repository tokens are limited to one repo.
+                  </p>
+                </div>
+              </div>
+
+              <%= if @vcs_form[:token_type].value == "repository" do %>
+                <div>
+                  <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                    Repository Slug *
+                  </label>
+                  <input
+                    type="text"
+                    name="vcs_integration[repo_slug]"
+                    value={@vcs_form[:repo_slug].value}
+                    placeholder="e.g. my-repo-name"
+                    required
+                    class="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-transparent text-sm font-light text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors font-mono"
+                  />
+                  <p class="text-[11px] text-neutral-400 mt-1">
+                    The repository slug from the URL: bitbucket.org/workspace/<strong>repo-slug</strong>
+                  </p>
+                  <%= if @vcs_form[:repo_slug].errors != [] do %>
+                    <p class="text-xs text-red-500 mt-1">
+                      {elem(hd(@vcs_form[:repo_slug].errors), 0)}
+                    </p>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <div>
+                <label class="block text-xs font-light text-neutral-500 uppercase tracking-wide mb-1">
+                  Bitbucket Access Token *
+                </label>
+                <input
+                  type="password"
+                  name="vcs_integration[token]"
+                  value=""
+                  placeholder={
+                    if @vcs_status[:token_configured?],
+                      do: "•••••••• (leave blank to keep current token)",
+                      else: "Enter Bitbucket Access Token..."
+                  }
+                  required={!@vcs_status[:token_configured?]}
+                  autocomplete="new-password"
+                  class="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-transparent text-sm font-light text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-500 transition-colors font-mono"
+                />
+                <p class="text-[11px] text-neutral-400 mt-1 leading-relaxed">
+                  Generate token at Bitbucket → Repository settings → Access tokens (or Workspace settings for workspace tokens). Bearer auth is used automatically.
+                </p>
+                <%= if @vcs_form[:token].errors != [] do %>
+                  <p class="text-xs text-red-500 mt-1">{elem(hd(@vcs_form[:token].errors), 0)}</p>
+                <% end %>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <button type="submit" class="btn-line-filled text-xs">
+                  Save VCS Credentials
+                </button>
+                <button
+                  type="button"
+                  phx-click="cancel_edit_vcs"
+                  class="btn-line text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            </.form>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
     <div class="border border-neutral-200 p-6 mb-8">
       <h2 class="text-lg font-light tracking-tight mb-2">System Status</h2>
       <p class="text-sm font-light text-neutral-500 mb-4">
@@ -198,10 +449,71 @@
         </span>
       </div>
 
+      <%!-- Default Scan Mode Selection --%>
+      <div class="mb-6">
+        <span class="block text-xs font-normal uppercase tracking-wide text-neutral-500 mb-3">
+          Scheduled Security Scan Mode
+        </span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            phx-click="set_security_scan_mode"
+            phx-value-mode="light"
+            id="set-scan-mode-light"
+            class={[
+              "flex flex-col items-start p-4 border text-left transition-all",
+              (@scan_config.security_scan_mode || "light") == "light" &&
+                "border-neutral-900 bg-neutral-50/50",
+              (@scan_config.security_scan_mode || "light") != "light" &&
+                "border-neutral-200 hover:border-neutral-400 text-neutral-500"
+            ]}
+          >
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class={[
+                "w-2 h-2 rounded-full",
+                (@scan_config.security_scan_mode || "light") == "light" && "bg-neutral-900",
+                (@scan_config.security_scan_mode || "light") != "light" &&
+                  "bg-transparent border border-neutral-300"
+              ]}>
+              </span>
+              <span class="font-normal text-sm text-neutral-900">Light Mode (Recommended)</span>
+            </div>
+            <span class="text-xs font-light">
+              Fast, zero external binaries. Native HTTP probe + Wappalyzer fingerprinting + OSV.dev CVE analysis. Runs in seconds without CPU spikes.
+            </span>
+          </button>
+
+          <button
+            phx-click="set_security_scan_mode"
+            phx-value-mode="heavy"
+            id="set-scan-mode-heavy"
+            class={[
+              "flex flex-col items-start p-4 border text-left transition-all",
+              @scan_config.security_scan_mode == "heavy" && "border-neutral-900 bg-neutral-50/50",
+              @scan_config.security_scan_mode != "heavy" &&
+                "border-neutral-200 hover:border-neutral-400 text-neutral-500"
+            ]}
+          >
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class={[
+                "w-2 h-2 rounded-full",
+                @scan_config.security_scan_mode == "heavy" && "bg-neutral-900",
+                @scan_config.security_scan_mode != "heavy" &&
+                  "bg-transparent border border-neutral-300"
+              ]}>
+              </span>
+              <span class="font-normal text-sm text-neutral-900">Heavy Mode (Full Pipeline)</span>
+            </div>
+            <span class="text-xs font-light">
+              Full external scan: Naabu port discovery + Nuclei or Lonkero vulnerability scanning. Spawns OS processes and consumes significant server resources.
+            </span>
+          </button>
+        </div>
+      </div>
+
       <%!-- Active Scanner Selection --%>
       <div class="mb-6">
         <span class="block text-xs font-normal uppercase tracking-wide text-neutral-500 mb-3">
-          Active Security Scanner
+          Active Heavy Security Scanner
         </span>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
@@ -331,12 +643,46 @@
             <%= for tag <- Ravner.ScanConfig.valid_tags() do %>
               <% excluded = tag in @scan_config.nuclei_exclude_tags %>
               <button
+                type="button"
                 phx-click="toggle_exclude_tag"
                 phx-value-tag={tag}
                 class={[
                   "px-3 py-1.5 text-xs border transition-colors",
-                  excluded && "bg-red-50 border-red-200 text-red-500 line-through",
-                  !excluded && "border-neutral-200 text-neutral-600 hover:border-neutral-400"
+                  excluded &&
+                    "bg-red-50 border-red-200 text-red-500 line-through dark:bg-red-950/30 dark:border-red-800 dark:text-red-400",
+                  !excluded &&
+                    "border-neutral-200 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-400"
+                ]}
+              >
+                {tag}
+              </button>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Fallback Scan Categories (used when no specific technologies are detected) --%>
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-normal uppercase tracking-wide text-neutral-500">
+              Fallback Scan Categories
+            </span>
+            <span class="text-[10px] text-neutral-400">
+              used when site technologies are unknown (default: cves, misconfig, exposure)
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <%= for tag <- Ravner.ScanConfig.valid_tags() do %>
+              <% active = tag in (@scan_config.nuclei_tags || []) %>
+              <button
+                type="button"
+                phx-click="toggle_fallback_tag"
+                phx-value-tag={tag}
+                class={[
+                  "px-3 py-1.5 text-xs border transition-colors",
+                  active &&
+                    "bg-neutral-900 border-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
+                  !active &&
+                    "border-neutral-200 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-400"
                 ]}
               >
                 {tag}
@@ -347,6 +693,7 @@
 
         <div class="flex items-center gap-3">
           <button
+            type="button"
             phx-click="update_nuclei_templates"
             class="btn-line text-xs flex items-center gap-1.5"
           >
@@ -360,6 +707,75 @@
           Last completed scan: {Calendar.strftime(@last_security_scan, "%Y-%m-%d %H:%M UTC")}
         </p>
       <% end %>
+    </div>
+
+    <%!-- Technology Fingerprinting & Threat Intelligence --%>
+    <div
+      class="border border-neutral-200 p-6 mb-8 dark:border-neutral-700"
+      id="tech-fingerprint-card"
+    >
+      <h2 class="text-lg font-light tracking-tight mb-2">
+        Technology Fingerprinting & Threat Intel
+      </h2>
+      <p class="text-sm font-light text-neutral-500 mb-4">
+        Native technology detection (Wappalyzer rules) and zero-credential threat intelligence feeds (OSV.dev & Hudson Rock).
+      </p>
+
+      <div class="space-y-4">
+        <div class="flex items-center justify-between p-4 border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-normal text-sm">Wappalyzer Signature Database</span>
+              <%= if @wappalyzer_status.available? do %>
+                <span class="text-xs text-green-600 flex items-center gap-1">
+                  <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> Ready
+                </span>
+              <% else %>
+                <span class="text-xs text-red-500 flex items-center gap-1">
+                  <.icon name="hero-exclamation-circle" class="w-3.5 h-3.5" /> Missing definitions
+                </span>
+              <% end %>
+            </div>
+            <p class="text-xs text-neutral-500">
+              <%= if @wappalyzer_status.updated_at do %>
+                Updated {Calendar.strftime(@wappalyzer_status.updated_at, "%Y-%m-%d %H:%M UTC")}
+              <% else %>
+                File not yet downloaded or compiled
+              <% end %>
+            </p>
+          </div>
+          <button
+            type="button"
+            phx-click="update_wappalyzer_technologies"
+            id="btn-update-wappalyzer"
+            class="btn-line text-xs flex items-center gap-1.5"
+          >
+            <.icon name="hero-arrow-down-tray" class="w-3.5 h-3.5" /> Update Definitions
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div class="p-3 border border-neutral-100 dark:border-neutral-800">
+            <div class="flex items-center gap-1.5 font-normal text-neutral-900 dark:text-neutral-100 mb-1">
+              <.icon name="hero-shield-check" class="w-4 h-4 text-green-600" />
+              OSV.dev Open Source Vulnerability DB
+            </div>
+            <p class="text-neutral-500 text-[11px]">
+              Direct API query for CVEs affecting detected technologies and packages. Zero local storage required.
+            </p>
+          </div>
+
+          <div class="p-3 border border-neutral-100 dark:border-neutral-800">
+            <div class="flex items-center gap-1.5 font-normal text-neutral-900 dark:text-neutral-100 mb-1">
+              <.icon name="hero-globe-alt" class="w-4 h-4 text-green-600" />
+              Hudson Rock Cavalier Infostealer OSINT
+            </div>
+            <p class="text-neutral-500 text-[11px]">
+              Real-time dark web credential exposure intelligence for employee and customer identities.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="border border-neutral-200 p-6 mb-8">
@@ -415,9 +831,11 @@
       <% end %>
     </div>
 
-    <div class="text-xs text-neutral-400">
+    <div class="text-xs text-neutral-400 mt-6">
       <p>* Required keys must be configured for full functionality.</p>
-      <p>Environment variables: CHAOS_API_KEY, SECURITYTRAILS_API_KEY, SHODAN_API_KEY</p>
+      <p>
+        Environment variables: CHAOS_API_KEY, LONKERO_LICENSE_KEY, BITBUCKET_WORKSPACE, BITBUCKET_TOKEN
+      </p>
     </div>
 
     <%!-- Delivery Settings link --%>

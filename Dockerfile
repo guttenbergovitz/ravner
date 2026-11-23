@@ -13,26 +13,25 @@
 #
 # Runtime CLI dependencies bundled into the image:
 #   • pg_dump / pg_restore  — Ravner.Admin.Backups
-#   • dnsx                  — Ravner.Scans (subdomain DNS resolution)
-#   • httpx                 — Ravner.Scans (HTTP probing)
 #   • katana                — Ravner.Scans (deep URL crawling)
-#   • webanalyze            — Ravner.Scans (deep tech fingerprinting)
 #   • whois                 — Ravner.Scans (WHOIS lookup)
 #   • pa11y + chromium      — Ravner.A11y (WCAG accessibility scanning)
 #   • lighthouse + chromium — Ravner.Lighthouse (PageSpeed performance audit)
+#
+# DNS resolution, HTTP probing and Wappalyzer technology fingerprinting are
+# native (Erlang/Elixir) since 2026-09 — no dnsx/httpx/webanalyze binaries.
+# The technologies.json fingerprint database is downloaded at runtime by
+# Ravner.Workers.TechnologiesUpdateWorker (daily cron + first-boot fetch).
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG ELIXIR_VERSION=1.18.4
 ARG OTP_VERSION=27.3.4
 ARG DEBIAN_VERSION=bookworm-20260421-slim
 ARG PG_MAJOR=16
-ARG DNSX_VERSION=1.2.3
 ARG NAABU_VERSION=2.6.0
 ARG NUCLEI_VERSION=3.8.0
 ARG NUCLEI_TEMPLATES_VERSION=10.4.3
-ARG HTTPX_VERSION=1.9.0
 ARG KATANA_VERSION=1.6.1
-ARG WEBANALYZE_VERSION=0.4.3
 ARG LONKERO_VERSION=3.7.3
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
@@ -77,18 +76,6 @@ COPY config/runtime.exs config/
 # 4. Release overlays (bin/server, bin/migrate) and assemble the OTP release.
 #COPY rel rel
 RUN mix release
-
-# ─── Fetch dnsx (ProjectDiscovery) — kept tiny and parallelisable ────────────
-FROM debian:${DEBIAN_VERSION} AS dnsx
-ARG DNSX_VERSION
-ARG TARGETARCH
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends curl unzip ca-certificates \
- && curl -fsSL -o /tmp/dnsx.zip \
-      "https://github.com/projectdiscovery/dnsx/releases/download/v${DNSX_VERSION}/dnsx_${DNSX_VERSION}_linux_${TARGETARCH}.zip" \
- && unzip /tmp/dnsx.zip -d /tmp/dnsx \
- && install -m 0755 /tmp/dnsx/dnsx /usr/local/bin/dnsx \
- && rm -rf /var/lib/apt/lists/* /tmp/dnsx /tmp/dnsx.zip
 
 # ─── Fetch naabu (ProjectDiscovery) ──────────────────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS naabu
@@ -138,18 +125,6 @@ RUN apt-get update -y \
  && install -m 0755 /tmp/lonkero /usr/local/bin/lonkero \
  && rm -rf /var/lib/apt/lists/* /tmp/lonkero /tmp/lonkero.tar.gz
 
-# ─── Fetch httpx (ProjectDiscovery) ──────────────────────────────────────────
-FROM debian:${DEBIAN_VERSION} AS httpx
-ARG HTTPX_VERSION
-ARG TARGETARCH
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends curl unzip ca-certificates \
- && curl -fsSL -o /tmp/httpx.zip \
-      "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_${TARGETARCH}.zip" \
- && unzip /tmp/httpx.zip -d /tmp/httpx \
- && install -m 0755 /tmp/httpx/httpx /usr/local/bin/httpx \
- && rm -rf /var/lib/apt/lists/* /tmp/httpx /tmp/httpx.zip
-
 # ─── Fetch katana (ProjectDiscovery) ─────────────────────────────────────────
 FROM debian:${DEBIAN_VERSION} AS katana
 ARG KATANA_VERSION
@@ -161,29 +136,6 @@ RUN apt-get update -y \
  && unzip /tmp/katana.zip -d /tmp/katana \
  && install -m 0755 /tmp/katana/katana /usr/local/bin/katana \
  && rm -rf /var/lib/apt/lists/* /tmp/katana /tmp/katana.zip
-
-# ─── Fetch webanalyze + pinned technologies.json ─────────────────────────────
-# Upstream `webanalyze -update` is broken against the current Wappalyzer
-# schema, so we pull the technologies.json file shipped in the same release
-# tag — that guarantees the binary and its app definitions stay in sync.
-FROM debian:${DEBIAN_VERSION} AS webanalyze
-ARG WEBANALYZE_VERSION
-ARG TARGETARCH
-RUN apt-get update -y \
- && apt-get install -y --no-install-recommends curl ca-certificates \
- && case "${TARGETARCH}" in \
-      amd64) wa_arch=x86_64 ;; \
-      arm64) wa_arch=arm64  ;; \
-      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac \
- && curl -fsSL -o /tmp/webanalyze.tgz \
-      "https://github.com/rverton/webanalyze/releases/download/v${WEBANALYZE_VERSION}/webanalyze_Linux_${wa_arch}.tar.gz" \
- && tar -xzf /tmp/webanalyze.tgz -C /tmp \
- && install -m 0755 /tmp/webanalyze /usr/local/bin/webanalyze \
- && install -d /usr/local/share/webanalyze \
- && curl -fsSL -o /usr/local/share/webanalyze/technologies.json \
-      "https://raw.githubusercontent.com/rverton/webanalyze/v${WEBANALYZE_VERSION}/technologies.json" \
- && rm -rf /var/lib/apt/lists/* /tmp/webanalyze /tmp/webanalyze.tgz
 
 # ─── Runtime ─────────────────────────────────────────────────────────────────
 FROM ${RUNNER_IMAGE} AS runner
@@ -208,7 +160,6 @@ RUN set -eux; \
     apt-get purge -y --auto-remove curl gnupg; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*; \
-    install -d /usr/local/share/webanalyze; \
     sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen; \
     locale-gen
 
@@ -251,15 +202,11 @@ WORKDIR /app
 USER ravner:ravner
 
 # Security scanner binaries from fetch stages and the OTP release from the builder.
-COPY --from=dnsx    /usr/local/bin/dnsx              /usr/local/bin/dnsx
 COPY --from=naabu   /usr/local/bin/naabu             /usr/local/bin/naabu
 COPY --from=nuclei  /usr/local/bin/nuclei            /usr/local/bin/nuclei
 COPY --from=nuclei  --chown=ravner:ravner /root/.nuclei-templates /app/.nuclei-templates
 COPY --from=lonkero /usr/local/bin/lonkero           /usr/local/bin/lonkero
-COPY --from=httpx   /usr/local/bin/httpx             /usr/local/bin/httpx
 COPY --from=katana  /usr/local/bin/katana            /usr/local/bin/katana
-COPY --from=webanalyze /usr/local/bin/webanalyze     /usr/local/bin/webanalyze
-COPY --from=webanalyze /usr/local/share/webanalyze/technologies.json /usr/local/share/webanalyze/technologies.json
 COPY --from=builder --chown=ravner:ravner /app/_build/prod/rel/ravner ./
 
 EXPOSE 4000

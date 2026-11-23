@@ -15,6 +15,7 @@ defmodule Ravner.Lighthouse do
 
   # --- Queries ---
 
+  @spec latest_scan(integer()) :: LighthouseScan.t() | nil
   def latest_scan(domain_id) do
     Repo.one(
       from(s in LighthouseScan,
@@ -25,6 +26,7 @@ defmodule Ravner.Lighthouse do
     )
   end
 
+  @spec running_scan(integer()) :: LighthouseScan.t() | nil
   def running_scan(domain_id) do
     Repo.one(
       from(s in LighthouseScan,
@@ -36,9 +38,29 @@ defmodule Ravner.Lighthouse do
   end
 
   @doc """
+  Marks scans running for too long as failed.
+  Lighthouse timeout is 2min, so 5min stale threshold is generous.
+  """
+  @spec cleanup_stale_scans() :: {integer(), nil}
+  def cleanup_stale_scans do
+    timeout_ago = DateTime.add(DateTime.utc_now(), -5, :minute)
+
+    LighthouseScan
+    |> where([s], s.status in ["pending", "running"] and s.inserted_at < ^timeout_ago)
+    |> Repo.update_all(
+      set: [
+        status: "failed",
+        error_message: "Scan timed out (stale > 5 minutes)",
+        completed_at: DateTime.utc_now()
+      ]
+    )
+  end
+
+  @doc """
   Returns a map of domain_id => performance_score for given domain IDs.
   Only considers the latest completed scan per domain.
   """
+  @spec scores_by_domain_ids([integer()]) :: %{optional(integer()) => integer() | nil}
   def scores_by_domain_ids(domain_ids) when is_list(domain_ids) do
     if domain_ids == [] do
       %{}
@@ -56,30 +78,19 @@ defmodule Ravner.Lighthouse do
 
   # --- Eligibility (same as A11y) ---
 
+  @spec scannable?(Ravner.Domains.Domain.t()) :: boolean()
   def scannable?(domain) do
     meta = domain.domain_metadata
 
-    meta != nil &&
+    Ravner.Domains.Domain.scannable?(domain) &&
+      meta != nil &&
       meta.http_status == 200 &&
-      !external_redirect?(domain.name, meta.final_url)
-  end
-
-  defp external_redirect?(_name, nil), do: false
-
-  defp external_redirect?(domain_name, final_url) do
-    final_host =
-      final_url
-      |> URI.parse()
-      |> Map.get(:host, "")
-      |> to_string()
-      |> String.replace_prefix("www.", "")
-
-    domain_root = domain_name |> String.replace_prefix("www.", "")
-    final_host != "" && !String.ends_with?(final_host, domain_root)
+      !Ravner.Scans.external_redirect?(domain.name, meta.final_url)
   end
 
   # --- Scan execution ---
 
+  @spec run_scan(integer()) :: {:ok, LighthouseScan.t()} | {:error, term()}
   def run_scan(domain_id) do
     domain = Domains.get_domain_with_preloads!(domain_id)
 
@@ -228,6 +239,26 @@ defmodule Ravner.Lighthouse do
       last_lighthouse_scan_at: DateTime.utc_now(:second)
     })
 
+    # Emit standardized OpenTelemetry Web Vitals telemetry
+    Ravner.Telemetry.Synthetic.emit_web_vitals(
+      %{
+        lcp_ms: metrics.lcp_ms || 0,
+        cls: metrics.cls || 0.0,
+        tbt_ms: metrics.tbt_ms || 0,
+        fcp_ms: metrics.fcp_ms || 0,
+        speed_index_ms: metrics.speed_index_ms || 0,
+        performance_score: scores.performance || 0,
+        accessibility_score: scores.accessibility || 0,
+        best_practices_score: scores.best_practices || 0,
+        seo_score: scores.seo || 0
+      },
+      %{
+        "server.address" => domain_name,
+        "url.full" => scan.url,
+        "ravner.domain_id" => scan.domain_id
+      }
+    )
+
     ActivityLog.emit(
       :done,
       "Lighthouse done — #{domain_name}: perf #{scores.performance}, seo #{scores.seo}"
@@ -243,9 +274,30 @@ defmodule Ravner.Lighthouse do
       |> LighthouseScan.changeset(%{
         status: "failed",
         completed_at: DateTime.utc_now(:second),
-        error_message: reason
+        error_message: truncate_error(reason, 500)
       })
       |> Repo.update()
+
+    # Emit failed web vitals measurement for OTel tracking
+    Ravner.Telemetry.Synthetic.emit_web_vitals(
+      %{
+        lcp_ms: 0,
+        cls: 0.0,
+        tbt_ms: 0,
+        fcp_ms: 0,
+        speed_index_ms: 0,
+        performance_score: 0,
+        accessibility_score: 0,
+        best_practices_score: 0,
+        seo_score: 0
+      },
+      %{
+        "server.address" => domain_name,
+        "url.full" => scan.url,
+        "error.type" => to_string(reason),
+        "ravner.domain_id" => scan.domain_id
+      }
+    )
 
     ActivityLog.emit(
       :error,
@@ -278,4 +330,11 @@ defmodule Ravner.Lighthouse do
       {:lighthouse_scan_completed, scan}
     )
   end
+
+  defp truncate_error(msg, max_len) when is_binary(msg) and byte_size(msg) > max_len do
+    String.slice(msg, 0, max_len - 3) <> "..."
+  end
+
+  defp truncate_error(msg, _max_len) when is_binary(msg), do: msg
+  defp truncate_error(msg, _max_len), do: inspect(msg) |> String.slice(0, 500)
 end

@@ -10,7 +10,8 @@ defmodule RavnerWeb.AdminLive.OrganizationLive.Index do
     {:ok,
      socket
      |> assign(:page_title, "Organizations")
-     |> assign(:brands, Inventory.list_brands())}
+     |> assign(:brands, Inventory.list_brands())
+     |> assign(:people, Inventory.list_people())}
   end
 
   @impl true

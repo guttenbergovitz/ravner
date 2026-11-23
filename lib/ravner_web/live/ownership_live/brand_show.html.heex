@@ -12,30 +12,55 @@
     </nav>
 
     <%!-- Header --%>
-    <div class="flex items-end justify-between mb-10 border-b border-neutral-100 pb-8 dark:border-neutral-800">
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8 border-b border-neutral-100 pb-8 dark:border-neutral-800">
       <div>
-        <div class="flex items-center gap-3 mb-2">
+        <div class="flex items-center gap-3 mb-2 flex-wrap">
           <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
             {@brand.display_name || @brand.name}
           </h1>
-          <%= if @current_scope.user.role in [:admin, :editor] do %>
-            <.link
-              href={~p"/admin/brands/#{@brand.id}/edit"}
-              class="text-[10px] uppercase tracking-widest text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:hover:text-neutral-300"
-            >
-              Edit
-            </.link>
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
+            {@brand.slug}
+          </span>
+          <%= if @can_manage? do %>
+            <div class="flex items-center gap-2">
+              <.link
+                href={~p"/admin/brands/#{@brand.id}/edit"}
+                class="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                Edit Brand
+              </.link>
+              <%= if @can_delegate_manager? do %>
+                <button
+                  type="button"
+                  phx-click="open_invite_manager"
+                  id="invite-company-manager-btn"
+                  class="text-[10px] uppercase tracking-widest text-emerald-600 hover:text-emerald-800 border border-emerald-200 px-2 py-1 transition-colors dark:border-emerald-800 dark:text-emerald-400"
+                >
+                  + Invite Company Manager
+                </button>
+              <% end %>
+              <.link
+                href={~p"/admin/organizations/new"}
+                class="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-neutral-800 border border-neutral-200 px-2 py-1 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              >
+                + Add Organization
+              </.link>
+            </div>
           <% end %>
         </div>
         <%= if @brand.display_name && @brand.display_name != @brand.name do %>
-          <p class="text-sm font-light text-neutral-500">{@brand.name}</p>
+          <p class="text-sm font-light text-neutral-500 mb-1">Official Name: {@brand.name}</p>
         <% end %>
         <%= if @brand.notes do %>
-          <p class="text-xs font-light text-neutral-400 mt-2 max-w-xl">{@brand.notes}</p>
+          <p class="text-xs font-light text-neutral-400 mt-2 max-w-2xl leading-relaxed">
+            {@brand.notes}
+          </p>
         <% end %>
       </div>
-      <div class="flex gap-8">
-        <div class="text-right">
+
+      <%!-- Stats counters --%>
+      <div class="flex gap-6 sm:gap-8 shrink-0">
+        <div>
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Organizations
           </div>
@@ -43,7 +68,7 @@
             {@stats.orgs_count}
           </div>
         </div>
-        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Projects
           </div>
@@ -51,7 +76,7 @@
             {@stats.projects_count}
           </div>
         </div>
-        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             People
           </div>
@@ -59,7 +84,7 @@
             {@stats.people_count}
           </div>
         </div>
-        <div class="text-right border-l border-neutral-100 dark:border-neutral-700 pl-8 dark:border-neutral-800">
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
           <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
             Domains
           </div>
@@ -67,36 +92,203 @@
             {@stats.domains_count}
           </div>
         </div>
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Risk Posture
+          </div>
+          <div class="flex items-baseline gap-2">
+            <div class={[
+              "text-2xl font-light",
+              if(@stats.domains_at_risk_count > 0,
+                do: "text-amber-600 dark:text-amber-400 font-normal",
+                else: "text-neutral-900 dark:text-neutral-100"
+              )
+            ]}>
+              {@stats.domains_at_risk_count}
+            </div>
+            <%= if @stats.critical_count > 0 || @stats.high_count > 0 do %>
+              <span class="text-[10px] font-mono text-red-600 dark:text-red-400">
+                ({@stats.critical_count}C / {@stats.high_count}H)
+              </span>
+            <% end %>
+          </div>
+          <div class="text-[9px] uppercase tracking-tighter text-neutral-400 mt-0.5">
+            {if @stats.domains_at_risk_count == 1, do: "Domain at risk", else: "Domains at risk"}
+          </div>
+        </div>
       </div>
     </div>
 
-    <%!-- Context info --%>
-    <div class={[
-      "mb-8 border p-4",
-      if(@stats.orgs_count == 0,
-        do: "border-amber-200 bg-amber-50/30",
-        else: "border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50"
-      )
-    ]}>
-      <div class="flex items-start gap-3">
-        <.icon
-          name="hero-information-circle"
-          class="w-4 h-4 text-neutral-400 flex-shrink-0 mt-0.5"
-        />
-        <div>
-          <p class="text-xs font-light text-neutral-500 leading-relaxed">
-            A <span class="font-normal text-neutral-700 dark:text-neutral-300">Brand</span>
-            is the top-level container for your corporate structure.
-            Under each brand you add
-            <span class="font-normal text-neutral-700 dark:text-neutral-300">Organizations</span>
-            — these can be
-            internal departments, regional offices, client companies, or contractor teams.
-          </p>
-          <%= if @stats.orgs_count == 0 do %>
-            <p class="text-xs font-light text-amber-600 mt-2">
-              This brand has no organizations yet. Add one to start tracking projects and people.
-            </p>
+    <%!-- Executive Leadership & Escalation Hierarchy Card --%>
+    <div
+      class="mb-8 border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 p-6 shadow-xs"
+      id="brand-governance-card"
+    >
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <%!-- Left Column: Brand Manager --%>
+        <div class="lg:col-span-6 border-b lg:border-b-0 lg:border-r border-neutral-100 dark:border-neutral-800 pb-6 lg:pb-0 lg:pr-8">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+              <span class="text-xs font-medium uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                Brand Leadership (Level 2 Escalation)
+              </span>
+            </div>
+            <%= if @can_manage? do %>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  phx-click="open_assign_manager"
+                  id="assign-brand-manager-btn"
+                  class="btn-line text-[11px] py-1 px-2.5 inline-flex items-center gap-1"
+                >
+                  <.icon name="hero-user-plus" class="w-3.5 h-3.5" />
+                  {if @brand.brand_manager, do: "Change Manager", else: "Assign Manager"}
+                </button>
+                <%= if @brand.brand_manager do %>
+                  <button
+                    type="button"
+                    phx-click="quick_unassign_brand_manager"
+                    data-confirm="Are you sure you want to unassign this brand manager?"
+                    class="text-[11px] text-neutral-400 hover:text-red-600 transition-colors px-1"
+                    title="Unassign Manager"
+                  >
+                    Unassign
+                  </button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <%= if @brand.brand_manager do %>
+            <div class="flex items-start gap-4 mt-2">
+              <div class="w-12 h-12 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-medium text-sm flex items-center justify-center shrink-0 border border-purple-200 dark:border-purple-800">
+                {String.first(@brand.brand_manager.first_name || "")}{String.first(
+                  @brand.brand_manager.last_name || ""
+                )}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <.link
+                    navigate={~p"/ownership/people/#{@brand.brand_manager.id}"}
+                    class="text-base font-medium text-neutral-900 dark:text-neutral-100 hover:underline"
+                  >
+                    {@brand.brand_manager.first_name} {@brand.brand_manager.last_name}
+                  </.link>
+                  <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                    Brand Manager
+                  </span>
+                </div>
+                <%= if @brand.brand_manager.title do %>
+                  <p class="text-xs text-neutral-500 mt-0.5">{@brand.brand_manager.title}</p>
+                <% end %>
+                <div class="mt-2 flex items-center gap-4 text-xs text-neutral-500">
+                  <%= if @brand.brand_manager.email do %>
+                    <a
+                      href={"mailto:#{@brand.brand_manager.email}"}
+                      class="hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <.icon name="hero-envelope" class="w-3.5 h-3.5 text-neutral-400" />
+                      {@brand.brand_manager.email}
+                    </a>
+                  <% end %>
+                  <%= if @brand.brand_manager.phone do %>
+                    <span class="inline-flex items-center gap-1.5 text-neutral-400">
+                      <.icon name="hero-phone" class="w-3.5 h-3.5" />
+                      {@brand.brand_manager.phone}
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% else %>
+            <div class="p-4 rounded border border-amber-200/80 bg-amber-50/40 dark:border-amber-900/50 dark:bg-amber-950/20 mt-2">
+              <div class="flex items-start gap-3.5">
+                <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <.icon name="hero-user" class="w-5 h-5" />
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <p class="text-xs font-medium text-amber-900 dark:text-amber-200">
+                      No Brand Manager Designated
+                    </p>
+                    <%= if @can_manage? do %>
+                      <button
+                        type="button"
+                        phx-click="open_assign_manager"
+                        class="btn-line text-[11px] py-1 px-2.5 inline-flex items-center gap-1 text-amber-900 border-amber-300 hover:bg-amber-100 dark:text-amber-200 dark:border-amber-700"
+                      >
+                        <.icon name="hero-user-plus" class="w-3.5 h-3.5" /> Assign Now
+                      </button>
+                    <% end %>
+                  </div>
+                  <p class="text-xs font-light text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                    Designating a Brand Manager establishes a clear secondary escalation point above company organizations for governance, domain deprecation, and asset transfers.
+                  </p>
+                </div>
+              </div>
+            </div>
           <% end %>
+        </div>
+
+        <%!-- Right Column: 3-Tier Escalation Hierarchy --%>
+        <div class="lg:col-span-6">
+          <div class="flex items-center gap-2 mb-3">
+            <.icon name="hero-shield-check" class="w-4 h-4 text-neutral-400" />
+            <span class="text-xs font-medium uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+              3-Tier Governance Hierarchy
+            </span>
+          </div>
+
+          <div class="space-y-2.5 text-xs">
+            <div class="p-2.5 rounded border border-neutral-100 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-800/40 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 text-[10px] font-mono flex items-center justify-center font-bold">
+                  1
+                </span>
+                <div>
+                  <span class="font-medium text-neutral-800 dark:text-neutral-200">
+                    Company Level (Frontline)
+                  </span>
+                  <p class="text-[11px] text-neutral-400">
+                    {@stats.orgs_count} Organizations / Companies resolve day-to-day operations via Organization Managers
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-2.5 rounded border border-purple-200 bg-purple-50/50 dark:border-purple-900/50 dark:bg-purple-950/20 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="w-5 h-5 rounded-full bg-purple-600 text-white text-[10px] font-mono flex items-center justify-center font-bold">
+                  2
+                </span>
+                <div>
+                  <span class="font-medium text-purple-900 dark:text-purple-200">
+                    Brand Level (Current Portfolio)
+                  </span>
+                  <p class="text-[11px] text-purple-700/70 dark:text-purple-300/70">
+                    Brand Manager provides cross-company governance, strategic direction & escalation oversight
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-2.5 rounded border border-neutral-100 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-800/40 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-mono flex items-center justify-center font-bold">
+                  3
+                </span>
+                <div>
+                  <span class="font-medium text-neutral-800 dark:text-neutral-200">
+                    Execution & Technical Layer
+                  </span>
+                  <p class="text-[11px] text-neutral-400">
+                    {@stats.domains_count} Domains & {@stats.projects_count} Projects managed by direct PM and PO contacts
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -188,6 +380,20 @@
         ]}
       >
         Domains ({@stats.domains_count})
+      </.link>
+      <.link
+        patch={~p"/ownership/brands/#{@brand.id}?tab=audit"}
+        class={[
+          "text-xs font-normal uppercase tracking-widest pb-4 border-b-2 transition-all duration-200",
+          if(@current_tab == "audit",
+            do:
+              "border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100",
+            else:
+              "border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Audit Trail ({length(@versions)})
       </.link>
     </div>
 
@@ -419,17 +625,35 @@
                   navigate={~p"/domains/#{domain.id}"}
                   class="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors group dark:hover:bg-neutral-700"
                 >
-                  <div>
-                    <div class="text-sm font-normal text-neutral-900 dark:text-neutral-100">
-                      {domain.name}
-                    </div>
-                    <%= if domain.organization_id do %>
-                      <div class="text-xs font-light text-neutral-400">
-                        Assigned to organization
+                  <div class="flex items-center gap-3">
+                    <span class={
+                      RavnerWeb.DomainComponents.lifecycle_dot_class(domain.lifecycle_state, :sm)
+                    }>
+                    </span>
+                    <div>
+                      <div class="text-sm font-normal text-neutral-900 group-hover:text-neutral-700 dark:text-neutral-100 dark:group-hover:text-neutral-300">
+                        {domain.name}
                       </div>
-                    <% end %>
+                      <div class="text-xs font-light text-neutral-400 flex items-center gap-2 mt-0.5">
+                        <%= if domain.organization_name do %>
+                          <span>Org: {domain.organization_name}</span>
+                        <% else %>
+                          <span class="text-amber-600 dark:text-amber-400">No org assigned</span>
+                        <% end %>
+                        <%= if domain.project_name do %>
+                          <span class="text-neutral-300">|</span>
+                          <span>Project: {domain.project_name}</span>
+                        <% end %>
+                      </div>
+                    </div>
                   </div>
                   <div class="flex items-center gap-4">
+                    <%= if domain.technical_status do %>
+                      <RavnerWeb.DomainComponents.technical_status_indicator
+                        status={domain.technical_status}
+                        variant={:label}
+                      />
+                    <% end %>
                     <%= if domain.lifecycle_state do %>
                       <span class="text-[9px] uppercase tracking-widest text-neutral-500 border border-neutral-200 px-2 py-0.5 dark:text-neutral-400 dark:border-neutral-700">
                         {domain.lifecycle_state}
@@ -445,6 +669,289 @@
             </div>
           <% end %>
         </div>
+      <% @current_tab == "audit" -> %>
+        <div class="space-y-6">
+          <h2 class="text-xs font-normal uppercase tracking-widest text-neutral-800 flex items-center gap-3 dark:text-neutral-200">
+            Brand Governance History
+            <span class="h-px flex-1 bg-neutral-100 dark:bg-neutral-700"></span>
+          </h2>
+          <.governance_audit_trail
+            versions={@versions}
+            brands={[@brand]}
+            orgs={@all_organizations}
+            projects={@projects}
+          />
+        </div>
+    <% end %>
+
+    <%!-- Manager Assignment Modal --%>
+    <%= if @assigning_manager? do %>
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs"
+        id="assign-brand-manager-modal"
+      >
+        <div class="fixed inset-0" phx-click="close_assign_manager"></div>
+        <div class="relative w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-xl z-10">
+          <div class="flex items-center justify-between mb-4 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+            <div>
+              <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+                Assign Brand Manager
+              </h3>
+              <p class="text-xs text-neutral-500 mt-0.5">
+                Designate the central authority for oversight and escalations for {@brand.display_name ||
+                  @brand.name}.
+              </p>
+            </div>
+            <button
+              type="button"
+              phx-click="close_assign_manager"
+              class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <%!-- Quick Search --%>
+            <div>
+              <label class="block text-xs font-medium uppercase tracking-wider text-neutral-500 mb-1.5">
+                Find Candidate
+              </label>
+              <div class="relative">
+                <.icon
+                  name="hero-magnifying-glass"
+                  class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                />
+                <input
+                  type="text"
+                  name="query"
+                  value={@people_search_query}
+                  placeholder="Search by name, title, or email..."
+                  phx-change="search_people"
+                  phx-keyup="search_people"
+                  class="w-full pl-9 pr-3 py-2 border border-neutral-200 bg-white text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500"
+                />
+              </div>
+            </div>
+
+            <%!-- Quick Pick List --%>
+            <div class="max-h-48 overflow-y-auto border border-neutral-100 divide-y divide-neutral-100 dark:border-neutral-800 dark:divide-neutral-800 rounded">
+              <%= if @filtered_people == [] do %>
+                <div class="py-6 text-center text-xs text-neutral-400">
+                  No matching candidates found.
+                </div>
+              <% else %>
+                <%= for person <- @filtered_people do %>
+                  <div class={[
+                    "flex items-center justify-between p-2.5 transition-colors",
+                    if(@brand.brand_manager_id == person.id,
+                      do: "bg-purple-50/50 dark:bg-purple-950/20",
+                      else: "hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
+                    )
+                  ]}>
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="w-7 h-7 rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 text-[10px] font-medium flex items-center justify-center shrink-0">
+                        {String.first(person.first_name || "")}{String.first(
+                          person.last_name || ""
+                        )}
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-xs font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                          {person.first_name} {person.last_name}
+                          <%= if @brand.brand_manager_id == person.id do %>
+                            <span class="text-[9px] text-purple-600 dark:text-purple-400 font-normal ml-1">
+                              (Current)
+                            </span>
+                          <% end %>
+                        </div>
+                        <div class="text-[11px] text-neutral-400 truncate">
+                          {person.title || person.email || "No details"}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="assign_brand_manager"
+                      phx-value-manager_id={person.id}
+                      class={[
+                        "text-[10px] px-2.5 py-1 rounded border transition-colors shrink-0",
+                        if(@brand.brand_manager_id == person.id,
+                          do:
+                            "border-purple-300 text-purple-700 bg-purple-100 dark:border-purple-700 dark:bg-purple-900 dark:text-purple-200",
+                          else:
+                            "border-neutral-200 hover:border-neutral-900 text-neutral-700 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-400"
+                        )
+                      ]}
+                    >
+                      {if @brand.brand_manager_id == person.id, do: "Selected", else: "Select"}
+                    </button>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+
+            <%!-- Fallback standard form with select (supports testing & unassigning) --%>
+            <form
+              phx-submit="assign_brand_manager"
+              class="space-y-4 pt-2 border-t border-neutral-100 dark:border-neutral-800"
+            >
+              <div>
+                <label class="block text-xs font-medium uppercase tracking-wider text-neutral-500 mb-1.5">
+                  Or select from dropdown
+                </label>
+                <select
+                  name="manager_id"
+                  id="brand-manager-select"
+                  class="w-full px-3 py-2 border border-neutral-200 bg-white text-sm text-neutral-900 focus:outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                >
+                  <option value="">-- None (Unassign Manager) --</option>
+                  <%= for person <- @people_options do %>
+                    <option
+                      value={person.id}
+                      selected={@brand.brand_manager_id == person.id}
+                    >
+                      {person.first_name} {person.last_name} ({person.email || "no email"})
+                    </option>
+                  <% end %>
+                </select>
+                <p class="text-[11px] text-neutral-400 mt-1.5 flex items-center justify-between">
+                  <span>Need someone not in the list?</span>
+                  <.link
+                    navigate={~p"/admin/people/new"}
+                    class="text-neutral-700 dark:text-neutral-300 underline hover:text-black"
+                  >
+                    + Create new person
+                  </.link>
+                </p>
+              </div>
+
+              <div class="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                <button
+                  type="button"
+                  phx-click="close_assign_manager"
+                  class="btn-line text-xs py-2 px-4"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  id="save-brand-manager-btn"
+                  class="btn-line-filled text-xs py-2 px-4"
+                >
+                  Save Brand Manager
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%= if @inviting_manager? do %>
+      <div
+        class="fixed inset-0 bg-black/40 z-50 backdrop-blur-xs flex items-center justify-center p-4"
+        phx-click="close_invite_manager"
+        id="invite-company-manager-modal"
+      >
+        <div
+          class="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 max-w-lg w-full p-6 shadow-xl"
+          phx-click-stop
+        >
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <.icon name="hero-envelope" class="w-4 h-4" />
+              </span>
+              <div>
+                <h3 class="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                  Invite Company Manager
+                </h3>
+                <p class="text-xs text-neutral-500">
+                  Send an invitation to appoint an Organization Manager for a company in this brand.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              phx-click="close_invite_manager"
+              class="text-neutral-400 hover:text-neutral-600"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <%= if @generated_invite_link do %>
+            <div class="mb-4 p-4 border border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30">
+              <p class="text-xs font-medium text-emerald-900 dark:text-emerald-200 mb-2">
+                Invitation link created successfully!
+              </p>
+              <input
+                type="text"
+                id="generated-invite-url"
+                value={@generated_invite_link}
+                readonly
+                class="w-full text-xs font-mono px-3 py-2 border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-neutral-900 rounded select-all"
+              />
+            </div>
+            <div class="flex justify-end pt-2">
+              <button
+                type="button"
+                phx-click="close_invite_manager"
+                class="btn-line text-xs py-2 px-4"
+              >
+                Done
+              </button>
+            </div>
+          <% else %>
+            <.form
+              for={@invite_form}
+              id="invite-manager-form"
+              phx-submit="send_manager_invite"
+              class="space-y-4"
+            >
+              <.input
+                field={@invite_form[:email]}
+                type="email"
+                label="Email Address"
+                required
+                placeholder="manager@company.com"
+              />
+              <.input
+                field={@invite_form[:name]}
+                type="text"
+                label="Full Name (Optional)"
+                placeholder="Jane Doe"
+              />
+              <.input
+                field={@invite_form[:organization_id]}
+                type="select"
+                label="Assign to Company / Organization"
+                prompt="Select organization"
+                options={
+                  Enum.map(@all_organizations, fn org ->
+                    {org.display_name || org.name, org.id}
+                  end)
+                }
+              />
+              <div class="flex justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-700">
+                <button
+                  type="button"
+                  phx-click="close_invite_manager"
+                  class="btn-line text-xs py-2 px-4"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="btn-line-filled text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  Send Invitation
+                </button>
+              </div>
+            </.form>
+          <% end %>
+        </div>
+      </div>
     <% end %>
   </div>
 </Layouts.app>

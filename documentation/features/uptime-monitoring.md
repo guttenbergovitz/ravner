@@ -1,20 +1,24 @@
 # Uptime Monitoring & Alerting System
 
-## Problem
+**Status:** Implemented  
+**Context:** `Ravner.Uptime`
 
-Ravner has a working heartbeat mechanism (dispatcher checks overdue domains every minute, worker pings and overwrites `is_up` + `last_heartbeat_at`), but it is fire-and-forget with no history, no incident detection, no notifications, and no dedicated status view. We need a StatusCake-like uptime monitoring system with history, alerts (email + SMS), a dedicated status tab, and governance-ready reporting.
+## Overview
 
-## Current State
+Ravner provides a complete, in-process uptime monitoring, incident detection, and multi-channel alerting subsystem. It pairs high-concurrency lightweight HTTP heartbeats (`Req`) with relational history, automatic downtime window tracking, customizable alert resolution policies, and administrative governance reporting.
 
-| Component | Location | What it does |
-|-----------|----------|--------------|
-| `HeartbeatDispatcher` | `lib/ravner/workers/heartbeat_dispatcher.ex` | Oban cron every minute — queries domains where `last_heartbeat_at + interval < NOW()`, enqueues workers |
-| `HeartbeatWorker` | `lib/ravner/workers/heartbeat_worker.ex` | HTTP ping via `httpx` — overwrites `domain_metadata.is_up` + `last_heartbeat_at` |
-| Per-domain config | `domain_metadata.heartbeat_interval_minutes` | Configurable interval per domain (null = disabled). Set in domain panel, visible in `/admin/jobs` |
-| Swoosh mailer | `lib/ravner/mailer.ex`, `config/config.exs` | Configured (Local in dev, SMTP env in prod). Used by `UserNotifier` |
-| Roles | Router pipelines | `:require_admin`, `:require_editor` — Admin/Editor/Viewer model in place |
+## System Architecture
 
-**Does NOT exist:** heartbeat result history, downtime windows, incident detection, status change notifications, SMS delivery, dedicated uptime status tab, uptime reports, governance notes.
+| Component | Location | Responsibility |
+|-----------|----------|----------------|
+| `Ravner.Uptime` | `lib/ravner/uptime.ex` | Core context: check recording, downtime window open/close, statistics, notes |
+| `HeartbeatDispatcher` | `lib/ravner/workers/heartbeat_dispatcher.ex` | Oban cron every minute — queries overdue domains and enqueues check jobs |
+| `HeartbeatWorker` | `lib/ravner/workers/heartbeat_worker.ex` | Fast HTTP ping via `Req` (native) — writes `heartbeat_checks` and triggers downtime evaluation |
+| `HeartbeatRetentionWorker` | `lib/ravner/workers/heartbeat_retention_worker.ex` | Periodic cleanup pruning historical `heartbeat_checks` older than configured retention (default 90 days) |
+| `UptimeNotificationWorker` | `lib/ravner/workers/uptime_notification_worker.ex` | Asynchronous delivery of incident open/close alerts via email and SMS |
+| `SmsAdapter` | `lib/ravner/uptime/sms_adapter.ex` | Adapter behaviour supporting AWS SNS (`AwsSns`), Twilio (`Twilio`), and local dev (`Log`) |
+| `UptimeNotifier` | `lib/ravner/uptime/uptime_notifier.ex` | Branded email templates for incident open, recovery, and reminder notifications |
+| LiveView Uptime UI | `lib/ravner_web/live/admin_live/uptime*` & `uptime_live/` | StatusCake-like real-time status board, incident reporting, and public status views |
 
 ## Target Architecture
 
@@ -119,7 +123,8 @@ Each recipient has configured channels: email only, SMS only, or both.
 ```
 
 **Built-in adapters:**
-- `Twilio`
+- `AwsSns` — AWS SNS (expected production choice)
+- `Twilio` — alternative
 - `Log` — dev/test adapter (logs to console)
 
 **Admin configuration:**
@@ -155,38 +160,34 @@ Each recipient has configured channels: email only, SMS only, or both.
 | Editor | read | read | manage | CRUD | manage | — |
 | Admin | read | read | manage | CRUD | manage | configure |
 
-## Implementation Phases
+## Implementation Status (Completed)
 
 ### Phase 1 — History + Downtime Detection
-
-- [ ] Migration: `heartbeat_checks` table
-- [ ] Migration: `downtime_windows` table
-- [ ] Modify `HeartbeatWorker`: persist check result + detect state flip
-- [ ] Downtime open/close logic with configurable threshold
-- [ ] Oban job: retention (prune old heartbeat_checks)
+- [x] Migration: `heartbeat_checks` table
+- [x] Migration: `downtime_windows` table
+- [x] Modify `HeartbeatWorker`: persist check result + detect state flip
+- [x] Downtime open/close logic with configurable threshold
+- [x] Oban job: retention (prune old heartbeat_checks via `HeartbeatRetentionWorker`)
 
 ### Phase 2 — Status Tab (UI)
-
-- [ ] LiveView at `/admin/uptime` — monitored domains with real-time status
-- [ ] Filters, sorting, color-coded state indicators
-- [ ] Add to admin navigation
+- [x] LiveView at `/admin/uptime` — monitored domains with real-time status
+- [x] Filters, sorting, color-coded state indicators
+- [x] Add to admin navigation & public `/uptime/:id` show view
 
 ### Phase 3 — Notification System
-
-- [ ] Schema: `notification_policies`, `notification_groups`, `notification_recipients`
-- [ ] `SmsAdapter` behaviour + adapters (Twilio, Log)
-- [ ] Configurable mailer identity for uptime emails (from/display name/reply-to)
-- [ ] Notification dispatcher (Oban worker triggered on state flip)
-- [ ] Idempotency tracking (`notification_deliveries`)
-- [ ] "Still down" reminders
-- [ ] Admin UI: provider selection, group management, global policy config, per-domain policy
+- [x] Schema: `notification_policies`, `notification_groups`, `notification_recipients`
+- [x] `SmsAdapter` behaviour + adapters (AwsSns, Twilio, Log)
+- [x] Configurable mailer identity for uptime emails (from/display name/reply-to)
+- [x] Notification dispatcher (Oban worker `UptimeNotificationWorker` triggered on state flip)
+- [x] Idempotency tracking (`notification_deliveries`)
+- [x] "Still down" reminders
+- [x] Admin UI: provider selection, group management, global policy config, per-domain policy
 
 ### Phase 4 — Reports + Notes
-
-- [ ] Report view: time range selector, uptime %, downtime list per domain
-- [ ] Downtime detail view with heartbeat timeline
-- [ ] Governance notes CRUD on downtime windows
-- [ ] Export (CSV) — nice-to-have
+- [x] Report view: time range selector, uptime %, downtime list per domain
+- [x] Downtime detail view with heartbeat timeline
+- [x] Governance notes CRUD on downtime windows
+- [x] Export (CSV) via domain export controller
 
 ## Acceptance Criteria
 
@@ -196,7 +197,7 @@ Each recipient has configured channels: email only, SMS only, or both.
 4. A dedicated uptime tab exists in admin — StatusCake-like real-time status view.
 5. Uptime report can be generated for any time range showing uptime %, incident count, and downtime list per domain.
 6. Email notifications fire on incident open/resolved using a branded template with configurable sender identity.
-7. SMS notifications fire on incident open/resolved via a configurable provider (Twilio / Log) selectable in admin.
+7. SMS notifications fire on incident open/resolved via a configurable provider (AWS SNS / Twilio / Log) selectable in admin.
 8. Recipients can be system users or manually entered contacts (email and/or phone number).
 9. Notification policy resolution: per-domain > group > global.
 10. Notifications are idempotent — no duplicates per incident per recipient.

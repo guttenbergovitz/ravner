@@ -8,27 +8,39 @@ defmodule RavnerWeb.UserSessionHTML do
   end
 
   defp mailer_configured? do
-    alias Ravner.DeliverySettings
+    if Application.get_env(:ravner, Ravner.Mailer)[:adapter] in [
+         Swoosh.Adapters.Test,
+         Swoosh.Adapters.Local
+       ] do
+      true
+    else
+      alias Ravner.DeliverySettings
 
-    provider = DeliverySettings.current_email_provider()
+      provider = DeliverySettings.current_email_provider()
 
-    case provider do
-      "sendgrid" ->
-        DeliverySettings.get("email_sendgrid_api_key") != nil
+      # Check if provider is configured with required fields
+      case provider do
+        "aws_ses" ->
+          DeliverySettings.get("email_ses_access_key") != nil &&
+            DeliverySettings.get("email_ses_secret_key") != nil
 
-      "mailgun" ->
-        DeliverySettings.get("email_mailgun_api_key") != nil &&
-          DeliverySettings.get("email_mailgun_domain") != nil
+        "sendgrid" ->
+          DeliverySettings.get("email_sendgrid_api_key") != nil
 
-      "postmark" ->
-        DeliverySettings.get("email_postmark_api_key") != nil
+        "mailgun" ->
+          DeliverySettings.get("email_mailgun_api_key") != nil &&
+            DeliverySettings.get("email_mailgun_domain") != nil
 
-      "smtp" ->
-        DeliverySettings.get("email_smtp_host") != nil &&
-          DeliverySettings.get("email_smtp_username") != nil
+        "postmark" ->
+          DeliverySettings.get("email_postmark_api_key") != nil
 
-      _ ->
-        false
+        "smtp" ->
+          DeliverySettings.get("email_smtp_host") != nil &&
+            DeliverySettings.get("email_smtp_username") != nil
+
+        _ ->
+          false
+      end
     end
   end
 end

@@ -1,6 +1,7 @@
 defmodule Ravner.AccountsTest do
-  use Ravner.DataCase
+  use Ravner.DataCase, async: true
 
+  import Ecto.Query
   alias Ravner.Accounts
 
   import Ravner.AccountsFixtures
@@ -352,7 +353,11 @@ defmodule Ravner.AccountsTest do
 
     test "raises when unconfirmed user has password set" do
       user = unconfirmed_user_fixture()
-      {1, nil} = Repo.update_all(User, set: [hashed_password: "hashed"])
+
+      {1, nil} =
+        from(u in User, where: u.id == ^user.id)
+        |> Repo.update_all(set: [hashed_password: "hashed"])
+
       {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
 
       assert_raise RuntimeError, ~r/magic link log in is not allowed/, fn ->

@@ -10,11 +10,20 @@ defmodule RavnerWeb.OwnershipLive.PersonShow do
     stats = OwnershipStats.person_stats(id)
     all_roles = OwnershipStats.list_roles_for_person(id)
 
+    pm_projects = OwnershipStats.list_pm_projects_for_person(id)
+    po_projects = OwnershipStats.list_po_projects_for_person(id)
+    managed_brands = OwnershipStats.list_brands_for_person(id)
+    managed_orgs = OwnershipStats.list_organizations_for_person(id)
+
     {:ok,
      socket
      |> assign(:page_title, "#{person.first_name} #{person.last_name}")
      |> assign(:person, person)
      |> assign(:stats, stats)
+     |> assign(:pm_projects, pm_projects)
+     |> assign(:po_projects, po_projects)
+     |> assign(:managed_brands, managed_brands)
+     |> assign(:managed_orgs, managed_orgs)
      |> assign(:all_roles, all_roles)
      |> assign(:roles, all_roles)
      |> assign(:search_query, "")}

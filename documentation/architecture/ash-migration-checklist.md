@@ -1,6 +1,6 @@
 # Ash Framework Migration: Actionable Checklist
 
-**Status:** Completed
+**Status:** Completed (Core & Phase 6 Post-Audit Hardening Implemented in v0.18.0 — see [Hardening & Remediation Plan](hardening-and-remediation-plan.md))
 
 This checklist translates the high-level Ash Migration Plan into trackable, concrete steps. It is designed to be followed sequentially to avoid regressions, maintain existing functionality ("Facade Pattern"), and provide clear rollback points.
 
@@ -100,3 +100,20 @@ This checklist translates the high-level Ash Migration Plan into trackable, conc
 - [x] Run full test suite.
 - [ ] Run `mix dialyzer`.
 - [x] Perform a full end-to-end manual test: Add a Domain -> Assign to Project -> Run Scan -> Check Jobs Dashboard -> Verify Audit Trail.
+
+---
+
+## Phase 6: Post-Audit Governance Hardening (v0.18.0 Target)
+*Goal: Close remaining authorization, audit trail, and facade error propagation gaps identified in the v0.17.2 architectural audit (see [Hardening & Remediation Plan](hardening-and-remediation-plan.md)).*
+
+- [x] **Domain Child Resource Policies & Domain Authorization:**
+  - [x] Enable `authorization do authorize(:by_default) end` in `Ravner.Domains.AshDomain`.
+  - [x] Add `Ash.Policy.Authorizer` and `ScopeReadCheck` policies to `DnsRecord`, `TechEvidence`, `DiscoveredUrl`, `DomainTag`, and `DomainMetadata`.
+  - [x] Enforce `ScopeReadCheck.filter(nil, _context, _opts) -> false` and support `%Scope{}` directly as actor.
+- [x] **Complete Governance Audit Trail (`AshPaperTrail`):**
+  - [x] Add `AshPaperTrail.Resource` to `Ravner.Inventory.Person` and `Ravner.Inventory.ProjectRole`.
+  - [x] Generate migration for `people_versions` and `project_roles_versions`.
+- [x] **Admin User Forms & Facade Error Mapping:**
+  - [x] Migrate `RavnerWeb.AdminLive.Users` forms from raw Ecto changesets to `AshPhoenix.Form` backed by `Ravner.Accounts.UserResource`.
+  - [x] Map `Ash.Error.Invalid` errors onto `Ecto.Changeset` in `execute_ash_action/5` (`Ravner.Domains` and `Ravner.Inventory`).
+

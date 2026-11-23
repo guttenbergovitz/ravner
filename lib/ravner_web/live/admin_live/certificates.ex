@@ -9,6 +9,8 @@ defmodule RavnerWeb.AdminLive.Certificates do
   alias Ravner.Domains.DomainMetadata
   import Ecto.Query
 
+  @operational_states Domain.operational_states()
+
   @impl true
   def mount(_params, _session, socket) do
     if admin?(socket.assigns.current_scope) do
@@ -71,6 +73,60 @@ defmodule RavnerWeb.AdminLive.Certificates do
   end
 
   @impl true
+  def handle_event("scan_expired", _params, socket) do
+    ids =
+      socket.assigns.certificates
+      |> Enum.filter(fn c -> c.days_remaining != nil and c.days_remaining < 0 end)
+      |> Enum.map(& &1.id)
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :info, "No expired certificates to scan")}
+    else
+      jobs =
+        Enum.map(ids, fn id ->
+          Ravner.Workers.ScanWorker.new(%{domain_id: id, scan_type: "ssl"}, queue: :ssl_checks)
+        end)
+
+      Oban.insert_all(jobs)
+
+      {:noreply,
+       put_flash(
+         socket,
+         :info,
+         "Queued SSL scan for #{length(ids)} expired domain(s)"
+       )}
+    end
+  end
+
+  @impl true
+  def handle_event("scan_expiring_30d", _params, socket) do
+    ids =
+      socket.assigns.certificates
+      |> Enum.filter(fn c ->
+        c.days_remaining != nil and c.days_remaining >= 0 and c.days_remaining <= 30
+      end)
+      |> Enum.map(& &1.id)
+
+    if ids == [] do
+      {:noreply, put_flash(socket, :info, "No certificates expiring within 30 days to scan")}
+    else
+      jobs =
+        Enum.map(ids, fn id ->
+          Ravner.Workers.ScanWorker.new(%{domain_id: id, scan_type: "ssl"}, queue: :ssl_checks)
+        end)
+
+      Oban.insert_all(jobs)
+
+      {:noreply,
+       put_flash(
+         socket,
+         :info,
+         "Queued SSL scan for #{length(ids)} domain(s) expiring within 30 days"
+       )}
+    end
+  end
+
+  @impl true
   def handle_event("bulk_scan", %{"limit" => limit}, socket) do
     limit = String.to_integer(limit)
 
@@ -81,7 +137,7 @@ defmodule RavnerWeb.AdminLive.Certificates do
 
     jobs =
       Enum.map(ids, fn id ->
-        Ravner.Workers.ScanWorker.new(%{domain_id: id, scan_type: "ssl"})
+        Ravner.Workers.ScanWorker.new(%{domain_id: id, scan_type: "ssl"}, queue: :ssl_checks)
       end)
 
     Oban.insert_all(jobs)
@@ -97,10 +153,13 @@ defmodule RavnerWeb.AdminLive.Certificates do
   end
 
   defp fetch_certificates(socket) do
+    now = DateTime.utc_now()
+
     query =
       from(m in DomainMetadata,
         join: d in Domain,
         on: m.domain_id == d.id,
+        where: d.lifecycle_state in ^@operational_states,
         where: not is_nil(m.ssl_valid_until),
         order_by: [asc: m.ssl_valid_until],
         select: %{
@@ -113,8 +172,31 @@ defmodule RavnerWeb.AdminLive.Certificates do
         }
       )
 
-    certs = Repo.all(query)
-    assign(socket, :certificates, certs)
+    certs =
+      Repo.all(query)
+      |> Enum.map(fn cert ->
+        days =
+          if cert.valid_until do
+            DateTime.diff(cert.valid_until, now, :day)
+          else
+            cert.days_remaining
+          end
+
+        Map.put(cert, :days_remaining, days)
+      end)
+
+    expired_count =
+      Enum.count(certs, fn c -> c.days_remaining != nil and c.days_remaining < 0 end)
+
+    expiring_30d_count =
+      Enum.count(certs, fn c ->
+        c.days_remaining != nil and c.days_remaining >= 0 and c.days_remaining <= 30
+      end)
+
+    socket
+    |> assign(:certificates, certs)
+    |> assign(:expired_count, expired_count)
+    |> assign(:expiring_30d_count, expiring_30d_count)
   end
 
   defp escape_csv_field(nil), do: ""

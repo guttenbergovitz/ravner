@@ -9,7 +9,7 @@
       </div>
       <div class="flex bg-neutral-100 p-1 rounded-lg dark:bg-neutral-800">
         <button
-          :for={tab <- [:policies, :groups, :sms]}
+          :for={tab <- [:policies, :groups, :webhooks, :sms]}
           phx-click="set_tab"
           phx-value-tab={tab}
           class={[
@@ -65,28 +65,53 @@
                 <div class="space-y-1">
                   <div
                     :for={r <- policy.recipients}
-                    class="flex items-center justify-between text-sm"
+                    class="flex items-center justify-between text-sm py-1 border-b border-neutral-100 dark:border-neutral-800 last:border-0"
                   >
-                    <span class="text-neutral-600 dark:text-neutral-400">
+                    <div class="flex items-center gap-2">
                       <%= cond do %>
+                        <% r.webhook_url -> %>
+                          <span class="inline-flex items-center gap-1.5">
+                            <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                              Webhook: {r.webhook_type || "generic"}
+                            </span>
+                            <span
+                              class="font-mono text-xs text-neutral-700 dark:text-neutral-300 truncate max-w-xs"
+                              title={r.webhook_url}
+                            >
+                              {r.webhook_url}
+                            </span>
+                          </span>
                         <% r.user_id -> %>
-                          User #{r.user_id}
+                          <span class="text-neutral-700 dark:text-neutral-300">
+                            User #{r.user_id}
+                          </span>
                         <% r.email -> %>
-                          {r.email}
+                          <span class="text-neutral-700 dark:text-neutral-300">{r.email}</span>
                         <% r.phone -> %>
-                          {r.phone}
+                          <span class="text-neutral-700 dark:text-neutral-300">{r.phone}</span>
                         <% true -> %>
-                          (unknown)
+                          <span class="text-neutral-400">(unknown)</span>
                       <% end %>
-                      <span class="ml-2 text-xs text-neutral-400">({r.channels})</span>
-                    </span>
-                    <button
-                      phx-click="delete_recipient"
-                      phx-value-id={r.id}
-                      class="text-xs text-red-500 hover:text-red-700 cursor-pointer"
-                    >
-                      Remove
-                    </button>
+                      <span class="text-[11px] text-neutral-400">({r.channels})</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <%= if r.webhook_url do %>
+                        <button
+                          phx-click="test_webhook"
+                          phx-value-id={r.id}
+                          class="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200 font-medium cursor-pointer"
+                        >
+                          Test
+                        </button>
+                      <% end %>
+                      <button
+                        phx-click="delete_recipient"
+                        phx-value-id={r.id}
+                        class="text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -114,7 +139,7 @@
                     type="email"
                     name="email"
                     placeholder="or@manual.com"
-                    class="block text-xs border border-neutral-200 rounded px-2 py-1 w-40 dark:border-neutral-700 dark:bg-neutral-800"
+                    class="block text-xs border border-neutral-200 rounded px-2 py-1 w-32 dark:border-neutral-700 dark:bg-neutral-800"
                   />
                 </div>
                 <div>
@@ -125,7 +150,7 @@
                     type="tel"
                     name="phone"
                     placeholder="+48..."
-                    class="block text-xs border border-neutral-200 rounded px-2 py-1 w-32 dark:border-neutral-700 dark:bg-neutral-800"
+                    class="block text-xs border border-neutral-200 rounded px-2 py-1 w-24 dark:border-neutral-700 dark:bg-neutral-800"
                   />
                 </div>
                 <div>
@@ -138,8 +163,46 @@
                   >
                     <option value="email">Email</option>
                     <option value="sms">SMS</option>
-                    <option value="both">Both</option>
+                    <option value="both">Email + SMS</option>
+                    <option value="webhook">Webhook</option>
+                    <option value="all">All Channels</option>
                   </select>
+                </div>
+                <div>
+                  <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                    Webhook URL
+                  </label>
+                  <input
+                    type="url"
+                    name="webhook_url"
+                    placeholder="https://hooks.slack.com/..."
+                    class="block text-xs border border-neutral-200 rounded px-2 py-1 w-44 dark:border-neutral-700 dark:bg-neutral-800"
+                  />
+                </div>
+                <div>
+                  <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                    Webhook Type
+                  </label>
+                  <select
+                    name="webhook_type"
+                    class="block text-xs border border-neutral-200 rounded px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+                  >
+                    <option value="slack">Slack</option>
+                    <option value="teams">MS Teams</option>
+                    <option value="discord">Discord</option>
+                    <option value="generic">Generic JSON</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                    Secret (opt)
+                  </label>
+                  <input
+                    type="password"
+                    name="secret_header"
+                    placeholder="HMAC secret / Bearer"
+                    class="block text-xs border border-neutral-200 rounded px-2 py-1 w-32 dark:border-neutral-700 dark:bg-neutral-800"
+                  />
                 </div>
                 <button
                   type="submit"
@@ -199,7 +262,65 @@
           </div>
           <p class="text-xs text-neutral-500 mb-3">{length(group.recipients)} recipient(s)</p>
 
-          <form phx-submit="add_recipient" class="flex flex-wrap gap-2 items-end">
+          <%= if group.recipients != [] do %>
+            <div class="space-y-1 mb-4 border-t border-neutral-100 dark:border-neutral-800 pt-3">
+              <div
+                :for={r <- group.recipients}
+                class="flex items-center justify-between text-sm py-1 border-b border-neutral-100 dark:border-neutral-800 last:border-0"
+              >
+                <div class="flex items-center gap-2">
+                  <%= cond do %>
+                    <% r.webhook_url -> %>
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                          Webhook: {r.webhook_type || "generic"}
+                        </span>
+                        <span
+                          class="font-mono text-xs text-neutral-700 dark:text-neutral-300 truncate max-w-xs"
+                          title={r.webhook_url}
+                        >
+                          {r.webhook_url}
+                        </span>
+                      </span>
+                    <% r.user_id -> %>
+                      <span class="text-neutral-700 dark:text-neutral-300">
+                        User #{r.user_id}
+                      </span>
+                    <% r.email -> %>
+                      <span class="text-neutral-700 dark:text-neutral-300">{r.email}</span>
+                    <% r.phone -> %>
+                      <span class="text-neutral-700 dark:text-neutral-300">{r.phone}</span>
+                    <% true -> %>
+                      <span class="text-neutral-400">(unknown)</span>
+                  <% end %>
+                  <span class="text-[11px] text-neutral-400">({r.channels})</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <%= if r.webhook_url do %>
+                    <button
+                      phx-click="test_webhook"
+                      phx-value-id={r.id}
+                      class="text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-200 font-medium cursor-pointer"
+                    >
+                      Test
+                    </button>
+                  <% end %>
+                  <button
+                    phx-click="delete_recipient"
+                    phx-value-id={r.id}
+                    class="text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <form
+            phx-submit="add_recipient"
+            class="flex flex-wrap gap-2 items-end border-t border-neutral-100 dark:border-neutral-800 pt-3"
+          >
             <input type="hidden" name="group_id" value={group.id} />
             <div>
               <label class="text-[10px] uppercase tracking-wide text-neutral-500">User</label>
@@ -217,7 +338,7 @@
                 type="email"
                 name="email"
                 placeholder="or@manual.com"
-                class="block text-xs border border-neutral-200 rounded px-2 py-1 w-40 dark:border-neutral-700 dark:bg-neutral-800"
+                class="block text-xs border border-neutral-200 rounded px-2 py-1 w-32 dark:border-neutral-700 dark:bg-neutral-800"
               />
             </div>
             <div>
@@ -226,7 +347,7 @@
                 type="tel"
                 name="phone"
                 placeholder="+48..."
-                class="block text-xs border border-neutral-200 rounded px-2 py-1 w-32 dark:border-neutral-700 dark:bg-neutral-800"
+                class="block text-xs border border-neutral-200 rounded px-2 py-1 w-24 dark:border-neutral-700 dark:bg-neutral-800"
               />
             </div>
             <div>
@@ -237,8 +358,46 @@
               >
                 <option value="email">Email</option>
                 <option value="sms">SMS</option>
-                <option value="both">Both</option>
+                <option value="both">Email + SMS</option>
+                <option value="webhook">Webhook</option>
+                <option value="all">All Channels</option>
               </select>
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                Webhook URL
+              </label>
+              <input
+                type="url"
+                name="webhook_url"
+                placeholder="https://hooks.slack.com/..."
+                class="block text-xs border border-neutral-200 rounded px-2 py-1 w-44 dark:border-neutral-700 dark:bg-neutral-800"
+              />
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                Webhook Type
+              </label>
+              <select
+                name="webhook_type"
+                class="block text-xs border border-neutral-200 rounded px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+              >
+                <option value="slack">Slack</option>
+                <option value="teams">MS Teams</option>
+                <option value="discord">Discord</option>
+                <option value="generic">Generic JSON</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-wide text-neutral-500">
+                Secret (opt)
+              </label>
+              <input
+                type="password"
+                name="secret_header"
+                placeholder="HMAC / Bearer"
+                class="block text-xs border border-neutral-200 rounded px-2 py-1 w-32 dark:border-neutral-700 dark:bg-neutral-800"
+              />
             </div>
             <button
               type="submit"
@@ -247,6 +406,140 @@
               Add
             </button>
           </form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Webhooks Tab --%>
+    <%= if @active_tab == :webhooks do %>
+      <div class="space-y-6">
+        <div class="card-line p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-medium">Configured Webhook Endpoints</h2>
+              <p class="text-xs text-neutral-500 mt-1">
+                Active Slack, Microsoft Teams, Discord, and Generic JSON endpoints receiving security and uptime alerts.
+              </p>
+            </div>
+            <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+              {length(@webhook_recipients)} Connected
+            </span>
+          </div>
+
+          <%= if @webhook_recipients == [] do %>
+            <div class="text-center py-8 text-neutral-500 text-xs">
+              No webhook endpoints configured yet. Add a recipient with channel "Webhook" or "All Channels" under Policies or Groups.
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="border-b border-neutral-100 dark:border-neutral-800 text-neutral-400 uppercase tracking-wider">
+                  <tr>
+                    <th class="py-2.5 px-3">Type</th>
+                    <th class="py-2.5 px-3">Target URL</th>
+                    <th class="py-2.5 px-3">Scope</th>
+                    <th class="py-2.5 px-3">Auth / Secret</th>
+                    <th class="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  <tr
+                    :for={r <- @webhook_recipients}
+                    class="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50"
+                  >
+                    <td class="py-3 px-3">
+                      <span class="inline-flex px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                        {r.webhook_type || "generic"}
+                      </span>
+                    </td>
+                    <td
+                      class="py-3 px-3 font-mono text-neutral-700 dark:text-neutral-300 max-w-sm truncate"
+                      title={r.webhook_url}
+                    >
+                      {r.webhook_url}
+                    </td>
+                    <td class="py-3 px-3 text-neutral-500">
+                      <%= cond do %>
+                        <% r.policy -> %>
+                          Policy: {r.policy.name} ({r.policy.scope})
+                        <% r.group -> %>
+                          Group: {r.group.name}
+                        <% true -> %>
+                          Direct
+                      <% end %>
+                    </td>
+                    <td class="py-3 px-3 text-neutral-500">
+                      <%= if r.secret_header do %>
+                        <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                          <.icon name="hero-check-circle" class="w-3.5 h-3.5" /> Configured
+                        </span>
+                      <% else %>
+                        <span class="text-neutral-400">None</span>
+                      <% end %>
+                    </td>
+                    <td class="py-3 px-3 text-right space-x-2">
+                      <button
+                        phx-click="test_webhook"
+                        phx-value-id={r.id}
+                        class="px-2.5 py-1 text-[11px] font-medium border border-neutral-200 rounded hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800 cursor-pointer"
+                      >
+                        Send Test Ping
+                      </button>
+                      <button
+                        phx-click="delete_recipient"
+                        phx-value-id={r.id}
+                        class="text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Webhook Capabilities Guide --%>
+        <div class="card-line p-6 space-y-4">
+          <h3 class="text-sm font-medium">ChatOps & Security Alert Triggers</h3>
+          <p class="text-xs text-neutral-500">
+            Webhooks are automatically dispatched for high-priority operational and security incidents:
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="p-3 rounded-lg border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+              <span class="font-medium text-neutral-900 dark:text-neutral-100">
+                🚨 Uptime Outages & Recovery
+              </span>
+              <p class="text-neutral-500 mt-1">
+                Dispatches on incident opening, resolution, and periodic reminders for ongoing outages.
+              </p>
+            </div>
+            <div class="p-3 rounded-lg border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+              <span class="font-medium text-neutral-900 dark:text-neutral-100">
+                🔥 Critical CVE Vulnerabilities
+              </span>
+              <p class="text-neutral-500 mt-1">
+                Dispatches immediately when OSV.dev identifies a Critical severity vulnerability during repository scans.
+              </p>
+            </div>
+            <div class="p-3 rounded-lg border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+              <span class="font-medium text-neutral-900 dark:text-neutral-100">
+                🔑 In-Process Leaked Secrets
+              </span>
+              <p class="text-neutral-500 mt-1">
+                Dispatches when AWS keys, GitHub tokens, database URIs, or private keys are committed to source code.
+              </p>
+            </div>
+            <div class="p-3 rounded-lg border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+              <span class="font-medium text-neutral-900 dark:text-neutral-100">
+                🔒 SSL Certificate Expiration
+              </span>
+              <p class="text-neutral-500 mt-1">
+                Dispatches automated warnings when domain TLS certificates are within 14 days of expiration.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     <% end %>
@@ -268,8 +561,10 @@
           </span>
         </div>
         <p class="text-xs text-neutral-400 mt-4">
-          Available adapters: <strong>Log</strong> (dev/test) and <strong>Twilio</strong>.
-          Set Twilio credentials via environment variables.
+          Available adapters: <strong>Log</strong>
+          (dev/test), <strong>AwsSns</strong>
+          (AWS SNS), <strong>Twilio</strong>.
+          Set credentials via environment variables (AWS_ACCESS_KEY_ID, TWILIO_ACCOUNT_SID, etc.).
         </p>
       </div>
     <% end %>

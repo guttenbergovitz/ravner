@@ -21,11 +21,11 @@ The `/ownership` section provides read-only drill-down views with aggregated sta
 
 The system operates on a multi-stage discovery model, which can be triggered manually or automated via schedules:
 
-1.  **Identity**: DNS resolution (`dnsx`) and registration details (`rdap/whois`).
-2.  **Reachability**: HTTP probing (`httpx`) to determine status, final URLs, and server headers.
+1.  **Identity**: DNS resolution (native `:inet_res`) and registration details (`rdap/whois`).
+2.  **Reachability**: HTTP probing (native, `Req`-based) to determine status, final URLs, and server headers.
 3.  **Topology**: Subdomain enumeration via passive and active sources (Chaos, HackerTarget, crt.sh).
 4.  **Security**: Port discovery (`naabu`) and targeted vulnerability scanning (`nuclei`) scoped to high-impact findings.
-5.  **Intelligence**: Technology stack fingerprints via `webanalyze` (Wappalyzer) and deep crawling via `katana`.
+5.  **Intelligence**: Technology stack fingerprints via a native Wappalyzer matcher (`Ravner.Scans.TechFingerprint`, database auto-updated daily) and deep crawling via `katana`.
 6.  **Persistence**: Continuous uptime monitoring via lightweight heartbeats.
 
 ## Automation & Scheduling
@@ -80,6 +80,16 @@ Admins can manage users through `/admin/users`:
 - **Delete users** with safeguards (cannot delete self, cannot delete last admin)
 - **Invite flow** with time-limited tokens for onboarding new team members
 
+## Model Context Protocol (MCP) Server
+
+Ravner includes a native Model Context Protocol (MCP) server powered by `ash_ai` and `req_llm`, mounted at `/mcp`. It exposes Ash-managed governance resources as structured tools for LLM agents, developer IDEs (Cursor, Claude Code, Windsurf), and automated workflows:
+
+- **Endpoint**: `POST /mcp` (Streamable HTTP / JSON-RPC 2.0)
+- **Supported Auth**: `Authorization: Bearer <TOKEN>`, `X-API-Key: <TOKEN>`, `X-MCP-Token: <TOKEN>`, or user session tokens.
+- **Environment Variables**: Configure `RAVNER_MCP_API_KEY` (and optional `RAVNER_MCP_ACTOR_EMAIL`).
+- **Policy & Audit Guarantees**: Tool execution propagates the authenticated actor to Ash actions, enforcing `Ash.Policy.Authorizer` checks and logging mutations to `AshPaperTrail` (`domains_versions`, `projects_versions`).
+- **Stop Line Architecture**: Exposes only governance domains (`Ravner.Domains.AshDomain`, `Ravner.Inventory.AshDomain`, `Ravner.Accounts.AshDomain`). High-volume background scanners, Oban worker queues, and external command execution remain on pure Ecto/Oban and are excluded from LLM tools.
+
 ## Development
 
 ### Prerequisites
@@ -87,7 +97,12 @@ Admins can manage users through `/admin/users`:
 - Elixir 1.16+
 - PostgreSQL
 - External tools (must be in `$PATH`):
-  - `dnsx`, `httpx`, `naabu`, `nuclei`, `katana`, `webanalyze`, `whois`
+  - `naabu`, `nuclei`, `katana`, `whois`
+
+  DNS resolution, HTTP probing and technology fingerprinting run natively
+  inside the BEAM — no `dnsx`, `httpx` or `webanalyze` binaries needed.
+  The Wappalyzer fingerprint database is fetched automatically on first boot
+  and refreshed daily by `Ravner.Workers.TechnologiesUpdateWorker`.
 
 ### Setup
 
@@ -105,14 +120,48 @@ mix phx.server
 
 ## Documentation
 
-Detailed specifications and architectural notes are kept in the `/documentation` directory:
+Detailed specifications and architectural notes are organized in the `/documentation` directory:
 
-- `/documentation/features` — Specific feature designs (Bulk ops, Security scans, Access control).
+- [`/documentation/index.md`](documentation/index.md) — Master documentation index and architecture navigation.
+- [`/documentation/onboarding.md`](documentation/onboarding.md) — System onboarding manual for engineers, operators, and LLMs.
+- `/documentation/features` — Specific feature designs (Uptime monitoring, Bulk ops, Security scans, Access control).
 - `/documentation/architecture` — System design, command execution, and scheduling.
-- `/documentation/architecture/roadmap.md` — Identified bottlenecks and future scaling plans.
+- `/documentation/architecture/roadmap.md` — Technical roadmap, bottlenecks, and scaling milestones.
 - `/documentation/architecture/ash-migration-plan.md` — Ash Framework adoption strategy.
-- `/documentation/architecture/ash-migration-checklist.md` — Completed migration steps and regression checks.
+- `/documentation/architecture/ash-migration-checklist.md` — Implementation tracking and regression checklist.
 - `/documentation/heuristics` — Rules for classification and discovery logic.
+
+## Deployment
+
+Ravner is packaged as a standard OTP release via the included `Dockerfile` (multi-stage build with runtime scanner binaries).
+
+### Required & Common Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string (e.g., `ecto://user:pass@host/ravner_prod`) |
+| `SECRET_KEY_BASE` | Phoenix secret key base (`mix phx.gen.secret`) |
+| `PHX_HOST` | Public hostname (e.g., `ravner.example.com`) |
+| `PORT` | HTTP port (default `4000`) |
+| `METRICS_BEARER_TOKEN` | Optional bearer token protecting `/metrics` Prometheus endpoint |
+| `RAVNER_MCP_API_KEY` | Optional API key for the MCP governance server |
+| `RAVNER_MCP_ACTOR_EMAIL` | Actor email used for MCP audit attribution |
+| `CHAOS_API_KEY` | Optional ProjectDiscovery Chaos API key for subdomain discovery |
+
+### Email / SMTP
+
+Production email delivery uses SMTP via Swoosh. Set the following environment variables in your container runtime:
+
+| Variable | Description |
+|---|---|
+| `SMTP_HOST` | SMTP server hostname |
+| `SMTP_PORT` | SMTP port (typically `587` for STARTTLS) |
+| `SMTP_USERNAME` | SMTP authentication username |
+| `SMTP_PASSWORD` | SMTP authentication password |
+| `SMTP_MAIL_FROM` | Sender address for all outgoing emails (e.g., `noreply@example.com`) |
+
+In development, emails are captured locally and viewable at `/dev/mailbox` (Swoosh Local adapter).
+
 
 ### HUMAN GENERATED CONTENT - DO NOT MODIFY
 

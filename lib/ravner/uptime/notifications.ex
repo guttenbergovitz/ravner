@@ -53,7 +53,18 @@ defmodule Ravner.Uptime.Notifications do
 
     for channel <- channels do
       unless already_delivered?(window.id, recipient.id, event, sequence, channel) do
-        result = send_via_channel(channel, email, phone, event, window, domain_name, sequence)
+        result =
+          send_via_channel(
+            channel,
+            email,
+            phone,
+            recipient,
+            event,
+            window,
+            domain_name,
+            sequence,
+            opts
+          )
 
         %NotificationDelivery{
           downtime_window_id: window.id,
@@ -116,7 +127,9 @@ defmodule Ravner.Uptime.Notifications do
   end
 
   defp expand_channels(%{channels: "both"}), do: ["email", "sms"]
-  defp expand_channels(%{channels: ch}), do: [ch]
+  defp expand_channels(%{channels: "all"}), do: ["email", "sms", "webhook"]
+  defp expand_channels(%{channels: ch}) when is_binary(ch), do: [ch]
+  defp expand_channels(_), do: ["email"]
 
   defp resolve_email(%{user: %{email: email}}) when is_binary(email), do: email
   defp resolve_email(%{email: email}) when is_binary(email), do: email
@@ -125,7 +138,17 @@ defmodule Ravner.Uptime.Notifications do
   defp resolve_phone(%{phone: phone}) when is_binary(phone), do: phone
   defp resolve_phone(_), do: nil
 
-  defp send_via_channel("email", email, _phone, event, window, domain_name, sequence) do
+  defp send_via_channel(
+         "email",
+         email,
+         _phone,
+         _recipient,
+         event,
+         window,
+         domain_name,
+         sequence,
+         _opts
+       ) do
     if email do
       opts = [domain_id: window.domain_id]
 
@@ -151,7 +174,17 @@ defmodule Ravner.Uptime.Notifications do
     end
   end
 
-  defp send_via_channel("sms", _email, phone, event, window, domain_name, _sequence) do
+  defp send_via_channel(
+         "sms",
+         _email,
+         phone,
+         _recipient,
+         event,
+         window,
+         domain_name,
+         _sequence,
+         _opts
+       ) do
     if phone do
       body =
         case event do
@@ -169,6 +202,49 @@ defmodule Ravner.Uptime.Notifications do
     else
       {:error, :no_phone}
     end
+  end
+
+  defp send_via_channel(
+         "webhook",
+         _email,
+         _phone,
+         recipient,
+         event,
+         window,
+         domain_name,
+         sequence,
+         opts
+       ) do
+    if recipient.webhook_url do
+      event_data = %{
+        event: event,
+        domain_name: domain_name,
+        domain_id: window.domain_id,
+        started_at: window.started_at,
+        ended_at: window.ended_at,
+        duration_seconds: window.duration_seconds,
+        sequence: sequence,
+        ravner_url: Keyword.get(opts, :ravner_url, build_domain_url(window.domain_id))
+      }
+
+      Ravner.Notifications.WebhookDispatcher.deliver_event(
+        recipient,
+        event,
+        event_data,
+        opts
+      )
+    else
+      {:error, :no_webhook_url}
+    end
+  end
+
+  defp build_domain_url(nil), do: nil
+
+  defp build_domain_url(domain_id) do
+    base = RavnerWeb.Endpoint.url()
+    "#{base}/domains/#{domain_id}"
+  rescue
+    _e in [ArgumentError, RuntimeError] -> nil
   end
 
   defp already_delivered?(window_id, recipient_id, event, sequence, channel) do

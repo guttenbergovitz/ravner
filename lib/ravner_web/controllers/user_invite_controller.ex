@@ -11,7 +11,11 @@ defmodule RavnerWeb.UserInviteController do
         |> redirect(to: ~p"/users/log-in")
 
       invite ->
-        render(conn, :show, invite: invite, token: token)
+        render(conn, :show,
+          invite: invite,
+          token: token,
+          current_scope: conn.assigns[:current_scope]
+        )
     end
   end
 
@@ -26,7 +30,7 @@ defmodule RavnerWeb.UserInviteController do
         case Accounts.accept_invite(invite, password) do
           {:ok, user} ->
             conn
-            |> put_flash(:info, "Account created! Please log in.")
+            |> put_flash(:info, "Welcome! Your account has been activated.")
             |> RavnerWeb.UserAuth.log_in_user(user)
 
           {:error, _reason} ->
@@ -35,7 +39,11 @@ defmodule RavnerWeb.UserInviteController do
               :error,
               "Could not create account. Please check your password and try again."
             )
-            |> render(:show, invite: invite, token: token)
+            |> render(:show,
+              invite: invite,
+              token: token,
+              current_scope: conn.assigns[:current_scope]
+            )
         end
     end
   end

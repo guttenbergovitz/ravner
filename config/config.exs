@@ -38,6 +38,7 @@ if config_env() in [:dev, :test] do
 end
 
 config :ravner,
+  environment: config_env(),
   ecto_repos: [Ravner.Repo],
   generators: [timestamp_type: :utc_datetime],
   scan_max_concurrency: 5
@@ -76,14 +77,15 @@ config :ravner, Oban,
        {"0 5 * * *", Ravner.Workers.A11yScanDispatcher},
        {"0 6 * * *", Ravner.Workers.LighthouseScanDispatcher},
        {"0 4 * * *", Ravner.Workers.HeartbeatRetentionWorker},
+       {"23 4 * * *", Ravner.Workers.TechnologiesUpdateWorker},
        {"* * * * *", Ravner.Workers.DomainCheckDispatcher}
      ]}
   ],
   queues: [
     heartbeats: 50,
     ssl_checks: 20,
-    scans: 5,
-    deep_tech: 2,
+    scans: 2,
+    notifications: 10,
     default: 10
   ]
 
@@ -91,6 +93,14 @@ config :ravner, Oban,
 config :ravner, :uptime_sms_adapter, Ravner.Uptime.SmsAdapters.Log
 config :ravner, :uptime_mail_from, "uptime@example.com"
 config :ravner, :uptime_mail_from_name, "Ravner Uptime"
+
+# Wappalyzer technologies database for native tech fingerprinting
+config :ravner,
+       :wappalyzer_technologies_url,
+       "https://raw.githubusercontent.com/rverton/webanalyze/master/technologies.json"
+
+# Surface-level CVE analysis against OSV.dev (set to false to disable)
+config :ravner, :cve_lookup_enabled, true
 
 # Configure Ash
 config :ravner,
@@ -112,7 +122,7 @@ config :esbuild,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "4.1.12",
+  version: "4.3.2",
   ravner: [
     args: ~w(
       --input=assets/css/app.css
@@ -223,6 +233,8 @@ config :ravner, :heuristics,
     {"x-azure-ref", "Azure"},
     {"x-wix-request-id", "Wix"}
   ]
+
+config :ash, :missed_notifications, :ignore
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

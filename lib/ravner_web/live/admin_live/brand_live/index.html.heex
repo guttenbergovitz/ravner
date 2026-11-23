@@ -80,6 +80,18 @@
               </button>
             </div>
           </div>
+          <.input
+            field={@form[:brand_manager_id]}
+            type="select"
+            label="Brand Manager"
+            options={
+              Enum.map(
+                @people,
+                &{"#{&1.first_name} #{&1.last_name} (#{&1.email || "no email"})", &1.id}
+              )
+            }
+            prompt="None (Unassigned)"
+          />
           <.input field={@form[:notes]} type="textarea" label="Notes" />
 
           <div class="flex items-center gap-3 pt-4">

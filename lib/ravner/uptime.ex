@@ -1,6 +1,16 @@
 defmodule Ravner.Uptime do
   @moduledoc """
-  Context for uptime monitoring: heartbeat history, downtime detection, reporting.
+  Continuous uptime monitoring, incident detection, and governance context.
+
+  This module oversees the full heartbeat and incident response lifecycle:
+  - **Check Recording (`record_check/2`)**: Inserts timestamped `HeartbeatCheck` records
+    and calculates latency.
+  - **Downtime State Machine**: Evaluates consecutive check failures against domain thresholds
+    to open and close `DowntimeWindow` incidents.
+  - **Incident Annotations (`add_downtime_note/3`)**: Attaches governance and root-cause notes
+    to downtime windows.
+  - **Reporting & Statistics**: Calculates uptime percentages, daily time-series buckets,
+    and average latency metrics for admin dashboards.
   """
 
   import Ecto.Query
@@ -13,8 +23,9 @@ defmodule Ravner.Uptime do
 
   @doc """
   Records a heartbeat check result and evaluates downtime state.
-  Returns {:ok, check} or {:error, changeset}.
+  Returns `{:ok, check}` or `{:error, changeset}`.
   """
+  @spec record_check(integer(), map()) :: {:ok, HeartbeatCheck.t()} | {:error, Ecto.Changeset.t()}
   def record_check(domain_id, attrs) do
     checked_at =
       (attrs[:checked_at] || DateTime.utc_now())
@@ -61,6 +72,17 @@ defmodule Ravner.Uptime do
           |> Repo.insert!()
 
         Ravner.Uptime.Notifications.dispatch("incident_open", window)
+
+        Ravner.Telemetry.Synthetic.emit_incident(
+          :opened,
+          %{consecutive_failures: consecutive},
+          %{
+            "ravner.domain_id" => domain_id,
+            "incident.id" => window.id,
+            "incident.threshold_used" => threshold,
+            "incident.state" => "opened"
+          }
+        )
       end
     end
   end
@@ -97,7 +119,19 @@ defmodule Ravner.Uptime do
         |> limit(1)
         |> Repo.one()
 
-      if window, do: Ravner.Uptime.Notifications.dispatch("incident_resolved", window)
+      if window do
+        Ravner.Uptime.Notifications.dispatch("incident_resolved", window)
+
+        Ravner.Telemetry.Synthetic.emit_incident(
+          :resolved,
+          %{duration_seconds: window.duration_seconds || 0},
+          %{
+            "ravner.domain_id" => domain_id,
+            "incident.id" => window.id,
+            "incident.state" => "resolved"
+          }
+        )
+      end
     end
   end
 
@@ -130,6 +164,7 @@ defmodule Ravner.Uptime do
   @doc """
   Returns all domains with heartbeat monitoring enabled and their current status.
   """
+  @spec list_monitored_domains() :: [Ravner.Domains.DomainMetadata.t()]
   def list_monitored_domains do
     from(m in Ravner.Domains.DomainMetadata,
       join: d in assoc(m, :domain),
@@ -145,6 +180,7 @@ defmodule Ravner.Uptime do
   @doc """
   Returns open downtime window for a domain (if any).
   """
+  @spec open_downtime(integer()) :: DowntimeWindow.t() | nil
   def open_downtime(domain_id) do
     DowntimeWindow
     |> where(domain_id: ^domain_id)
@@ -155,11 +191,12 @@ defmodule Ravner.Uptime do
   @doc """
   Returns downtime windows for a domain within a time range.
   """
+  @spec downtime_windows(integer(), DateTime.t(), DateTime.t()) :: [DowntimeWindow.t()]
   def downtime_windows(domain_id, from_dt, to_dt) do
     DowntimeWindow
     |> where(domain_id: ^domain_id)
-    |> where([w], w.started_at >= ^from_dt)
-    |> where([w], w.started_at <= ^to_dt or is_nil(w.ended_at))
+    |> where([w], w.started_at < ^to_dt)
+    |> where([w], is_nil(w.ended_at) or w.ended_at > ^from_dt)
     |> order_by(desc: :started_at)
     |> Repo.all()
   end
@@ -167,6 +204,7 @@ defmodule Ravner.Uptime do
   @doc """
   Computes uptime percentage for a domain in a time range.
   """
+  @spec uptime_percent(integer(), DateTime.t(), DateTime.t()) :: float()
   def uptime_percent(domain_id, from_dt, to_dt) do
     total_seconds = DateTime.diff(to_dt, from_dt, :second)
 
@@ -191,6 +229,7 @@ defmodule Ravner.Uptime do
   @doc """
   Returns recent heartbeat checks for a domain (for timeline view).
   """
+  @spec recent_checks(integer(), integer()) :: [HeartbeatCheck.t()]
   def recent_checks(domain_id, limit \\ 60) do
     HeartbeatCheck
     |> where(domain_id: ^domain_id)
@@ -203,6 +242,7 @@ defmodule Ravner.Uptime do
   Returns the timestamp of the most recent heartbeat check for a domain.
   Returns nil if no checks exist.
   """
+  @spec last_check_time(integer()) :: DateTime.t() | nil
   def last_check_time(domain_id) do
     HeartbeatCheck
     |> where(domain_id: ^domain_id)
@@ -218,6 +258,7 @@ defmodule Ravner.Uptime do
   Returns daily uptime stats for the last N days.
   Each entry: %{date: Date.t(), uptime_percent: float(), incidents: integer(), avg_response_ms: integer() | nil}
   """
+  @spec daily_stats(integer(), pos_integer()) :: [map()]
   def daily_stats(domain_id, days \\ 30) do
     today = Date.utc_today()
     start_date = Date.add(today, -(days - 1))
@@ -267,8 +308,8 @@ defmodule Ravner.Uptime do
 
       incidents =
         Enum.count(windows, fn w ->
-          DateTime.compare(w.started_at, day_start) != :lt &&
-            DateTime.compare(w.started_at, day_end) != :gt
+          DateTime.compare(w.started_at, day_end) != :gt &&
+            (is_nil(w.ended_at) || DateTime.compare(w.ended_at, day_start) != :lt)
         end)
 
       %{
@@ -284,6 +325,7 @@ defmodule Ravner.Uptime do
   Returns response time data points for charting.
   List of %{at: DateTime.t(), ms: integer()} ordered ascending by time.
   """
+  @spec response_time_series(integer(), pos_integer()) :: [%{at: DateTime.t(), ms: integer()}]
   def response_time_series(domain_id, hours \\ 24) do
     since = DateTime.add(DateTime.utc_now(), -hours, :hour)
 
@@ -297,14 +339,26 @@ defmodule Ravner.Uptime do
   end
 
   @doc """
+  Returns the first day of the calendar month shifted by `offset` months.
+  """
+  @spec month_start(Date.t(), integer()) :: Date.t()
+  def month_start(%Date{} = date, offset) when is_integer(offset) do
+    month_index = date.year * 12 + date.month - 1 + offset
+    year = Integer.floor_div(month_index, 12)
+    month = Integer.mod(month_index, 12) + 1
+    Date.new!(year, month, 1)
+  end
+
+  @doc """
   Returns monthly uptime stats for the last 12 months.
   Each: %{month: Date (first of month), uptime_percent: float | nil, incidents: int}
   """
+  @spec monthly_stats(integer(), pos_integer()) :: [map()]
   def monthly_stats(domain_id, months \\ 12) do
     today = Date.utc_today()
 
     for i <- (months - 1)..0//-1 do
-      month_start = today |> Date.add(-i * 30) |> Date.beginning_of_month()
+      month_start = month_start(today, -i)
       month_end = Date.end_of_month(month_start)
       from_dt = DateTime.new!(month_start, ~T[00:00:00], "Etc/UTC")
       to_dt = DateTime.new!(month_end, ~T[23:59:59], "Etc/UTC")
@@ -332,6 +386,7 @@ defmodule Ravner.Uptime do
   Lightweight version of daily_stats for the uptime bar visualization.
   List of %{date: Date.t(), percent: float()}
   """
+  @spec uptime_bar_data(integer(), pos_integer()) :: [%{date: Date.t(), percent: float() | nil}]
   def uptime_bar_data(domain_id, days \\ 30) do
     daily_stats(domain_id, days)
     |> Enum.map(fn %{date: date, uptime_percent: pct} ->
@@ -343,6 +398,7 @@ defmodule Ravner.Uptime do
   Returns hourly stats for a specific day (24 entries, one per hour).
   Each: %{hour: 0..23, checks: int, up: int, uptime_percent: float | nil, avg_response_ms: int | nil}
   """
+  @spec hourly_stats(integer(), Date.t()) :: [map()]
   def hourly_stats(domain_id, %Date{} = date) do
     day_start = DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
     day_end = DateTime.new!(date, ~T[23:59:59], "Etc/UTC")
@@ -387,6 +443,7 @@ defmodule Ravner.Uptime do
   Returns a human-readable status summary for a domain.
   Returns %{text: String.t(), since: DateTime.t() | nil, last_incident: map() | nil}
   """
+  @spec status_summary(integer()) :: map()
   def status_summary(domain_id) do
     open = open_downtime(domain_id)
 
@@ -482,6 +539,7 @@ defmodule Ravner.Uptime do
 
   alias Ravner.Uptime.DomainCheck
 
+  @spec list_domain_checks(integer()) :: [DomainCheck.t()]
   def list_domain_checks(domain_id) do
     DomainCheck
     |> where(domain_id: ^domain_id)
@@ -489,22 +547,30 @@ defmodule Ravner.Uptime do
     |> Repo.all()
   end
 
+  @spec create_domain_check(map()) :: {:ok, DomainCheck.t()} | {:error, Ecto.Changeset.t()}
   def create_domain_check(attrs) do
     %DomainCheck{}
     |> DomainCheck.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_domain_check(DomainCheck.t(), map()) ::
+          {:ok, DomainCheck.t()} | {:error, Ecto.Changeset.t()}
   def update_domain_check(%DomainCheck{} = check, attrs) do
     check
     |> DomainCheck.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_domain_check(DomainCheck.t()) ::
+          {:ok, DomainCheck.t()} | {:error, Ecto.Changeset.t()}
   def delete_domain_check(%DomainCheck{} = check), do: Repo.delete(check)
 
+  @spec get_domain_check!(integer()) :: DomainCheck.t()
   def get_domain_check!(id), do: Repo.get!(DomainCheck, id)
 
+  @spec toggle_domain_check(DomainCheck.t()) ::
+          {:ok, DomainCheck.t()} | {:error, Ecto.Changeset.t()}
   def toggle_domain_check(%DomainCheck{} = check) do
     check
     |> Ecto.Changeset.change(%{enabled: !check.enabled})
@@ -518,6 +584,7 @@ defmodule Ravner.Uptime do
   Use to clear false positives from misconfigured checks.
   Returns {checks_deleted, windows_deleted}.
   """
+  @spec purge_domain_data(integer()) :: {integer(), integer()}
   def purge_domain_data(domain_id) do
     # Delete notes first (FK constraint)
     from(n in DowntimeNote,
@@ -542,6 +609,7 @@ defmodule Ravner.Uptime do
 
   # --- Downtime Notes ---
 
+  @spec list_notes(integer()) :: [DowntimeNote.t()]
   def list_notes(downtime_window_id) do
     DowntimeNote
     |> where(downtime_window_id: ^downtime_window_id)
@@ -550,19 +618,24 @@ defmodule Ravner.Uptime do
     |> Repo.preload(:author)
   end
 
+  @spec create_note(map()) :: {:ok, DowntimeNote.t()} | {:error, Ecto.Changeset.t()}
   def create_note(attrs) do
     %DowntimeNote{}
     |> DowntimeNote.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_note(DowntimeNote.t(), map()) ::
+          {:ok, DowntimeNote.t()} | {:error, Ecto.Changeset.t()}
   def update_note(%DowntimeNote{} = note, attrs) do
     note
     |> DowntimeNote.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_note(DowntimeNote.t()) :: {:ok, DowntimeNote.t()} | {:error, Ecto.Changeset.t()}
   def delete_note(%DowntimeNote{} = note), do: Repo.delete(note)
 
+  @spec get_note!(integer()) :: DowntimeNote.t()
   def get_note!(id), do: Repo.get!(DowntimeNote, id)
 end

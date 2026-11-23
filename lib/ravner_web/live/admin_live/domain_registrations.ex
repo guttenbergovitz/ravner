@@ -9,6 +9,8 @@ defmodule RavnerWeb.AdminLive.DomainRegistrations do
   alias Ravner.Domains.DomainMetadata
   import Ecto.Query
 
+  @operational_states Domain.operational_states()
+
   @impl true
   def mount(_params, _session, socket) do
     if admin?(socket.assigns.current_scope) do
@@ -108,6 +110,7 @@ defmodule RavnerWeb.AdminLive.DomainRegistrations do
         from(m in DomainMetadata,
           join: d in Domain,
           on: m.domain_id == d.id,
+          where: d.lifecycle_state in ^@operational_states,
           where: not is_nil(m.expiration_date),
           order_by: [asc: m.expiration_date],
           select: %{

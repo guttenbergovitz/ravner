@@ -1,4 +1,10 @@
 defmodule Ravner.Repo do
+  @moduledoc """
+  PostgreSQL database repository for Ravner.
+
+  Configured with `ash-functions` extensions to support Ash Framework
+  data layers alongside standard Ecto queries.
+  """
   use Ecto.Repo,
     otp_app: :ravner,
     adapter: Ecto.Adapters.Postgres

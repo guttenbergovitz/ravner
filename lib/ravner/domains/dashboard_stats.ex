@@ -35,12 +35,10 @@ defmodule Ravner.Domains.DashboardStats do
 
     # 2. SSL Analytics
     ssl_stats = get_ssl_stats(now)
-    ssl_alerts = get_ssl_alerts(now)
+    {ssl_alerts, domain_alerts} = get_expiry_alerts(now)
 
     # 3. Domain Registration Analytics
     domain_stats = get_domain_stats(now)
-    domain_alerts = get_domain_alerts(now)
-
     # 4. Infrastructure & Hosting
     infra_stats = get_infra_stats()
 
@@ -421,29 +419,59 @@ defmodule Ravner.Domains.DashboardStats do
     |> Enum.filter(&(&1.total > 0))
   end
 
-  defp get_ssl_alerts(now) do
+  defp get_expiry_alerts(now) do
     soon = DateTime.add(now, 14 * 24 * 60 * 60, :second)
 
-    Repo.all(
-      from(m in DomainMetadata,
-        join: d in Domain,
-        on: m.domain_id == d.id,
-        where:
-          m.ssl_valid_until < ^soon and d.lifecycle_state in [:active, :priority] and
-            m.http_status == 200,
-        order_by: [asc: m.ssl_valid_until],
-        select: %{
-          id: d.id,
-          name: d.name,
-          valid_until: m.ssl_valid_until,
-          days_remaining: m.ssl_days_remaining
-        }
+    alerts =
+      Repo.all(
+        from(m in DomainMetadata,
+          join: d in Domain,
+          on: m.domain_id == d.id,
+          where:
+            d.lifecycle_state in [:active, :priority] and
+              ((m.ssl_valid_until < ^soon and m.http_status == 200) or
+                 (not is_nil(m.expiration_date) and m.expiration_date < ^soon)),
+          select: %{
+            id: d.id,
+            name: d.name,
+            valid_until: m.ssl_valid_until,
+            ssl_days_remaining: m.ssl_days_remaining,
+            expiration_date: m.expiration_date
+          }
+        )
       )
-    )
-    |> Enum.map(fn alert ->
-      status = if DateTime.compare(alert.valid_until, now) == :lt, do: :expired, else: :expiring
-      Map.put(alert, :status, status)
-    end)
+
+    ssl_alerts =
+      alerts
+      |> Enum.filter(
+        &(not is_nil(&1.valid_until) and DateTime.compare(&1.valid_until, soon) == :lt)
+      )
+      |> Enum.sort_by(& &1.valid_until, DateTime)
+      |> Enum.map(fn alert ->
+        alert
+        |> Map.take([:id, :name, :valid_until])
+        |> Map.put(:days_remaining, alert.ssl_days_remaining)
+        |> Map.put(:status, expiry_status(alert.valid_until, now))
+      end)
+
+    domain_alerts =
+      alerts
+      |> Enum.filter(& &1.expiration_date)
+      |> Enum.sort_by(& &1.expiration_date, DateTime)
+      |> Enum.map(fn alert ->
+        days_remaining = DateTime.diff(alert.expiration_date, now, :day)
+
+        alert
+        |> Map.take([:id, :name, :expiration_date])
+        |> Map.put(:days_remaining, days_remaining)
+        |> Map.put(:status, expiry_status(alert.expiration_date, now))
+      end)
+
+    {ssl_alerts, domain_alerts}
+  end
+
+  defp expiry_status(date, now) do
+    if DateTime.compare(date, now) == :lt, do: :expired, else: :expiring
   end
 
   defp get_domain_stats(now) do
@@ -481,40 +509,5 @@ defmodule Ravner.Domains.DashboardStats do
         %{total: 0, expired: 0, soon_7d: 0, soon_30d: 0}
 
     Map.put(counts, :issuers, [])
-  end
-
-  defp get_domain_alerts(now) do
-    soon = DateTime.add(now, 14 * 24 * 60 * 60, :second)
-
-    Repo.all(
-      from(m in DomainMetadata,
-        join: d in Domain,
-        on: m.domain_id == d.id,
-        where:
-          not is_nil(m.expiration_date) and m.expiration_date < ^soon and
-            d.lifecycle_state in [:active, :priority],
-        order_by: [asc: m.expiration_date],
-        select: %{
-          id: d.id,
-          name: d.name,
-          expiration_date: m.expiration_date
-        }
-      )
-    )
-    |> Enum.map(fn alert ->
-      days_remaining =
-        if alert.expiration_date do
-          DateTime.diff(alert.expiration_date, now, :day)
-        else
-          nil
-        end
-
-      status =
-        if DateTime.compare(alert.expiration_date, now) == :lt, do: :expired, else: :expiring
-
-      alert
-      |> Map.put(:days_remaining, days_remaining)
-      |> Map.put(:status, status)
-    end)
   end
 end

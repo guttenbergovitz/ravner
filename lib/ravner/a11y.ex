@@ -17,6 +17,7 @@ defmodule Ravner.A11y do
 
   # --- Queries ---
 
+  @spec latest_scan(integer()) :: A11yScan.t() | nil
   def latest_scan(domain_id) do
     Repo.one(
       from(s in A11yScan,
@@ -32,6 +33,7 @@ defmodule Ravner.A11y do
   Only considers the latest completed scan per domain.
   Returns nil for domains with no completed scan.
   """
+  @spec violations_by_domain_ids([integer()]) :: %{optional(integer()) => integer()}
   def violations_by_domain_ids(domain_ids) when is_list(domain_ids) do
     if domain_ids == [] do
       %{}
@@ -48,6 +50,7 @@ defmodule Ravner.A11y do
     end
   end
 
+  @spec running_scan(integer()) :: A11yScan.t() | nil
   def running_scan(domain_id) do
     Repo.one(
       from(s in A11yScan,
@@ -64,27 +67,14 @@ defmodule Ravner.A11y do
   Returns true if the domain has HTTP 200 and no external redirect.
   Requires domain_metadata to be preloaded.
   """
+  @spec scannable?(Ravner.Domains.Domain.t()) :: boolean()
   def scannable?(domain) do
     meta = domain.domain_metadata
 
-    meta != nil &&
+    Ravner.Domains.Domain.scannable?(domain) &&
+      meta != nil &&
       meta.http_status == 200 &&
-      !external_redirect?(domain.name, meta.final_url)
-  end
-
-  defp external_redirect?(_name, nil), do: false
-
-  defp external_redirect?(domain_name, final_url) do
-    final_host =
-      final_url
-      |> URI.parse()
-      |> Map.get(:host, "")
-      |> to_string()
-      |> String.replace_prefix("www.", "")
-
-    domain_root = domain_name |> String.replace_prefix("www.", "")
-
-    final_host != "" && !String.ends_with?(final_host, domain_root)
+      !Ravner.Scans.external_redirect?(domain.name, meta.final_url)
   end
 
   # --- Scan execution ---
@@ -93,6 +83,7 @@ defmodule Ravner.A11y do
   Runs pa11y against the domain's effective URL.
   Called from the Oban worker or inline for manual triggers.
   """
+  @spec run_scan(integer()) :: {:ok, A11yScan.t()} | {:error, term()}
   def run_scan(domain_id) do
     domain = Domains.get_domain_with_preloads!(domain_id)
 
@@ -204,6 +195,23 @@ defmodule Ravner.A11y do
       last_a11y_scan_at: DateTime.utc_now(:second)
     })
 
+    # Emit standardized OpenTelemetry Accessibility telemetry
+    host = URI.parse(scan.url).host || scan.url
+
+    Ravner.Telemetry.Synthetic.emit_a11y(
+      %{
+        violations_count: violations,
+        warnings_count: warnings,
+        total_issues: violations + warnings
+      },
+      %{
+        "server.address" => host,
+        "url.full" => scan.url,
+        "compliance.standard" => scan.standard,
+        "ravner.domain_id" => scan.domain_id
+      }
+    )
+
     ActivityLog.emit(:done, "A11y done — #{violations} violations, #{warnings} warnings")
     broadcast(scan.domain_id, updated)
     {:ok, updated}
@@ -215,9 +223,26 @@ defmodule Ravner.A11y do
       |> A11yScan.changeset(%{
         status: "failed",
         completed_at: DateTime.utc_now(:second),
-        error_message: reason
+        error_message: truncate_error(reason, 500)
       })
       |> Repo.update()
+
+    host = URI.parse(scan.url).host || scan.url
+
+    Ravner.Telemetry.Synthetic.emit_a11y(
+      %{
+        violations_count: 0,
+        warnings_count: 0,
+        total_issues: 0
+      },
+      %{
+        "server.address" => host,
+        "url.full" => scan.url,
+        "compliance.standard" => scan.standard,
+        "error.type" => to_string(reason),
+        "ravner.domain_id" => scan.domain_id
+      }
+    )
 
     ActivityLog.emit(:error, "A11y failed: #{String.slice(reason, 0, 100)}")
     broadcast(scan.domain_id, updated)
@@ -231,4 +256,11 @@ defmodule Ravner.A11y do
       {:a11y_scan_completed, scan}
     )
   end
+
+  defp truncate_error(msg, max_len) when is_binary(msg) and byte_size(msg) > max_len do
+    String.slice(msg, 0, max_len - 3) <> "..."
+  end
+
+  defp truncate_error(msg, _max_len) when is_binary(msg), do: msg
+  defp truncate_error(msg, _max_len), do: inspect(msg) |> String.slice(0, 500)
 end

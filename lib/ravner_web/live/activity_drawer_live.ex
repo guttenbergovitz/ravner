@@ -42,6 +42,7 @@ defmodule RavnerWeb.ActivityDrawerLive do
     end
   end
 
+  @impl true
   def mount(_params, _session, socket) do
     {:ok,
      socket
@@ -146,6 +147,7 @@ defmodule RavnerWeb.ActivityDrawerLive do
     {:noreply, assign(socket, :expanded, !socket.assigns.expanded)}
   end
 
+  @impl true
   def handle_event("set_expanded", %{"expanded" => expanded}, socket) do
     {:noreply, assign(socket, :expanded, expanded)}
   end
@@ -166,6 +168,7 @@ defmodule RavnerWeb.ActivityDrawerLive do
      |> assign(:idle_ref, idle_ref)}
   end
 
+  @impl true
   def handle_info(:idle_tick, socket) do
     {:noreply,
      socket
@@ -173,6 +176,7 @@ defmodule RavnerWeb.ActivityDrawerLive do
      |> assign(:quote, format_quote(Quotes.random()))}
   end
 
+  @impl true
   def handle_info(:quote_tick, socket) do
     quote_ref = Process.send_after(self(), :quote_tick, @quote_interval)
 

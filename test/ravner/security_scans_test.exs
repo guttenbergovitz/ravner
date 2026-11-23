@@ -2,7 +2,7 @@ defmodule Ravner.SecurityScansTest do
   @moduledoc """
   Tests for the Ravner.SecurityScans context.
   """
-  use Ravner.DataCase
+  use Ravner.DataCase, async: true
 
   alias Ravner.SecurityScans
   alias Ravner.SecurityScans.ScanFinding
@@ -28,6 +28,19 @@ defmodule Ravner.SecurityScansTest do
       assert scan.tool == "naabu"
       assert scan.status == "running"
       assert scan.target == domain.name
+    end
+
+    test "create_scan/1 creates a light security scan", %{domain: domain} do
+      assert {:ok, %SecurityScan{} = scan} =
+               SecurityScans.create_scan(%{
+                 domain_id: domain.id,
+                 tool: "light_scan",
+                 status: "pending",
+                 target: domain.name
+               })
+
+      assert scan.tool == "light_scan"
+      assert scan.status == "pending"
     end
 
     test "create_scan/1 validates tool inclusion", %{domain: domain} do
@@ -164,6 +177,40 @@ defmodule Ravner.SecurityScansTest do
       assert counts["high"] == 2
       assert counts["low"] == 1
     end
+
+    test "latest_security_scan/1 and latest_breach_scan/1 distinguish scan types", %{
+      scan: sec_scan
+    } do
+      domain_id = sec_scan.domain_id
+
+      # Complete initial security scan
+      {:ok, sec_scan} =
+        SecurityScans.update_scan(sec_scan, %{status: "completed", progress: 100})
+
+      # Create and complete a dark web breach scan
+      {:ok, breach_scan} =
+        SecurityScans.create_scan(%{
+          domain_id: domain_id,
+          tool: "breach_lookup",
+          status: "completed",
+          target: "example.com"
+        })
+
+      # latest_security_scan returns the security scan, NOT the breach scan
+      fetched_sec = SecurityScans.latest_security_scan(domain_id)
+      assert fetched_sec.id == sec_scan.id
+      assert fetched_sec.tool == sec_scan.tool
+
+      # latest_breach_scan returns the breach scan
+      fetched_breach = SecurityScans.latest_breach_scan(domain_id)
+      assert fetched_breach.id == breach_scan.id
+      assert fetched_breach.tool == "breach_lookup"
+
+      # Pruning preserves both tool families
+      SecurityScans.prune_old_scans(domain_id)
+      assert SecurityScans.latest_security_scan(domain_id).id == sec_scan.id
+      assert SecurityScans.latest_breach_scan(domain_id).id == breach_scan.id
+    end
   end
 
   describe "parse_naabu_output/1" do
@@ -232,20 +279,163 @@ defmodule Ravner.SecurityScansTest do
     end
   end
 
-  describe "parse_httpx_output/1" do
-    test "parses httpx JSON output" do
-      output =
-        ~s({"url":"https://example.com","status-code":200,"title":"Example","tech":["nginx"],"host":"example.com","ip":"93.184.216.34"}\n)
+  describe "portfolio_security_summary/0" do
+    test "returns zeroed summary when no completed scans exist" do
+      summary = SecurityScans.portfolio_security_summary()
 
-      findings = SecurityScans.parse_httpx_output(output)
-      assert length(findings) == 1
-      assert hd(findings).severity == "info"
-      assert hd(findings).title == "HTTP 200 — https://example.com"
-      assert hd(findings).target == "https://example.com"
+      assert summary.scanned_domains_count == 0
+      assert summary.critical == 0
+      assert summary.high == 0
+      assert summary.medium == 0
+      assert summary.low == 0
+      assert summary.info == 0
+      assert summary.total_findings == 0
+      assert summary.domains_at_risk_count == 0
+      assert summary.exposed_secrets_count == 0
+      assert summary.breach_findings_count == 0
+      assert summary.top_vulnerable_domains == []
+      assert summary.recent_critical_findings == []
     end
 
-    test "returns empty list for empty output" do
-      assert SecurityScans.parse_httpx_output("") == []
+    test "ranks domains by weighted severity instead of finding count" do
+      critical_domain = domain_fixture(%{name: "critical-weighted.example.com"})
+      medium_domain = domain_fixture(%{name: "medium-weighted.example.com"})
+
+      {:ok, critical_scan} =
+        SecurityScans.create_scan(%{
+          domain_id: critical_domain.id,
+          tool: "security_scan",
+          status: "completed",
+          target: critical_domain.name
+        })
+
+      {:ok, medium_scan} =
+        SecurityScans.create_scan(%{
+          domain_id: medium_domain.id,
+          tool: "security_scan",
+          status: "completed",
+          target: medium_domain.name
+        })
+
+      SecurityScans.create_findings_batch(critical_scan.id, [
+        %{
+          severity: "critical",
+          title: "Critical issue",
+          target: critical_domain.name,
+          detail: %{}
+        }
+      ])
+
+      SecurityScans.create_findings_batch(medium_scan.id, [
+        %{severity: "medium", title: "Medium issue 1", target: medium_domain.name, detail: %{}},
+        %{severity: "medium", title: "Medium issue 2", target: medium_domain.name, detail: %{}},
+        %{severity: "medium", title: "Medium issue 3", target: medium_domain.name, detail: %{}}
+      ])
+
+      [top | _] = SecurityScans.portfolio_security_summary().top_vulnerable_domains
+
+      assert top.domain_id == critical_domain.id
+      assert top.risk_weight == 10
+    end
+
+    test "aggregates findings across latest security and breach scans" do
+      domain1 = domain_fixture(%{name: "alpha-corp.com"})
+      domain2 = domain_fixture(%{name: "beta-corp.com"})
+
+      # Domain 1: completed security scan with critical & high findings
+      {:ok, scan1} =
+        SecurityScans.create_scan(%{
+          domain_id: domain1.id,
+          tool: "security_scan",
+          status: "completed",
+          target: domain1.name
+        })
+
+      SecurityScans.create_findings_batch(scan1.id, [
+        %{
+          severity: "critical",
+          title: "Exposed .env file with AWS secrets",
+          target: "https://alpha-corp.com/.env",
+          detail: %{"cve" => "CWE-200"}
+        },
+        %{
+          severity: "high",
+          title: "SQL Injection on /api/search",
+          target: "https://alpha-corp.com/api/search",
+          detail: %{"cve" => "CWE-89"}
+        },
+        %{
+          severity: "medium",
+          title: "Missing CSP Header",
+          target: "https://alpha-corp.com",
+          detail: %{}
+        }
+      ])
+
+      # Domain 1: completed breach scan
+      {:ok, breach_scan} =
+        SecurityScans.create_scan(%{
+          domain_id: domain1.id,
+          tool: "breach_lookup",
+          status: "completed",
+          target: domain1.name
+        })
+
+      SecurityScans.create_findings_batch(breach_scan.id, [
+        %{
+          severity: "high",
+          title: "Dark Web Leak: admin@alpha-corp.com",
+          target: "admin@alpha-corp.com",
+          detail: %{"source" => "BreachDirectory"}
+        }
+      ])
+
+      # Domain 2: completed scan with info finding only
+      {:ok, scan2} =
+        SecurityScans.create_scan(%{
+          domain_id: domain2.id,
+          tool: "light_scan",
+          status: "completed",
+          target: domain2.name
+        })
+
+      SecurityScans.create_findings_batch(scan2.id, [
+        %{
+          severity: "info",
+          title: "Open Port 443",
+          target: "beta-corp.com:443",
+          detail: %{}
+        }
+      ])
+
+      summary = SecurityScans.portfolio_security_summary()
+
+      assert summary.scanned_domains_count == 2
+      assert summary.critical == 1
+      assert summary.high == 2
+      assert summary.medium == 1
+      assert summary.low == 0
+      assert summary.info == 1
+      assert summary.total_findings == 5
+      assert summary.domains_at_risk_count == 1
+      assert summary.exposed_secrets_count == 1
+      assert summary.breach_findings_count == 1
+
+      # Check top vulnerable domains
+      assert length(summary.top_vulnerable_domains) == 1
+      top = hd(summary.top_vulnerable_domains)
+      assert top.domain_id == domain1.id
+      assert top.domain_name == "alpha-corp.com"
+      assert top.critical_count == 1
+      assert top.high_count == 2
+      assert top.medium_count == 1
+
+      # Check recent critical findings
+      assert length(summary.recent_critical_findings) == 3
+      titles = Enum.map(summary.recent_critical_findings, & &1.title)
+      assert "Exposed .env file with AWS secrets" in titles
+      assert "SQL Injection on /api/search" in titles
+      assert "Dark Web Leak: admin@alpha-corp.com" in titles
     end
   end
 end

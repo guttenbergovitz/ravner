@@ -5,6 +5,7 @@ defmodule Ravner.Inventory.ProjectRole do
   use Ash.Resource,
     domain: Ravner.Inventory.AshDomain,
     data_layer: AshPostgres.DataLayer,
+    extensions: [AshPaperTrail.Resource],
     authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
@@ -14,14 +15,22 @@ defmodule Ravner.Inventory.ProjectRole do
     repo(Ravner.Repo)
   end
 
+  paper_trail do
+    primary_key_type(:integer)
+    change_tracking_mode(:changes_only)
+    store_action_name?(true)
+    reference_source?(false)
+  end
+
   policies do
     policy action_type(:read) do
-      authorize_if(always())
+      authorize_if({Ravner.Accounts.ScopeReadCheck, []})
     end
 
     policy action_type([:create, :update, :destroy]) do
       authorize_if(actor_attribute_equals(:role, :admin))
       authorize_if(actor_attribute_equals(:role, :editor))
+      authorize_if({Ravner.Accounts.ScopeCheck, permission: :manage_project_role})
     end
   end
 

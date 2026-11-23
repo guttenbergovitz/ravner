@@ -22,6 +22,7 @@ defmodule Ravner.Admin.Backups do
   Creates a PostgreSQL custom-format dump of business data.
   Returns `{:ok, binary}` with the dump content, or `{:error, reason}`.
   """
+  @spec create_dump() :: {:ok, binary()} | {:error, String.t()}
   def create_dump do
     config = Repo.config()
     database = Keyword.get(config, :database)
@@ -60,6 +61,7 @@ defmodule Ravner.Admin.Backups do
 
   **Warning**: this will overwrite existing business data.
   """
+  @spec restore(String.t()) :: :ok | {:error, String.t()}
   def restore(path) when is_binary(path) do
     config = Repo.config()
     database = Keyword.get(config, :database)
@@ -96,6 +98,7 @@ defmodule Ravner.Admin.Backups do
   Lists contents of a pg_dump custom-format file.
   Returns `{:ok, [String.t()]}` or `{:error, reason}`.
   """
+  @spec list_dump_contents(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def list_dump_contents(path) when is_binary(path) do
     case run_with_fallback("pg_restore", ["--list", path], []) do
       {output, 0} -> {:ok, String.split(output, "\n", trim: true)}
@@ -127,9 +130,11 @@ defmodule Ravner.Admin.Backups do
   end
 
   defp safe_cmd(cmd, args, env) do
-    {:ok, System.cmd(cmd, args, env: env, stderr_to_stdout: true)}
-  rescue
-    ErlangError -> {:error, :not_found}
+    case Ravner.SystemCommand.run_with_timeout(cmd, args, 120_000, env: env) do
+      {:error, :timeout} -> {:ok, {"Backup command timed out after 120s", 1}}
+      {:error, _reason} -> {:error, :not_found}
+      {output, status} -> {:ok, {output, status}}
+    end
   end
 
   defp try_fallback(cmd, args, env, original_result) do

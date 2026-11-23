@@ -4,7 +4,7 @@ defmodule Ravner.MixProject do
   def project do
     [
       app: :ravner,
-      version: "0.6.2",
+      version: "0.18.3",
       elixir: "~> 1.16",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -48,7 +48,7 @@ defmodule Ravner.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
-      {:dotenvy, "~> 0.8"},
+      {:dotenvy, "~> 1.1"},
       {:contex, "~> 0.5"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
@@ -63,6 +63,8 @@ defmodule Ravner.MixProject do
        depth: 1},
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.2"},
+      {:ex_aws, "~> 2.4.1"},
+      {:ex_aws_ses, "~> 2.4.1"},
       {:req, "~> 0.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
@@ -77,7 +79,11 @@ defmodule Ravner.MixProject do
       {:ash_postgres, "~> 2.4"},
       {:ash_phoenix, "~> 2.1"},
       {:ash_paper_trail, "~> 0.3.0"},
-      {:picosat_elixir, "~> 0.2.3"}
+      {:picosat_elixir, "~> 0.2.3"},
+      {:ash_json_api, "~> 1.7"},
+      {:open_api_spex, "~> 3.22"},
+      {:ash_ai, "~> 1.0.2"},
+      {:req_llm, "~> 1.18"}
     ]
   end
 

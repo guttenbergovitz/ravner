@@ -4,6 +4,8 @@ defmodule RavnerWeb.DomainExportController do
   alias Ravner.Domains
 
   def index(conn, params) do
+    scope = conn.assigns[:current_scope]
+
     search = Map.get(params, "search", "")
     ip = Map.get(params, "ip", "")
     lifecycle = parse_lifecycle(Map.get(params, "lifecycle", ""))
@@ -14,7 +16,8 @@ defmodule RavnerWeb.DomainExportController do
         search: search,
         ip: ip,
         lifecycle: lifecycle,
-        include_subdomains: include_subs
+        include_subdomains: include_subs,
+        scope: scope
       )
 
     csv = Domains.to_csv(domains)

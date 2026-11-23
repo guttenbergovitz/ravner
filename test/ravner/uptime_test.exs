@@ -53,4 +53,32 @@ defmodule Ravner.UptimeTest do
       assert Repo.aggregate(DowntimeWindow, :count) == 1
     end
   end
+
+  describe "downtime range reporting" do
+    setup do
+      domain = domain_fixture(%{name: "uptime-range-#{System.unique_integer([:positive])}.com"})
+      %{domain: domain}
+    end
+
+    test "includes incidents that overlap the range from before its start", %{domain: domain} do
+      from_dt = ~U[2026-01-10 00:00:00Z]
+      to_dt = ~U[2026-01-11 00:00:00Z]
+
+      Repo.insert!(%DowntimeWindow{
+        domain_id: domain.id,
+        started_at: ~U[2026-01-09 12:00:00Z],
+        ended_at: ~U[2026-01-10 12:00:00Z]
+      })
+
+      assert [%DowntimeWindow{}] = Uptime.downtime_windows(domain.id, from_dt, to_dt)
+    end
+  end
+
+  describe "month_start/2" do
+    test "moves by calendar months across short and long months" do
+      assert Uptime.month_start(~D[2026-03-31], -1) == ~D[2026-02-01]
+      assert Uptime.month_start(~D[2026-01-15], -2) == ~D[2025-11-01]
+      assert Uptime.month_start(~D[2026-11-15], 2) == ~D[2027-01-01]
+    end
+  end
 end

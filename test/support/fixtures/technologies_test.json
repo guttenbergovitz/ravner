@@ -1,0 +1,41 @@
+{
+  "technologies": {
+    "WordPress": {
+      "cats": [1],
+      "cookies": { "wordpress_": "" },
+      "headers": { "x-pingback": "" },
+      "meta": { "generator": ["WordPress ?([\\d.]+)?\\;version:\\1"] },
+      "html": ["<link rel=[\"']stylesheet[\"'] [^>]+/wp-(?:content|includes)/"],
+      "implies": ["PHP", "MySQL"],
+      "website": "https://wordpress.org"
+    },
+    "PHP": {
+      "cats": [27],
+      "headers": { "x-powered-by": "PHP/?([\\d.]+)?\\;version:\\1" },
+      "website": "https://php.net"
+    },
+    "MySQL": {
+      "cats": [34],
+      "website": "https://mysql.com"
+    },
+    "Cloudflare": {
+      "cats": [32],
+      "headers": { "server": "cloudflare" },
+      "cookies": { "__cf_bm": "" },
+      "website": "https://www.cloudflare.com"
+    },
+    "React": {
+      "cats": [12],
+      "scripts": ["react(?:-with-addons)?[.-]([\\d.]+)?(?:min)?\\.js\\;version:\\1"],
+      "html": ["<[^>]+data-reactroot"],
+      "website": "https://react.dev"
+    }
+  },
+  "categories": {
+    "1": { "name": "CMS" },
+    "12": { "name": "JavaScript frameworks" },
+    "27": { "name": "Programming languages" },
+    "32": { "name": "CDN" },
+    "34": { "name": "Databases" }
+  }
+}

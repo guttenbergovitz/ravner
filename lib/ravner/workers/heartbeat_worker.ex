@@ -7,7 +7,9 @@ defmodule Ravner.Workers.HeartbeatWorker do
   - Domain heartbeat: args = %{"domain_id" => id} — pings https://domain.name
   - Custom check: args = %{"domain_id" => id, "domain_check_id" => id} — pings check.url
   """
-  use Oban.Worker, queue: :heartbeats
+  use Oban.Worker,
+    queue: :heartbeats,
+    unique: [period: 120, fields: [:args], keys: [:domain_id, :domain_check_id]]
 
   alias Ravner.Domains
   alias Ravner.Uptime
@@ -24,11 +26,38 @@ defmodule Ravner.Workers.HeartbeatWorker do
 
     started_at = System.monotonic_time(:millisecond)
 
-    {is_up, error_reason} = run_check(target)
+    {is_up, error_reason, status_code} = run_check(target)
 
     elapsed = System.monotonic_time(:millisecond) - started_at
     response_time_ms = if is_up, do: elapsed, else: nil
     now = DateTime.utc_now(:second)
+
+    # Emit standardized OpenTelemetry synthetic probe events
+    host = URI.parse(target).host || target
+
+    Ravner.Telemetry.Synthetic.emit_http_probe(
+      %{duration_ms: elapsed, response_time_ms: response_time_ms},
+      %{
+        "server.address" => host,
+        "url.full" => target,
+        "http.request.method" => "HEAD",
+        "http.response.status_code" => status_code,
+        "error.type" => error_reason,
+        "ravner.domain_id" => domain_id
+      }
+    )
+
+    Ravner.Telemetry.Synthetic.emit_uptime_status(
+      %{status: if(is_up, do: 1, else: 0), response_time_ms: response_time_ms || 0},
+      %{
+        "server.address" => host,
+        "url.full" => target,
+        "is_up" => is_up,
+        "error.type" => error_reason,
+        "ravner.domain_id" => domain_id,
+        "ravner.domain_check_id" => domain_check_id
+      }
+    )
 
     Uptime.record_check(domain_id, %{
       is_up: is_up,
@@ -45,6 +74,8 @@ defmodule Ravner.Workers.HeartbeatWorker do
         is_up: is_up,
         last_heartbeat_at: now
       })
+
+      Ravner.Governance.RiskScore.recalculate_for_domain(domain_id)
     end
 
     :ok
@@ -64,16 +95,16 @@ defmodule Ravner.Workers.HeartbeatWorker do
   defp run_check(url) do
     case Req.head(url, @req_options) do
       {:ok, %Req.Response{status: status}} when status < 400 ->
-        {true, nil}
+        {true, nil, status}
 
       {:ok, %Req.Response{status: status}} ->
-        {false, "http_#{status}"}
+        {false, "http_#{status}", status}
 
       {:error, %Mint.TransportError{reason: reason}} ->
-        {false, to_string(reason)}
+        {false, to_string(reason), nil}
 
       {:error, exception} ->
-        {false, Exception.message(exception)}
+        {false, Exception.message(exception), nil}
     end
   end
 

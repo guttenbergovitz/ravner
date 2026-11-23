@@ -67,7 +67,11 @@ defmodule Ravner.SecurityScans.SecurityScan do
       "nuclei",
       "httpx",
       "deep_scan",
-      "security_scan"
+      "light_scan",
+      "security_scan",
+      "breach_lookup",
+      "repo_sca",
+      "repo_secrets"
     ])
     |> validate_inclusion(:status, ["pending", "running", "completed", "failed"])
     |> validate_number(:progress, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)

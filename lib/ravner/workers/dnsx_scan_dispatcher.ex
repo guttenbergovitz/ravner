@@ -6,12 +6,18 @@ defmodule Ravner.Workers.DnsxScanDispatcher do
 
   import Ecto.Query
   alias Ravner.Repo
+  alias Ravner.Domains.Domain
   alias Ravner.Domains.DomainMetadata
+
+  @scannable_states Domain.scannable_states()
 
   @impl Oban.Worker
   def perform(_job) do
     query =
       from(m in DomainMetadata,
+        join: d in Domain,
+        on: d.id == m.domain_id,
+        where: d.lifecycle_state in ^@scannable_states,
         where: not is_nil(m.dns_scan_interval_days),
         where:
           is_nil(m.dns_scanned_at) or

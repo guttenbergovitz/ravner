@@ -5,7 +5,16 @@ defmodule Ravner.Accounts.UserTokenResource do
   use Ash.Resource,
     domain: Ravner.Accounts.AshDomain,
     data_layer: AshPostgres.DataLayer,
+    extensions: [AshPaperTrail.Resource],
     authorizers: [Ash.Policy.Authorizer]
+
+  paper_trail do
+    primary_key_type(:integer)
+    change_tracking_mode(:changes_only)
+    store_action_name?(true)
+    sensitive_attributes(:ignore)
+    reference_source?(false)
+  end
 
   postgres do
     table("users_tokens")
@@ -44,7 +53,10 @@ defmodule Ravner.Accounts.UserTokenResource do
     end
 
     attribute(:sent_to, :string)
-    attribute(:authenticated_at, :utc_datetime)
+
+    attribute :authenticated_at, :utc_datetime do
+      sensitive?(true)
+    end
 
     create_timestamp(:inserted_at, type: :utc_datetime)
   end

@@ -1,0 +1,1024 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <%!-- Breadcrumbs --%>
+    <nav class="text-xs font-light text-neutral-400 mb-6 flex items-center gap-2">
+      <.link navigate={~p"/ownership"} class="hover:text-neutral-600 transition-colors">
+        Ownership
+      </.link>
+      <.icon name="hero-chevron-right" class="w-3 h-3" />
+      <span class="text-neutral-600 dark:text-neutral-300">
+        Digital Landscape
+      </span>
+    </nav>
+
+    <%!-- Header --%>
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8 border-b border-neutral-100 pb-8 dark:border-neutral-800">
+      <div>
+        <div class="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 class="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100">
+            Enterprise Digital Landscape
+          </h1>
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-300">
+            ArchiMate 3.1 (BDAT)
+          </span>
+        </div>
+        <p class="text-xs font-light text-neutral-500 uppercase tracking-widest">
+          Value Streams &rarr; Capabilities &rarr; Applications &rarr; Nodes & Datastores
+        </p>
+      </div>
+
+      <%!-- Stats Counters --%>
+      <div class="flex gap-6 sm:gap-8 shrink-0">
+        <div>
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Applications
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@applications)}
+          </div>
+        </div>
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Value Streams
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@value_streams)}
+          </div>
+        </div>
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Capabilities
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@capabilities)}
+          </div>
+        </div>
+        <div class="border-l border-neutral-100 dark:border-neutral-800 pl-6 sm:pl-8">
+          <div class="text-[10px] font-normal uppercase tracking-widest text-neutral-400 mb-1">
+            Environments
+          </div>
+          <div class="text-2xl font-light text-neutral-900 dark:text-neutral-100">
+            {length(@hosting_environments)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Top Navigation Tabs (External) --%>
+    <div class="flex items-center gap-6 border-b border-neutral-100 mb-6 pb-px dark:border-neutral-800">
+      <.link
+        navigate={~p"/ownership"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-all duration-200"
+      >
+        Brands & Organizations
+      </.link>
+      <%= if is_nil(@current_scope) or @current_scope.role in [:admin, :editor, :delivery_head, :pm_supervisor, :project_manager] do %>
+        <.link
+          navigate={~p"/ownership/delivery"}
+          class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-transparent text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-all duration-200"
+        >
+          Delivery & PM Hierarchy
+        </.link>
+      <% end %>
+      <.link
+        navigate={~p"/ownership/landscape"}
+        class="text-xs font-normal uppercase tracking-widest pb-4 border-b-2 border-neutral-900 text-neutral-900 font-medium dark:border-neutral-100 dark:text-neutral-100 transition-all duration-200 flex items-center gap-1.5"
+      >
+        <.icon name="hero-squares-plus" class="w-3.5 h-3.5" /> Digital Landscape
+      </.link>
+    </div>
+
+    <%!-- Internal Tab Navigation --%>
+    <div class="flex items-center gap-1 mb-8 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-sm w-fit">
+      <.link
+        patch={~p"/ownership/landscape?tab=catalog"}
+        class={[
+          "text-xs font-medium px-4 py-2 rounded-sm transition-all",
+          if(@current_tab == "catalog",
+            do: "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm",
+            else: "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Catalog
+      </.link>
+      <.link
+        patch={~p"/ownership/landscape?tab=value_streams"}
+        class={[
+          "text-xs font-medium px-4 py-2 rounded-sm transition-all",
+          if(@current_tab == "value_streams",
+            do: "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm",
+            else: "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Value Streams ({length(@value_streams)})
+      </.link>
+      <.link
+        patch={~p"/ownership/landscape?tab=capabilities"}
+        class={[
+          "text-xs font-medium px-4 py-2 rounded-sm transition-all",
+          if(@current_tab == "capabilities",
+            do: "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm",
+            else: "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Capabilities ({length(@capabilities)})
+      </.link>
+      <.link
+        patch={~p"/ownership/landscape?tab=matrix"}
+        class={[
+          "text-xs font-medium px-4 py-2 rounded-sm transition-all",
+          if(@current_tab == "matrix",
+            do: "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm",
+            else: "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+          )
+        ]}
+      >
+        Matrix
+      </.link>
+    </div>
+
+    <%!-- Tab Content --%>
+    <%= cond do %>
+      <% @current_tab == "catalog" -> %>
+        <%!-- Catalog Tab: Existing Application Grid --%>
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+          <div class="relative w-full sm:w-80">
+            <.icon
+              name="hero-magnifying-glass"
+              class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            />
+            <input
+              type="text"
+              value={@search_query}
+              phx-keyup="search"
+              phx-debounce="200"
+              placeholder="Filter applications by name or slug..."
+              class="w-full pl-9 pr-4 py-2 text-xs border border-neutral-200 bg-white placeholder-neutral-400 focus:outline-none focus:border-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            />
+          </div>
+
+          <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_create_app"
+                id="create-app-btn"
+                class="text-[10px] uppercase tracking-widest text-emerald-600 hover:text-emerald-800 border border-emerald-200 px-2 py-1 transition-colors dark:border-emerald-800 dark:text-emerald-400 mr-2"
+              >
+                + New Application
+              </button>
+            <% end %>
+            <span class="text-[10px] uppercase font-mono text-neutral-400 mr-1">Type:</span>
+            <%= for type <- ["all", "website", "storefront", "api", "cms", "crm", "pim", "erp", "portal", "integration_hub"] do %>
+              <button
+                type="button"
+                phx-click="filter_type"
+                phx-value-type={type}
+                class={[
+                  "text-[10px] uppercase font-mono px-2 py-1 rounded transition-colors",
+                  if(@filter_type == type,
+                    do: "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
+                    else:
+                      "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700"
+                  )
+                ]}
+              >
+                {type}
+              </button>
+            <% end %>
+          </div>
+        </div>
+
+        <% filtered = filter_apps(@applications, @search_query, @filter_type, @filter_criticality) %>
+
+        <%= if filtered == [] do %>
+          <div class="py-20 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+            <.icon name="hero-cube-transparent" class="w-12 h-12 text-neutral-300 mx-auto mb-4" />
+            <h3 class="text-sm font-light text-neutral-500 mb-2">
+              No applications match your criteria
+            </h3>
+            <p class="text-xs font-light text-neutral-400 max-w-md mx-auto leading-relaxed mb-6">
+              Applications model functional digital systems (storefronts, APIs, integration hubs) binding domains, code repositories, datastores, and regulatory constraints under ArchiMate 3.1 governance.
+            </p>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_create_app"
+                class="btn-line text-xs py-2 px-4 inline-flex items-center gap-2"
+              >
+                <.icon name="hero-plus" class="w-4 h-4" /> Create First Application
+              </button>
+            <% end %>
+          </div>
+        <% else %>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            <%= for app <- filtered do %>
+              <div class="border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 flex flex-col justify-between hover:shadow-xs transition-shadow">
+                <div>
+                  <div class="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <span class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border font-mono bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
+                        {app.app_type}
+                      </span>
+                      <h3 class="text-lg font-light text-neutral-900 mt-2 dark:text-neutral-100">
+                        {app.name}
+                      </h3>
+                    </div>
+                    <span class={[
+                      "text-[9px] uppercase font-mono px-1.5 py-0.5 border rounded",
+                      if(app.criticality in ["mission_critical", "tier_1"],
+                        do:
+                          "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+                        else:
+                          "bg-neutral-50 text-neutral-600 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-300 dark:border-neutral-700"
+                      )
+                    ]}>
+                      {app.criticality}
+                    </span>
+                  </div>
+
+                  <%= if app.description do %>
+                    <p class="text-xs font-light text-neutral-500 mb-4 line-clamp-2 leading-relaxed">
+                      {app.description}
+                    </p>
+                  <% end %>
+
+                  <div class="space-y-2 text-xs border-t border-neutral-100 pt-4 dark:border-neutral-700/60">
+                    <div class="flex items-center justify-between text-neutral-500">
+                      <span class="text-[10px] uppercase font-mono text-neutral-400">
+                        Project
+                      </span>
+                      <%= if app.project do %>
+                        <.link
+                          navigate={~p"/ownership/projects/#{app.project.id}?tab=landscape"}
+                          class="font-medium text-neutral-800 dark:text-neutral-200 hover:underline"
+                        >
+                          {app.project.name}
+                        </.link>
+                      <% else %>
+                        <span class="italic text-neutral-400 font-light">—</span>
+                      <% end %>
+                    </div>
+
+                    <div class="flex items-center justify-between text-neutral-500">
+                      <span class="text-[10px] uppercase font-mono text-neutral-400">
+                        Hosting
+                      </span>
+                      <span class="font-light text-neutral-700 dark:text-neutral-300">
+                        {if app.hosting_environment,
+                          do:
+                            "#{app.hosting_environment.name} (#{app.hosting_environment.provider})",
+                          else: "—"}
+                      </span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-neutral-500">
+                      <span class="text-[10px] uppercase font-mono text-neutral-400">
+                        Datastores
+                      </span>
+                      <span class="font-mono text-neutral-700 dark:text-neutral-300">
+                        {length(app.datastores || [])}
+                      </span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-neutral-500">
+                      <span class="text-[10px] uppercase font-mono text-neutral-400">
+                        Domains
+                      </span>
+                      <span class="font-mono text-neutral-700 dark:text-neutral-300">
+                        {length(app.domains || [])}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-700/60 flex items-center justify-between">
+                  <span class="text-[10px] uppercase font-mono text-neutral-400">
+                    Status: {app.lifecycle_state}
+                  </span>
+                  <div class="flex items-center gap-3">
+                    <%= if app.project do %>
+                      <.link
+                        navigate={~p"/ownership/projects/#{app.project.id}?tab=landscape"}
+                        class="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 inline-flex items-center gap-1 font-light"
+                        title="View project topology"
+                      >
+                        Topology
+                      </.link>
+                    <% end %>
+                    <.link
+                      navigate={~p"/ownership/applications/#{app.id}"}
+                      class="text-xs text-neutral-700 hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-white inline-flex items-center gap-1 font-medium"
+                    >
+                      Manage <.icon name="hero-chevron-right" class="w-3.5 h-3.5" />
+                    </.link>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% @current_tab == "value_streams" -> %>
+        <%!-- Value Streams Tab --%>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                Enterprise Value Streams
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                End-to-end business processes delivering value (e.g. Order to Cash, Product Enrichment).
+              </p>
+            </div>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_create_value_stream"
+                class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/40"
+              >
+                <.icon name="hero-plus" class="w-3.5 h-3.5" /> Add Value Stream
+              </button>
+            <% end %>
+          </div>
+
+          <%= if @value_streams == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-arrow-path" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">No value streams defined</h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto mb-4">
+                Value streams represent end-to-end business processes (Order to Cash, Product Enrichment, Customer Onboarding).
+              </p>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_create_value_stream"
+                  class="btn-line text-xs py-1.5 px-3"
+                >
+                  Create First Value Stream
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="border border-neutral-200 bg-white divide-y divide-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:divide-neutral-700">
+              <%= for vs <- @value_streams do %>
+                <div class="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-1">
+                      <h4 class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                        {vs.name}
+                      </h4>
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                        {vs.stage}
+                      </span>
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700">
+                        {vs.criticality}
+                      </span>
+                    </div>
+                    <%= if vs.description do %>
+                      <p class="text-xs text-neutral-500 font-light">{vs.description}</p>
+                    <% end %>
+                    <div class="flex items-center gap-4 mt-2 text-[10px] text-neutral-400">
+                      <span>
+                        <span class="font-mono">{length(vs.applications || [])}</span>
+                        applications
+                      </span>
+                      <%= if vs.brand do %>
+                        <span>Brand: {vs.brand.name}</span>
+                      <% end %>
+                      <%= if vs.business_owner do %>
+                        <span>
+                          Owner: {vs.business_owner.first_name} {vs.business_owner.last_name}
+                        </span>
+                      <% end %>
+                    </div>
+                  </div>
+                  <%= if @can_manage? do %>
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        phx-click="edit_value_stream"
+                        phx-value-id={vs.id}
+                        class="text-neutral-400 hover:text-neutral-600 p-1"
+                        title="Edit"
+                      >
+                        <.icon name="hero-pencil" class="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        phx-click="delete_value_stream"
+                        phx-value-id={vs.id}
+                        data-confirm={"Delete value stream #{vs.name}?"}
+                        class="text-neutral-400 hover:text-red-600 p-1"
+                        title="Delete"
+                      >
+                        <.icon name="hero-trash" class="w-4 h-4" />
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% @current_tab == "capabilities" -> %>
+        <%!-- Capabilities Tab --%>
+        <div class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                Business Capabilities
+              </h2>
+              <p class="text-xs font-light text-neutral-400 mt-0.5">
+                Functional capabilities the enterprise needs (Payment Processing, PIM, Content Management).
+              </p>
+            </div>
+            <%= if @can_manage? do %>
+              <button
+                type="button"
+                phx-click="open_create_capability"
+                class="btn-line text-[11px] py-1 px-3 inline-flex items-center gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/40"
+              >
+                <.icon name="hero-plus" class="w-3.5 h-3.5" /> Add Capability
+              </button>
+            <% end %>
+          </div>
+
+          <%= if @capabilities == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-puzzle-piece" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">No capabilities defined</h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto mb-4">
+                Business capabilities describe what the organization can do (Payment Processing, Content Management, Customer Service).
+              </p>
+              <%= if @can_manage? do %>
+                <button
+                  type="button"
+                  phx-click="open_create_capability"
+                  class="btn-line text-xs py-1.5 px-3"
+                >
+                  Create First Capability
+                </button>
+              <% end %>
+            </div>
+          <% else %>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <%= for cap <- @capabilities do %>
+                <div class="border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800 hover:shadow-xs transition-shadow">
+                  <div class="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <span class="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
+                        {cap.category || "core"}
+                      </span>
+                    </div>
+                    <%= if @can_manage? do %>
+                      <div class="flex items-center gap-1">
+                        <button
+                          type="button"
+                          phx-click="edit_capability"
+                          phx-value-id={cap.id}
+                          class="text-neutral-400 hover:text-neutral-600 p-0.5"
+                          title="Edit"
+                        >
+                          <.icon name="hero-pencil" class="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          phx-click="delete_capability"
+                          phx-value-id={cap.id}
+                          data-confirm={"Delete capability #{cap.name}?"}
+                          class="text-neutral-400 hover:text-red-600 p-0.5"
+                          title="Delete"
+                        >
+                          <.icon name="hero-trash" class="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    <% end %>
+                  </div>
+                  <h4 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1">
+                    {cap.name}
+                  </h4>
+                  <%= if cap.description do %>
+                    <p class="text-xs text-neutral-500 font-light line-clamp-2">
+                      {cap.description}
+                    </p>
+                  <% end %>
+                  <div class="mt-3 pt-2 border-t border-neutral-100 dark:border-neutral-700 text-[10px] text-neutral-400 font-mono">
+                    {length(cap.applications || [])} applications
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% @current_tab == "matrix" -> %>
+        <%!-- Architecture Matrix Tab --%>
+        <div class="space-y-6">
+          <div>
+            <h2 class="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+              Architecture Matrix
+            </h2>
+            <p class="text-xs font-light text-neutral-400 mt-0.5">
+              Value Streams × Business Capabilities with applications at intersections.
+            </p>
+          </div>
+
+          <%= if @value_streams == [] or @capabilities == [] do %>
+            <div class="py-16 text-center border border-dashed border-neutral-200 bg-neutral-50/50 dark:border-neutral-700 dark:bg-neutral-800/50">
+              <.icon name="hero-table-cells" class="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <h4 class="text-sm font-light text-neutral-500 mb-1">Matrix requires data</h4>
+              <p class="text-xs font-light text-neutral-400 max-w-sm mx-auto">
+                Create at least one value stream and one capability to view the architecture matrix.
+              </p>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse text-xs">
+                <thead>
+                  <tr>
+                    <th class="border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 p-2 text-left font-medium text-neutral-600 dark:text-neutral-300 min-w-[140px]">
+                      Value Stream \ Capability
+                    </th>
+                    <%= for cap <- @capabilities do %>
+                      <th class="border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 p-2 text-center font-medium text-neutral-600 dark:text-neutral-300 min-w-[100px]">
+                        <div class="text-[10px] uppercase">{cap.name}</div>
+                        <div class="text-[9px] font-normal text-neutral-400">
+                          {cap.category || "core"}
+                        </div>
+                      </th>
+                    <% end %>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for vs <- @value_streams do %>
+                    <tr>
+                      <td class="border border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/50 p-2">
+                        <div class="font-medium text-neutral-900 dark:text-neutral-100">
+                          {vs.name}
+                        </div>
+                        <div class="text-[9px] text-neutral-400">{vs.stage}</div>
+                      </td>
+                      <%= for cap <- @capabilities do %>
+                        <% apps_at = find_apps_at_intersection(vs, cap) %>
+                        <td class="border border-neutral-200 dark:border-neutral-700 p-2 text-center align-top">
+                          <%= if apps_at == [] do %>
+                            <span class="text-neutral-300 dark:text-neutral-600">—</span>
+                          <% else %>
+                            <div class="flex flex-wrap gap-1 justify-center">
+                              <%= for app <- apps_at do %>
+                                <.link
+                                  navigate={~p"/ownership/applications/#{app.id}"}
+                                  class="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900"
+                                  title={app.name}
+                                >
+                                  {String.slice(app.name, 0..12)}
+                                </.link>
+                              <% end %>
+                            </div>
+                          <% end %>
+                        </td>
+                      <% end %>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      <% true -> %>
+        <%!-- Default fallback --%>
+        <div class="text-center py-12 text-neutral-400">
+          Unknown tab
+        </div>
+    <% end %>
+  </div>
+
+  <%!-- Modal: Create Application --%>
+  <%= if @creating_app? do %>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs">
+      <div
+        class="relative w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-xl"
+        phx-click-stop
+      >
+        <div class="flex items-center justify-between mb-4 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+          <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+            Register Application Workload
+          </h3>
+          <button
+            type="button"
+            phx-click="close_create_app"
+            class="text-neutral-400 hover:text-neutral-600"
+          >
+            <.icon name="hero-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <.form for={@form} phx-submit="save_app" id="create-app-form" class="space-y-4">
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Application Name
+            </label>
+            <.input
+              field={@form[:name]}
+              placeholder="e.g. B2C Storefront Web"
+              required
+              class="w-full text-sm"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Application Type
+              </label>
+              <.input
+                field={@form[:app_type]}
+                type="select"
+                options={[
+                  {"Storefront", "storefront"},
+                  {"Website", "website"},
+                  {"API / Backend", "api"},
+                  {"CMS", "cms"},
+                  {"CRM", "crm"},
+                  {"PIM", "pim"},
+                  {"ERP", "erp"},
+                  {"Portal", "portal"},
+                  {"Integration Hub", "integration_hub"}
+                ]}
+                class="w-full text-sm"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Criticality
+              </label>
+              <.input
+                field={@form[:criticality]}
+                type="select"
+                options={[
+                  {"Mission Critical", "mission_critical"},
+                  {"Tier 1", "tier_1"},
+                  {"Tier 2", "tier_2"},
+                  {"Operational", "operational"},
+                  {"Low", "low"}
+                ]}
+                class="w-full text-sm"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Project
+              </label>
+              <.input
+                field={@form[:project_id]}
+                type="select"
+                prompt="Assign to Project..."
+                options={Enum.map(@projects, &{&1.name, &1.id})}
+                class="w-full text-sm"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Hosting Environment
+              </label>
+              <.input
+                field={@form[:hosting_environment_id]}
+                type="select"
+                prompt="Select Hosting Node..."
+                options={
+                  Enum.map(
+                    @hosting_environments,
+                    &{"#{&1.name} (#{to_string(&1.provider)})", &1.id}
+                  )
+                }
+                class="w-full text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Description
+            </label>
+            <.input
+              field={@form[:description]}
+              type="textarea"
+              placeholder="Brief architecture overview of workload..."
+              class="w-full text-sm"
+            />
+          </div>
+
+          <%!-- Value Streams Multi-Select --%>
+          <%= if @value_streams != [] do %>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-2">
+                Value Streams
+              </label>
+              <div class="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 rounded">
+                <%= for vs <- @value_streams do %>
+                  <button
+                    type="button"
+                    phx-click="toggle_app_value_stream"
+                    phx-value-id={vs.id}
+                    class={[
+                      "text-[10px] px-2 py-1 rounded border transition-colors",
+                      if(vs.id in @selected_value_streams,
+                        do:
+                          "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700",
+                        else:
+                          "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-600"
+                      )
+                    ]}
+                  >
+                    {vs.name}
+                    <%= if vs.id in @selected_value_streams do %>
+                      <.icon name="hero-check" class="w-3 h-3 inline ml-0.5" />
+                    <% end %>
+                  </button>
+                <% end %>
+              </div>
+              <p class="text-[10px] text-neutral-400 mt-1">
+                {length(@selected_value_streams)} selected
+              </p>
+            </div>
+          <% end %>
+
+          <%!-- Capabilities Multi-Select --%>
+          <%= if @capabilities != [] do %>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-2">
+                Business Capabilities
+              </label>
+              <div class="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 rounded">
+                <%= for cap <- @capabilities do %>
+                  <button
+                    type="button"
+                    phx-click="toggle_app_capability"
+                    phx-value-id={cap.id}
+                    class={[
+                      "text-[10px] px-2 py-1 rounded border transition-colors",
+                      if(cap.id in @selected_capabilities,
+                        do:
+                          "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700",
+                        else:
+                          "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-600"
+                      )
+                    ]}
+                  >
+                    {cap.name}
+                    <%= if cap.id in @selected_capabilities do %>
+                      <.icon name="hero-check" class="w-3 h-3 inline ml-0.5" />
+                    <% end %>
+                  </button>
+                <% end %>
+              </div>
+              <p class="text-[10px] text-neutral-400 mt-1">
+                {length(@selected_capabilities)} selected
+              </p>
+            </div>
+          <% end %>
+
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <button
+              type="button"
+              phx-click="close_create_app"
+              class="px-4 py-2 text-xs text-neutral-600 hover:text-neutral-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-xs bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium"
+            >
+              Register Application
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Create/Edit Value Stream --%>
+  <%= if @creating_value_stream? or @editing_value_stream do %>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs">
+      <div
+        class="relative w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-xl"
+        phx-click-stop
+      >
+        <div class="flex items-center justify-between mb-4 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+          <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+            {if @editing_value_stream, do: "Edit Value Stream", else: "Create Value Stream"}
+          </h3>
+          <button
+            type="button"
+            phx-click="close_value_stream_modal"
+            class="text-neutral-400 hover:text-neutral-600"
+          >
+            <.icon name="hero-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <.form
+          for={@value_stream_form}
+          phx-submit="save_value_stream"
+          id="value-stream-form"
+          class="space-y-4"
+        >
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Name *
+            </label>
+            <.input
+              field={@value_stream_form[:name]}
+              placeholder="e.g. Order to Cash"
+              required
+              class="w-full text-sm"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Description
+            </label>
+            <.input
+              field={@value_stream_form[:description]}
+              type="textarea"
+              rows={2}
+              placeholder="End-to-end business process description..."
+              class="w-full text-sm"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Stage
+              </label>
+              <.input
+                field={@value_stream_form[:stage]}
+                type="select"
+                options={[
+                  {"Active", "active"},
+                  {"Planning", "planning"},
+                  {"Deprecated", "deprecated"}
+                ]}
+                class="w-full text-sm"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Criticality
+              </label>
+              <.input
+                field={@value_stream_form[:criticality]}
+                type="select"
+                options={[
+                  {"Mission Critical", "mission_critical"},
+                  {"Operational", "operational"},
+                  {"Supporting", "supporting"}
+                ]}
+                class="w-full text-sm"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Brand
+              </label>
+              <.input
+                field={@value_stream_form[:brand_id]}
+                type="select"
+                prompt="Select Brand..."
+                options={Enum.map(@brands, &{&1.name, &1.id})}
+                class="w-full text-sm"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+                Business Owner
+              </label>
+              <.input
+                field={@value_stream_form[:business_owner_id]}
+                type="select"
+                prompt="Select Owner..."
+                options={Enum.map(@people, fn p -> {"#{p.first_name} #{p.last_name}", p.id} end)}
+                class="w-full text-sm"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <button
+              type="button"
+              phx-click="close_value_stream_modal"
+              class="px-4 py-2 text-xs text-neutral-600 hover:text-neutral-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-xs bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium"
+            >
+              {if @editing_value_stream, do: "Save Changes", else: "Create"}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <%!-- Modal: Create/Edit Capability --%>
+  <%= if @creating_capability? or @editing_capability do %>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs">
+      <div
+        class="relative w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-xl"
+        phx-click-stop
+      >
+        <div class="flex items-center justify-between mb-4 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+          <h3 class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+            {if @editing_capability, do: "Edit Capability", else: "Create Capability"}
+          </h3>
+          <button
+            type="button"
+            phx-click="close_capability_modal"
+            class="text-neutral-400 hover:text-neutral-600"
+          >
+            <.icon name="hero-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <.form
+          for={@capability_form}
+          phx-submit="save_capability"
+          id="capability-form"
+          class="space-y-4"
+        >
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Name *
+            </label>
+            <.input
+              field={@capability_form[:name]}
+              placeholder="e.g. Payment Processing"
+              required
+              class="w-full text-sm"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Category
+            </label>
+            <.input
+              field={@capability_form[:category]}
+              type="select"
+              options={[
+                {"Core", "core"},
+                {"Supporting", "supporting"},
+                {"Management", "management"},
+                {"Strategic", "strategic"}
+              ]}
+              class="w-full text-sm"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">
+              Description
+            </label>
+            <.input
+              field={@capability_form[:description]}
+              type="textarea"
+              rows={2}
+              placeholder="What this capability enables..."
+              class="w-full text-sm"
+            />
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <button
+              type="button"
+              phx-click="close_capability_modal"
+              class="px-4 py-2 text-xs text-neutral-600 hover:text-neutral-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-xs bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium"
+            >
+              {if @editing_capability, do: "Save Changes", else: "Create"}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+</Layouts.app>

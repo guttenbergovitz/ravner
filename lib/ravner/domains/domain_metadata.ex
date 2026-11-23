@@ -4,13 +4,25 @@ defmodule Ravner.Domains.DomainMetadata do
   """
   use Ash.Resource,
     domain: Ravner.Domains.AshDomain,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
 
   import Ecto.Changeset
 
   postgres do
     table("domain_metadata")
     repo(Ravner.Repo)
+  end
+
+  policies do
+    policy action_type(:read) do
+      authorize_if({Ravner.Accounts.ScopeReadCheck, []})
+    end
+
+    policy action_type([:create, :update, :destroy]) do
+      authorize_if(actor_attribute_equals(:role, :admin))
+      authorize_if(actor_attribute_equals(:role, :editor))
+    end
   end
 
   actions do
@@ -54,6 +66,7 @@ defmodule Ravner.Domains.DomainMetadata do
         :rdap_scanned_at,
         :deep_tech_scanned_at,
         :last_security_scan_at,
+        :ssl_scanned_at,
         :open_ports,
         :scan_interval_days,
         :heartbeat_interval_minutes,
@@ -66,7 +79,11 @@ defmodule Ravner.Domains.DomainMetadata do
         :a11y_scan_interval_days,
         :last_a11y_scan_at,
         :lighthouse_scan_interval_days,
-        :last_lighthouse_scan_at
+        :last_lighthouse_scan_at,
+        :risk_score,
+        :risk_grade,
+        :risk_deductions,
+        :risk_drivers
       ])
     end
 
@@ -108,6 +125,7 @@ defmodule Ravner.Domains.DomainMetadata do
         :rdap_scanned_at,
         :deep_tech_scanned_at,
         :last_security_scan_at,
+        :ssl_scanned_at,
         :open_ports,
         :scan_interval_days,
         :heartbeat_interval_minutes,
@@ -120,7 +138,11 @@ defmodule Ravner.Domains.DomainMetadata do
         :a11y_scan_interval_days,
         :last_a11y_scan_at,
         :lighthouse_scan_interval_days,
-        :last_lighthouse_scan_at
+        :last_lighthouse_scan_at,
+        :risk_score,
+        :risk_grade,
+        :risk_deductions,
+        :risk_drivers
       ])
     end
   end
@@ -198,6 +220,7 @@ defmodule Ravner.Domains.DomainMetadata do
     attribute(:rdap_scanned_at, :utc_datetime)
     attribute(:deep_tech_scanned_at, :utc_datetime)
     attribute(:last_security_scan_at, :utc_datetime)
+    attribute(:ssl_scanned_at, :utc_datetime)
 
     # Security scan results
     attribute :open_ports, {:array, :integer} do
@@ -217,6 +240,21 @@ defmodule Ravner.Domains.DomainMetadata do
     attribute(:last_a11y_scan_at, :utc_datetime)
     attribute(:lighthouse_scan_interval_days, :integer)
     attribute(:last_lighthouse_scan_at, :utc_datetime)
+
+    # Cyber Risk Scoring
+    attribute(:risk_score, :integer)
+
+    attribute :risk_grade, :string do
+      default("N/A")
+    end
+
+    attribute :risk_deductions, :map do
+      default(%{})
+    end
+
+    attribute :risk_drivers, {:array, :string} do
+      default([])
+    end
 
     create_timestamp(:inserted_at, type: :utc_datetime)
     update_timestamp(:updated_at, type: :utc_datetime)
@@ -279,7 +317,11 @@ defmodule Ravner.Domains.DomainMetadata do
       :a11y_scan_interval_days,
       :last_a11y_scan_at,
       :lighthouse_scan_interval_days,
-      :last_lighthouse_scan_at
+      :last_lighthouse_scan_at,
+      :risk_score,
+      :risk_grade,
+      :risk_deductions,
+      :risk_drivers
     ])
     |> validate_required([:domain_id])
     |> foreign_key_constraint(:domain_id)

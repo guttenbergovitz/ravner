@@ -24,6 +24,12 @@ defmodule Ravner.ActivityLog do
     :ok
   end
 
+  @doc "Get the current user_id from the process dictionary."
+  @spec get_user() :: integer() | String.t() | nil
+  def get_user do
+    Process.get(:activity_user_id)
+  end
+
   @doc "Emit a message to the user set via `set_user/1`. No-op if no user set."
   @spec emit(level(), String.t()) :: :ok
   def emit(level, message) do

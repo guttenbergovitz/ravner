@@ -3,7 +3,7 @@ defmodule RavnerWeb.AdminLive.SystemStatus do
 
   alias Ravner.Mailer
 
-  @external_tools ~w(dnsx httpx naabu nuclei katana webanalyze whois)
+  @external_tools ~w(dnsx katana lighthouse lonkero naabu nuclei pa11y whois)
 
   @impl true
   def mount(_params, _session, socket) do

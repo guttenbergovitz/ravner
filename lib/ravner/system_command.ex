@@ -9,22 +9,29 @@ defmodule Ravner.SystemCommand do
   def run_with_timeout(command, args, timeout, opts \\ [])
       when is_binary(command) and is_list(args) and is_integer(timeout) and timeout >= 0 do
     stdin = Keyword.get(opts, :stdin, :dev_null)
+    env = Keyword.get(opts, :env, [])
 
     with {:ok, executable} <- find_executable(command),
-         {:ok, perl_path} <- find_perl() do
+         {:ok, {runner_path, runner_args_prefix}} <- find_setsid_runner() do
       shell_cmd = build_shell_command(executable, args, stdin)
-      perl_script = "use POSIX qw(setsid); setsid(); exec @ARGV"
 
-      port =
-        Port.open(
-          {:spawn_executable, perl_path},
-          [
-            :binary,
-            :exit_status,
-            :stderr_to_stdout,
-            args: ["-e", perl_script, "--", "/bin/bash", "-c", shell_cmd]
-          ]
-        )
+      port_env =
+        Enum.map(env, fn {k, v} ->
+          {String.to_charlist(to_string(k)), String.to_charlist(to_string(v))}
+        end)
+
+      port_opts =
+        [
+          :binary,
+          :exit_status,
+          :stderr_to_stdout,
+          args: runner_args_prefix ++ ["/bin/bash", "-c", shell_cmd]
+        ]
+        |> then(fn base ->
+          if port_env == [], do: base, else: Keyword.put(base, :env, port_env)
+        end)
+
+      port = Port.open({:spawn_executable, runner_path}, port_opts)
 
       os_pid =
         case Port.info(port, :os_pid) do
@@ -48,15 +55,30 @@ defmodule Ravner.SystemCommand do
 
   defp find_executable(command) do
     case System.find_executable(command) do
-      nil -> {:error, "#{command} executable not found"}
-      executable -> {:ok, executable}
+      nil ->
+        if File.exists?(command) and not File.dir?(command) do
+          {:ok, command}
+        else
+          {:error, "#{command} executable not found"}
+        end
+
+      executable ->
+        {:ok, executable}
     end
   end
 
-  defp find_perl do
-    case System.find_executable("perl") do
-      nil -> {:error, "perl executable not found"}
-      perl_path -> {:ok, perl_path}
+  defp find_setsid_runner do
+    perl_script = "use POSIX qw(setsid); setsid(); exec @ARGV"
+
+    cond do
+      perl_path = System.find_executable("perl") ->
+        {:ok, {perl_path, ["-e", perl_script, "--"]}}
+
+      setsid_path = System.find_executable("setsid") ->
+        {:ok, {setsid_path, []}}
+
+      true ->
+        {:error, "neither perl nor setsid executable found"}
     end
   end
 
@@ -89,17 +111,22 @@ defmodule Ravner.SystemCommand do
     ArgumentError -> :ok
   end
 
-  # Sends SIGTERM synchronously and schedules a SIGKILL escalation in a detached
-  # process so the caller (typically an Oban worker) is not blocked waiting for
-  # the grace period to elapse.
+  # Sends SIGTERM synchronously and schedules a SIGKILL escalation under
+  # Task.Supervisor so the cleanup survives caller crashes and is properly
+  # supervised. The grace period (500ms) allows the process to exit cleanly.
   defp kill_process_group(os_pid) do
     pgid_arg = "-#{os_pid}"
     _ = System.cmd("kill", ["-TERM", "--", pgid_arg], stderr_to_stdout: true)
 
-    spawn(fn ->
-      Process.sleep(500)
-      _ = System.cmd("kill", ["-KILL", "--", pgid_arg], stderr_to_stdout: true)
-    end)
+    # Use Task.Supervisor to ensure SIGKILL fires even if caller crashes
+    Task.Supervisor.start_child(
+      Ravner.ScanTaskSupervisor,
+      fn ->
+        Process.sleep(500)
+        _ = System.cmd("kill", ["-KILL", "--", pgid_arg], stderr_to_stdout: true)
+      end,
+      restart: :temporary
+    )
 
     :ok
   end
