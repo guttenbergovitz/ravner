@@ -15,6 +15,8 @@ This index provides human operators, software engineers, and LLM-based autonomou
 | [**Ash Migration Plan**](architecture/ash-migration-plan.md) | Architectural strategy for enterprise governance, policy enforcement, and auditability. | Backend Engineers, Architects |
 | [**Ash Migration Checklist**](architecture/ash-migration-checklist.md) | Concrete execution status of the Ash adoption plan and regression guardrails. | Engineers, Tech Leads |
 | [**Hardening & Remediation Plan**](architecture/hardening-and-remediation-plan.md) | Six-phase architectural hardening rollout (completed in v0.18.0) covering security policies, audit trails, process isolation, LiveView streams, and code hygiene. | Architects, Core Engineers |
+| [**Enterprise Security Governance Plan**](architecture/enterprise-security-governance-plan.md) | Step-by-step rollout plan for ADR 0004 (SBOM, repo secret scanning, ChatOps webhooks, and executive risk scoring). | Architects, Security Engineers |
+| [**Observability Implementation Plan**](architecture/observability-implementation-plan.md) | Rollout plan for ADR 0003 (OpenTelemetry semantic conventions, Prometheus `/metrics`, and live telemetry inspector). | Architects, Platform Engineers |
 
 ---
 

@@ -26,7 +26,7 @@ Key architectural questions:
 We will implement a declarative REST API using `ash_json_api` and `open_api_spex`, following the native conventions of the Ash Framework:
 
 ### 1. Stop Line Alignment
-In accordance with [`GEMINI.md`](../../GEMINI.md) and [`AGENTS.md`](../../AGENTS.md):
+In accordance with [`GEMINI.md`](../../../GEMINI.md) and [`AGENTS.md`](../../../AGENTS.md):
 * **Governance Resources via AshJsonApi**: The API exposes governance and inventory resources (`Application`, `Domain`, `Project`, `Organization`, `Brand`) where authorization policies (`Ash.Policy.Authorizer`) and audit trails (`AshPaperTrail`) are required.
 * **Telemetry & Runtime Bypass**: High-volume telemetry (scanners, bulk DNS records, crawl logs) will **not** be exposed via `AshJsonApi`, preserving runtime performance.
 
