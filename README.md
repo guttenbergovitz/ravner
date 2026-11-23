@@ -1,167 +1,111 @@
 # Ravner
 
-Domain and infrastructure inventory management system. Built for speed, precision, and zero-nonsense visibility.
+**Open-source Attack Surface Management, Domain Inventory, and Infrastructure Governance.**
 
-## Overview
+Ravner helps engineering, security, and platform teams keep track of every domain, application, and repository they own — continuously checking DNS, SSL certificates, exposed ports, CVEs, web performance, accessibility, and supply-chain risks in one place.
 
-Ravner is an automated discovery and security auditing engine designed to map infrastructure and surface risks without the bloat. It handles everything from DNS/RDAP lookups to deep technology stack detection and port-level vulnerability scanning.
+---
 
-## Ownership Hierarchy
+## What Ravner Does
 
-Ravner tracks domain ownership through a four-tier hierarchy:
+### 🌐 Attack Surface & Domain Monitoring
+- **Automated Discovery** — Native DNS resolution, RDAP/WHOIS lookups, HTTP reachability & redirect tracking, and subdomain enumeration (Chaos, HackerTarget, crt.sh).
+- **Technology Fingerprinting** — In-BEAM Wappalyzer matcher with automatic daily signature updates.
+- **Security & CVE Auditing** — Port scanning (`naabu`), targeted vulnerability checks (`nuclei`), TLS & HTTP security header grading, OSV.dev CVE correlation, breach/infostealer exposure checks, and aggregated domain risk scores.
+- **Uptime, Performance & Accessibility** — Continuous lightweight heartbeats, Google Lighthouse Core Web Vitals, and `pa11y` WCAG accessibility audits.
 
-- **Brand** — Top-level corporate identity (e.g., company umbrella)
-- **Organization** — Business unit or subsidiary within a brand
-- **Project** — Product or initiative within an organization
-- **People** — Team members with roles assigned to projects
+### 📦 Repository & Supply-Chain Security
+- **Multi-Provider VCS Integrations** — Connect **GitHub**, **GitLab**, or **Bitbucket** workspaces to link repositories to projects and domains.
+- **SCA & Secret Scanning** — Detect vulnerable dependencies via OSV.dev and leaked credentials/tokens in repositories.
+- **SBOM Export** — Generate **CycloneDX 1.5** Software Bills of Materials.
 
-The `/ownership` section provides read-only drill-down views with aggregated statistics (domain counts, team sizes, repository links). Admin CRUD operations remain in `/admin/*` routes.
+### 🏛️ Ownership & Enterprise Landscape
+- **Ownership Hierarchy** — Organize assets across **Brands → Organizations → Projects → People** with escalation contacts.
+- **Digital Landscape Modeling** — Map **Applications**, **Datastores**, **External Services**, **Hosting Environments**, **Business Capabilities**, and **Value Streams**, with **ArchiMate 3.1 XML** and **Mermaid** exports.
 
-## Core Discovery Pipeline
+### 🔐 Governance, API & Integrations
+- **Role-Based Access Control & Audit Trail** — Fine-grained `Admin`, `Editor`, and `Viewer` roles with scoped permissions, invite flows, and full change history (`AshPaperTrail`).
+- **REST / JSON:API & Swagger** — Declarative JSON:API v1.1 endpoints with OpenAPI/Swagger UI and IP/path-scoped API tokens.
+- **Observability & Alerting** — Prometheus `/metrics` endpoint, OpenTelemetry instrumentation, plus Email, SMS (Twilio / AWS SNS), and ChatOps webhook notifications.
+- **MCP Server for AI Tools** — Built-in Model Context Protocol endpoint (`POST /mcp`) allowing IDEs and AI agents (Cursor, Claude Code, Windsurf) to query and manage governance data safely under your RBAC policies.
 
-The system operates on a multi-stage discovery model, which can be triggered manually or automated via schedules:
+---
 
-1.  **Identity**: DNS resolution (native `:inet_res`) and registration details (`rdap/whois`).
-2.  **Reachability**: HTTP probing (native, `Req`-based) to determine status, final URLs, and server headers.
-3.  **Topology**: Subdomain enumeration via passive and active sources (Chaos, HackerTarget, crt.sh).
-4.  **Security**: Port discovery (`naabu`) and targeted vulnerability scanning (`nuclei`) scoped to high-impact findings.
-5.  **Intelligence**: Technology stack fingerprints via a native Wappalyzer matcher (`Ravner.Scans.TechFingerprint`, database auto-updated daily) and deep crawling via `katana`.
-6.  **Persistence**: Continuous uptime monitoring via lightweight heartbeats.
-
-## Automation & Scheduling
-
-Ravner utilizes **Oban** for reliable background task processing and persistent scheduling. 
-
-- **Granular Intervals**: Configure independent schedules for Heartbeats (minutes), HTTP scans (days), DNS scans (days), and full Security scans (days) per domain.
-- **Dispatcher Pattern**: Efficient database-driven scheduling that scales to thousands of domains without queue bloat.
-- **Observability**: Real-time queue monitoring and schedule management via the Admin Jobs dashboard.
-
-## Engineering Standards
-
-The project follows idiomatic Elixir/Phoenix patterns with a hybrid architecture:
-
-- **Governance Layer (Ash Framework)**: Authorization (RBAC), Inventory management, and Domain lifecycle transitions are handled via **Ash Framework**. This provides declarative policies and automated audit trails (`ash_paper_trail`).
-- **Performance Runtime (Pure Ecto/Oban)**: High-concurrency background scanning, process orchestration (`Ravner.SystemCommand`), and heavy data ingestion (e.g., thousands of URLs) bypass Ash and use pure **Ecto/Oban** to avoid abstraction overhead and maintain maximum I/O performance.
-- **Strict Typing**: All public context functions must have `@spec` annotations. Core data structures are defined via `@type t`.
-- **Clean Execution**: External tools are wrapped by `Ravner.SystemCommand` to ensure proper process group cleanup and timeout management.
-- **Documentation**: Professional `@moduledoc` and `@doc` annotations are required for both developers and LLM-based agents.
-
-## UI & Theming
-
-- **Dark mode** — Full dark theme with class-based toggle (`.dark` on `<html>`). All pages, components, and admin views support both light and dark modes.
-- **Accessibility** — WCAG AA contrast ratios, keyboard-navigable dropdowns (WAI-ARIA Menu Button), global focus-visible indicators.
-- **Design system** — Custom Tailwind CSS component classes (`.btn-line`, `.input-line`, `.card-line`, `.table-line`) with automatic dark mode support via `app.css` layer.
-
-## Access Control & Authentication
-
-Ravner implements role-based access control with three user roles:
-
-| Role | Capabilities |
-|------|-------------|
-| **Admin** | Full system access — user management, password resets, user deletion, all CRUD operations, scan triggers, settings |
-| **Editor** | Create/edit governance entities (organizations, projects, people, brands), trigger scans, manage domains |
-| **Viewer** | Read-only access to all views — scan buttons disabled, edit links hidden, bulk tools unavailable |
-
-### Authentication paths
-
-All authentication paths enforce an `active` flag check:
-
-- **Password login** — rejected if `user.active == false`
-- **Session token** — invalidated for inactive users (pattern match on `active: true`)
-- **Magic link** — returns `{:error, :inactive}` with a user-facing message
-
-### Admin user management
-
-Admins can manage users through `/admin/users`:
-
-- **Create users** with email, role, name, and temporary password
-- **Edit** role, name, and active status
-- **Reset passwords** via three methods: token link (email), random password (email), or manual entry
-- **Delete users** with safeguards (cannot delete self, cannot delete last admin)
-- **Invite flow** with time-limited tokens for onboarding new team members
-
-## Model Context Protocol (MCP) Server
-
-Ravner includes a native Model Context Protocol (MCP) server powered by `ash_ai` and `req_llm`, mounted at `/mcp`. It exposes Ash-managed governance resources as structured tools for LLM agents, developer IDEs (Cursor, Claude Code, Windsurf), and automated workflows:
-
-- **Endpoint**: `POST /mcp` (Streamable HTTP / JSON-RPC 2.0)
-- **Supported Auth**: `Authorization: Bearer <TOKEN>`, `X-API-Key: <TOKEN>`, `X-MCP-Token: <TOKEN>`, or user session tokens.
-- **Environment Variables**: Configure `RAVNER_MCP_API_KEY` (and optional `RAVNER_MCP_ACTOR_EMAIL`).
-- **Policy & Audit Guarantees**: Tool execution propagates the authenticated actor to Ash actions, enforcing `Ash.Policy.Authorizer` checks and logging mutations to `AshPaperTrail` (`domains_versions`, `projects_versions`).
-- **Stop Line Architecture**: Exposes only governance domains (`Ravner.Domains.AshDomain`, `Ravner.Inventory.AshDomain`, `Ravner.Accounts.AshDomain`). High-volume background scanners, Oban worker queues, and external command execution remain on pure Ecto/Oban and are excluded from LLM tools.
-
-## Development
+## Quick Start (Local Development)
 
 ### Prerequisites
-
-- Elixir 1.16+
-- PostgreSQL
-- External tools (must be in `$PATH`):
+- **Elixir** `1.16+` and **Erlang/OTP** `27+`
+- **PostgreSQL** `16+`
+- **Node.js** (for assets/Lighthouse/pa11y, if running those scans locally)
+- **External scanner binaries** in `$PATH` (needed only for active deep scans):
   - `naabu`, `nuclei`, `katana`, `whois`
+  *(DNS resolution, HTTP probing, and Wappalyzer fingerprinting run natively inside Elixir — no `dnsx`, `httpx`, or `webanalyze` required.)*
 
-  DNS resolution, HTTP probing and technology fingerprinting run natively
-  inside the BEAM — no `dnsx`, `httpx` or `webanalyze` binaries needed.
-  The Wappalyzer fingerprint database is fetched automatically on first boot
-  and refreshed daily by `Ravner.Workers.TechnologiesUpdateWorker`.
-
-### Setup
+### Setup & Run
 
 ```bash
+# Install dependencies, create & migrate the database, and build assets
 mix setup
+
+# Start the Phoenix server
 mix phx.server
 ```
 
-### Tooling
+Then open [http://localhost:4000](http://localhost:4000).
+In development, outgoing emails are captured locally at [http://localhost:4000/dev/mailbox](http://localhost:4000/dev/mailbox).
 
-- `mix test` — Run the suite.
-- `mix credo --strict` — Style and code quality.
-- `mix dialyzer` — Static analysis.
-- `mix format` — Enforce formatting.
+### Common Dev Commands
+
+```bash
+mix test              # Run the test suite
+mix precommit         # Run formatting, checks, and tests before committing
+mix credo --strict    # Lint and code style checks
+mix dialyzer          # Static type analysis
+```
+
+---
+
+## Docker & Production Deployment
+
+Ravner ships with a multi-stage [Dockerfile](Dockerfile) that builds a self-contained OTP release bundled with the runtime scanner binaries.
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection URL (e.g. `ecto://user:pass@host/ravner_prod`) |
+| `SECRET_KEY_BASE` | Phoenix secret key base (generate with `mix phx.gen.secret`) |
+| `PHX_HOST` | Public hostname (e.g. `ravner.example.com`) |
+| `PORT` | HTTP port (default: `4000`) |
+| `METRICS_BEARER_TOKEN` | Optional bearer token to protect the Prometheus `/metrics` endpoint |
+| `RAVNER_MCP_API_KEY` | Optional API key for the `/mcp` Model Context Protocol server |
+| `RAVNER_MCP_ACTOR_EMAIL` | Actor email used for audit attribution on MCP requests |
+| `CHAOS_API_KEY` | Optional ProjectDiscovery Chaos API key for subdomain discovery |
+| `SMTP_HOST` / `SMTP_PORT` | SMTP server host and port (typically `587` for STARTTLS) |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | SMTP authentication credentials |
+| `SMTP_MAIL_FROM` | Sender email address (e.g. `noreply@example.com`) |
+
+---
+
+## Architecture at a Glance
+
+Ravner uses a deliberate split between **governance** and **high-throughput scanning**:
+
+- **Phoenix LiveView + Tailwind CSS** — Real-time UI with light/dark mode and WCAG AA contrast.
+- **Ash Framework** — Models governance domains (inventory ownership, RBAC policies, API tokens, domain lifecycle) with centralized authorization and audit trails.
+- **Ecto + Oban** — Powers high-concurrency background scans, scheduling dispatchers, and bulk data ingestion without abstraction overhead.
+
+---
 
 ## Documentation
 
-Detailed specifications and architectural notes are organized in the `/documentation` directory:
+Full architectural notes, ADRs, and feature guides live in [`/documentation`](documentation/index.md):
 
-- [`/documentation/index.md`](documentation/index.md) — Master documentation index and architecture navigation.
-- [`/documentation/onboarding.md`](documentation/onboarding.md) — System onboarding manual for engineers, operators, and LLMs.
-- `/documentation/features` — Specific feature designs (Uptime monitoring, Bulk ops, Security scans, Access control).
-- `/documentation/architecture` — System design, command execution, and scheduling.
-- `/documentation/architecture/roadmap.md` — Technical roadmap, bottlenecks, and scaling milestones.
-- `/documentation/architecture/ash-migration-plan.md` — Ash Framework adoption strategy.
-- `/documentation/architecture/ash-migration-checklist.md` — Implementation tracking and regression checklist.
-- `/documentation/heuristics` — Rules for classification and discovery logic.
+- [Documentation Index](documentation/index.md) — Overview of all guides and Architecture Decision Records (ADRs)
+- [Onboarding Guide](documentation/onboarding.md) — System mental model and developer workflows
+- [Architecture Roadmap](documentation/architecture/roadmap.md) — Scaling boundaries and future milestones
 
-## Deployment
-
-Ravner is packaged as a standard OTP release via the included `Dockerfile` (multi-stage build with runtime scanner binaries).
-
-### Required & Common Environment Variables
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string (e.g., `ecto://user:pass@host/ravner_prod`) |
-| `SECRET_KEY_BASE` | Phoenix secret key base (`mix phx.gen.secret`) |
-| `PHX_HOST` | Public hostname (e.g., `ravner.example.com`) |
-| `PORT` | HTTP port (default `4000`) |
-| `METRICS_BEARER_TOKEN` | Optional bearer token protecting `/metrics` Prometheus endpoint |
-| `RAVNER_MCP_API_KEY` | Optional API key for the MCP governance server |
-| `RAVNER_MCP_ACTOR_EMAIL` | Actor email used for MCP audit attribution |
-| `CHAOS_API_KEY` | Optional ProjectDiscovery Chaos API key for subdomain discovery |
-
-### Email / SMTP
-
-Production email delivery uses SMTP via Swoosh. Set the following environment variables in your container runtime:
-
-| Variable | Description |
-|---|---|
-| `SMTP_HOST` | SMTP server hostname |
-| `SMTP_PORT` | SMTP port (typically `587` for STARTTLS) |
-| `SMTP_USERNAME` | SMTP authentication username |
-| `SMTP_PASSWORD` | SMTP authentication password |
-| `SMTP_MAIL_FROM` | Sender address for all outgoing emails (e.g., `noreply@example.com`) |
-
-In development, emails are captured locally and viewable at `/dev/mailbox` (Swoosh Local adapter).
-
+---
 
 ### HUMAN GENERATED CONTENT - DO NOT MODIFY
 
